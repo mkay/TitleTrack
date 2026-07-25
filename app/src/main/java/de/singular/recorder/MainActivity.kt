@@ -25,8 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -58,6 +56,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import de.singular.recorder.audio.RecordPhase
 import de.singular.recorder.storage.Take
 import de.singular.recorder.ui.AboutScreen
+import de.singular.recorder.ui.CompactTab
+import de.singular.recorder.ui.CompactTabBar
 import de.singular.recorder.ui.LibraryScreen
 import de.singular.recorder.ui.MiniPlayer
 import de.singular.recorder.ui.PlayerScreen
@@ -308,15 +308,16 @@ class MainActivity : ComponentActivity() {
                                         onDismiss = vm::stopPlayback,
                                     )
                                 }
-                                NavigationBar {
+                                CompactTabBar {
                                     TABS.forEach { tab ->
-                                        NavigationBarItem(
+                                        CompactTab(
                                             selected = screen == tab ||
                                                 (tab == Screen.LIBRARY && screen == Screen.PLAYER),
                                             onClick = {
                                                 if (screen == Screen.PLAYER) vm.closeTake()
                                                 screen = tab
                                             },
+                                            label = tab.title,
                                             icon = {
                                                 Icon(
                                                     when (tab) {
@@ -330,7 +331,6 @@ class MainActivity : ComponentActivity() {
                                                     contentDescription = null,
                                                 )
                                             },
-                                            label = { Text(tab.title) },
                                         )
                                     }
                                 }
