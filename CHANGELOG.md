@@ -39,7 +39,11 @@ First cut: recording and take management.
 - The recordings folder is asked for on first launch, and again if it stops being reachable.
 - Settings: time signature, listen-before-recording, prompt-for-filename, keep-screen-on,
   System/Light/Dark theme.
-- The record colour is derived from the accent rather than fixed, so the two stay a matched pair.
+- The record colour is derived from the accent rather than fixed, so the two stay a matched pair —
+  per theme, and deeper the closer the accent comes to red, so the two can never merge.
+- A darker accent in light mode: the icon's orange rather than its yellow. The accent is a text
+  colour as well as a button fill, and the yellow measured 1.6:1 on a white page — invisible. The
+  orange, darkened, reads at 4.8:1.
 - While keep-screen-on is active an indicator sits in the app bar; tapping it explains the battery
   cost and offers a way to turn it off (as in RubberRing).
 - Compact bottom tabs, and a library list of even rows with dividers and accented folder icons.

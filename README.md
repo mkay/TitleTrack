@@ -49,6 +49,12 @@ Early-stage — the recording and take-management half is built; the accompanime
 - **Takes remember their tempo** — the bpm you played to is written into the WAV itself as a
   `LIST/INFO` comment, so it survives being copied to a computer. This is what the planned drum and
   bass tracks will lock to.
+- **One accent, two versions of it** — the amber from the icon is a text colour as much as a button
+  fill (the selected tab, the setting values, the played part of a waveform), and a yellow that
+  reads at 11:1 on a dark screen manages 1.6:1 on a white one. The light theme takes the icon's
+  orange instead, darkened until it reads at 4.8:1. The record red still derives from whichever
+  accent is in force — and moves deeper as the accent approaches it, so an orange accent cannot
+  quietly become the same colour as "you are recording".
 - **Recorded honestly** — the least-processed microphone source the device offers
   (`UNPROCESSED` → `VOICE_RECOGNITION` → `MIC`), and no filtering of any kind on the way to disk.
   The voice-recorder effects are all trained on speech: noise suppression hears a sustained note or
