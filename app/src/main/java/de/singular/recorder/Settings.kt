@@ -15,6 +15,14 @@ data class Settings(
      * speaker is picked up by the very microphone that is recording you.
      */
     val visualMetronome: Boolean = true,
+    /**
+     * Show what the microphone hears on the record screen before a take starts.
+     *
+     * Off by default: it holds the microphone open whenever that screen is in front, which lights
+     * the system's microphone indicator. Worth switching on while finding where to put the phone,
+     * and worth switching off again after.
+     */
+    val listenBeforeRecording: Boolean = false,
     /** Hold the display awake — you are holding a guitar, not the phone. */
     val keepScreenOn: Boolean = true,
     /**

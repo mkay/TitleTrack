@@ -51,6 +51,7 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import de.singular.recorder.audio.RecordPhase
@@ -144,6 +145,18 @@ class MainActivity : ComponentActivity() {
                 DisposableEffect(awake) {
                     view.keepScreenOn = awake
                     onDispose { view.keepScreenOn = false }
+                }
+
+                // Listen to the input, but only with the Record screen in front of a resumed
+                // activity and no take running — never in the background, and never once a take
+                // has the microphone. Leaving by any route releases it.
+                val monitor = settings.listenBeforeRecording &&
+                    screen == Screen.RECORD &&
+                    recorderState.phase == RecordPhase.IDLE &&
+                    vm.hasMicPermission
+                LifecycleResumeEffect(monitor) {
+                    if (monitor) vm.startMonitoring()
+                    onPauseOrDispose { vm.stopMonitoring() }
                 }
 
                 fun go(to: Screen) {
@@ -379,6 +392,7 @@ class MainActivity : ComponentActivity() {
                                 folderLabel = library.path.firstOrNull()?.name,
                                 onChooseFolder = { folderPicker.launch(null) },
                                 onSetBeatsPerBar = vm::setBeatsPerBar,
+                                onSetListenBeforeRecording = vm::setListenBeforeRecording,
                                 onSetPromptForFilename = vm::setPromptForFilename,
                                 onSetKeepScreenOn = vm::setKeepScreenOn,
                                 onSetThemeMode = vm::setThemeMode,

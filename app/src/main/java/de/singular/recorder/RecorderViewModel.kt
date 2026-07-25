@@ -97,6 +97,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
             beatsPerBar = prefs.getInt(KEY_BEATS_PER_BAR, 4).coerceIn(2, 12),
             countInBars = prefs.getInt(KEY_COUNT_IN_BARS, 1).coerceIn(0, 4),
             visualMetronome = prefs.getBoolean(KEY_VISUAL_METRONOME, true),
+            listenBeforeRecording = prefs.getBoolean(KEY_LISTEN_BEFORE_RECORDING, false),
             keepScreenOn = prefs.getBoolean(KEY_KEEP_SCREEN_ON, true),
             promptForFilename = prefs.getBoolean(KEY_PROMPT_FOR_FILENAME, false),
             themeMode = runCatching {
@@ -233,6 +234,19 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
             countInBars = s.countInBars,
         )
     }
+
+    /**
+     * Watch the input level without recording, so levels can be set before a take rather than
+     * discovered after one. Silently does nothing without permission — the microphone is asked
+     * for on the first Record press, not to draw a meter.
+     */
+    @SuppressLint("MissingPermission") // the line below is the check lint is looking for
+    fun startMonitoring() {
+        if (!hasMicPermission) return
+        recorder.startMonitoring()
+    }
+
+    fun stopMonitoring() = recorder.stopMonitoring()
 
     /** End the take and hold it, ready to be saved, restarted or thrown away. */
     fun finishRecording() = recorder.pause()
@@ -414,6 +428,12 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         prefs.edit { putBoolean(KEY_VISUAL_METRONOME, on) }
     }
 
+    fun setListenBeforeRecording(on: Boolean) {
+        _settings.value = _settings.value.copy(listenBeforeRecording = on)
+        prefs.edit { putBoolean(KEY_LISTEN_BEFORE_RECORDING, on) }
+        if (!on) stopMonitoring()
+    }
+
     fun setKeepScreenOn(on: Boolean) {
         _settings.value = _settings.value.copy(keepScreenOn = on)
         prefs.edit { putBoolean(KEY_KEEP_SCREEN_ON, on) }
@@ -444,6 +464,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         const val KEY_BEATS_PER_BAR = "beats_per_bar"
         const val KEY_COUNT_IN_BARS = "count_in_bars"
         const val KEY_VISUAL_METRONOME = "visual_metronome"
+        const val KEY_LISTEN_BEFORE_RECORDING = "listen_before_recording"
         const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
         const val KEY_PROMPT_FOR_FILENAME = "prompt_for_filename"
         const val KEY_THEME_MODE = "theme_mode"

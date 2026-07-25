@@ -89,13 +89,14 @@ fun LevelMeter(level: Float, modifier: Modifier = Modifier, active: Boolean = tr
 
     val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
     val fill = if (active) MaterialTheme.colorScheme.primary else track
+    val clipped = MaterialTheme.colorScheme.record
 
     Box(modifier.fillMaxWidth().height(8.dp).clip(ControlShape)) {
         Canvas(Modifier.fillMaxWidth().height(8.dp)) {
             drawRect(track, size = size)
             val w = size.width * shown.coerceIn(0f, 1f)
             // The top of the range is where clipping lives; colour it as the warning it is.
-            drawRect(if (shown > 0.95f) RecordRed else fill, size = Size(w, size.height))
+            drawRect(if (shown > 0.95f) clipped else fill, size = Size(w, size.height))
         }
     }
 }

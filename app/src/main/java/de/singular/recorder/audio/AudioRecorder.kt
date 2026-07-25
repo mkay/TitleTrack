@@ -13,6 +13,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -79,6 +81,7 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
     val state: StateFlow<RecorderState> = _state.asStateFlow()
 
     private var job: Job? = null
+    private var monitorJob: Job? = null
 
     // Commands from the UI thread into the capture loop. Volatile rather than locked: each is a
     // single write the loop reads once per block, and a command landing one block late is
@@ -104,6 +107,55 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
     }
 
     /**
+     * Listen without recording: input level only, nothing written anywhere.
+     *
+     * This is how you find out where to stand before committing to a take — a guitar three feet
+     * from the phone and one on the other side of the room look very different on the meter, and
+     * discovering that after playing the part is discovering it too late.
+     *
+     * Idle only, and stopped the moment a take starts: some devices hand out exactly one input
+     * stream, so holding this open would be holding the microphone away from the recording.
+     */
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    fun startMonitoring() {
+        if (_state.value.phase != RecordPhase.IDLE) return
+        if (monitorJob?.isActive == true) return
+        monitorJob = scope.launch(Dispatchers.Default) { monitor() }
+    }
+
+    /** Give the microphone back. Called whenever the record screen stops being looked at. */
+    fun stopMonitoring() {
+        monitorJob?.cancel()
+        monitorJob = null
+        if (_state.value.phase == RecordPhase.IDLE) {
+            _state.value = _state.value.copy(level = 0f)
+        }
+    }
+
+    @SuppressLint("MissingPermission") // the caller carries @RequiresPermission
+    private suspend fun monitor() {
+        val record = openRecorder() ?: return
+        try {
+            record.startRecording()
+            val block = ShortArray(BLOCK_FRAMES)
+            while (currentCoroutineContext().isActive) {
+                val read = record.read(block, 0, block.size)
+                if (read <= 0) break
+                // Level only. The samples are looked at and dropped: nothing here reaches a file,
+                // which is the whole difference between this and a take.
+                if (_state.value.phase != RecordPhase.IDLE) break
+                _state.value = _state.value.copy(level = peakOf(block, read))
+            }
+        } catch (e: IllegalStateException) {
+            // The device refused the stream, or it was taken by something else. Not worth
+            // reporting: the meter simply stays where it was, and Record still tries for itself.
+        } finally {
+            runCatching { record.stop() }
+            runCatching { record.release() }
+        }
+    }
+
+    /**
      * Begin a take, replacing any in progress.
      *
      * With [countInBars] > 0 the clicks sound first and capture starts on the downbeat after them;
@@ -113,6 +165,9 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun start(bpm: Float, beatsPerBar: Int, countInBars: Int) {
         scope.launch {
+            // Free the input before the take asks for it.
+            monitorJob?.cancelAndJoin()
+            monitorJob = null
             job?.cancelAndJoin()
             paused = false
             restartRequested = false

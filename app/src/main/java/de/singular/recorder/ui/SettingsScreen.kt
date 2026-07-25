@@ -31,6 +31,7 @@ fun SettingsScreen(
     folderLabel: String?,
     onChooseFolder: () -> Unit,
     onSetBeatsPerBar: (Int) -> Unit,
+    onSetListenBeforeRecording: (Boolean) -> Unit,
     onSetPromptForFilename: (Boolean) -> Unit,
     onSetKeepScreenOn: (Boolean) -> Unit,
     onSetThemeMode: (ThemeMode) -> Unit,
@@ -48,13 +49,35 @@ fun SettingsScreen(
             style = MaterialTheme.typography.bodyMedium,
         )
         Text(
-            "Takes are written here as 44.1 kHz mono WAV, with the tempo stored in the file.",
+            "Takes land here as 44.1 kHz mono WAV, tempo included.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
         )
         Spacer(Modifier.height(8.dp))
         OutlinedButton(onClick = onChooseFolder, shape = ControlShape) {
             Text(if (folderLabel == null) "Choose folder…" else "Change folder…")
+        }
+
+        Spacer(Modifier.height(24.dp))
+        Section("Microphone")
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Listen before recording", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "Check levels and catch clipping before you play, not after. Keeps the " +
+                        "microphone open, so its indicator stays lit.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                )
+            }
+            Switch(
+                checked = settings.listenBeforeRecording,
+                onCheckedChange = onSetListenBeforeRecording,
+            )
         }
 
         Spacer(Modifier.height(24.dp))
@@ -67,8 +90,7 @@ fun SettingsScreen(
             Column(Modifier.weight(1f)) {
                 Text("Prompt for a filename", style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    "Off: Save writes the take straight away, named after the date and time. " +
-                        "You can rename it in the library.",
+                    "Off: takes are saved at once, named by date and time. Rename them later.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 )
@@ -82,7 +104,7 @@ fun SettingsScreen(
         Spacer(Modifier.height(24.dp))
         Section("Time signature")
         Text(
-            "How many beats the count-in and the metronome put in a bar.",
+            "Beats to the bar, for the count-in and the metronome.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
         )
@@ -115,7 +137,7 @@ fun SettingsScreen(
             Column(Modifier.weight(1f)) {
                 Text("Keep the screen on", style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    "You are holding an instrument, not the phone. Uses more battery.",
+                    "Your hands are on the instrument. Costs battery.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 )
