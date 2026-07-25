@@ -32,6 +32,14 @@ Early-stage — the recording and take-management half is built; the accompanime
 - **Listen before recording** *(optional, off)* — draws what the microphone hears before you press
   Record, so clipping and mic distance are settled while it still costs nothing. Nothing is
   written and the microphone is released the moment you leave the screen or start a take.
+- **A level test, not a guess** — hold **Record** (or tap **Input** on the settings row) and play
+  the loudest thing you are going to play. It reports the peak in dBFS and offers a gain that puts
+  it at −9 dBFS, leaving room for the take to be louder than the rehearsal. That gain is then
+  applied *while capturing*: Android exposes no microphone preamp to turn up, so lifting a quiet
+  instrument means multiplying samples, and doing it at capture — where the device is still handing
+  back float — costs no resolution, unlike boosting a finished 16-bit file. The value sits on the
+  record screen beside Tempo, because a boost that applies to every take must be visible, and it is
+  written into each take's WAV as `gain=+12`.
 - **Your folder, your files** — pick any folder once (`Music/Recordings`, an SD card, a synced
   folder); takes land there as 44.1 kHz mono WAV. Browse it in the app, make sub-folders, rename,
   delete, share, play back.
@@ -47,7 +55,11 @@ Early-stage — the recording and take-management half is built; the accompanime
   a reverb tail as background and gates it, and automatic gain control hears a decaying chord as a
   talker going quiet and pushes the tail back up. Compression and limiting are absent for a
   different reason — clipping happens in the ADC, before software sees a sample, so a limiter
-  cannot rescue it and would only cost you dynamics. Headroom is the fix.
+  cannot rescue it and would only cost you dynamics. Headroom is the fix. The input gain above is
+  the one exception, and it is not automatic: one number, chosen once by measuring, applied evenly
+  to every sample. Nothing tracks the signal while you play — an AGC hears a decaying chord as a
+  player getting quieter and swells the tail back up, which is precisely the thing that makes voice
+  recorders useless for music.
 
 ## The player
 
@@ -65,6 +77,12 @@ a feature you can see rather than a fraction you can calculate.
 What is drawn is a **peak envelope**, one peak per column rather than an average. An average of a
 quiet passage and a loud one is a medium-loud passage, which is a lie about what is in the file;
 peaks are what every editor draws and what the eye recognises as the shape of a take.
+
+It is drawn **in decibels**, over the same 60 dB window as the record screen and the level meter —
+one shared `amplitudeToHeight()`, because these are three pictures of the same thing and have to
+agree. Drawn linearly, a take peaking at −15 dBFS — a good acoustic guitar level — fills a sixth of
+the height and reads as a failed recording, which is exactly the wrong thing to tell someone who has
+just played it.
 
 Two ways in, depending on the file:
 
@@ -124,6 +142,42 @@ from, and lossless.
 
 A take that is already at level is left alone and says so, rather than being rewritten for a
 fraction of a decibel.
+
+**Trim** puts two handles on the waveform, borrowing the loop markers from RubberRing: a marker
+line with a grip tab beside it, rounded only on the corners away from the line so it reads as
+attached rather than floating. An edge moves only after a **still hold** on it — the waveform is a
+seek control across its whole width, so without the hold every reach for a handle would seek
+instead — and the line stays put under the finger rather than jumping to it. What is being thrown
+away is greyed over, so the lit part is what survives.
+
+Where the take carries a tempo, the beats are drawn faintly and a handle **snaps** to one when it
+comes within an eighth of a beat, coming straight out again if you keep dragging. A magnet, not a
+quantiser: a take played to a silent click is not on the grid to the millisecond, and the grid is
+derived from one tempo and the first sample, so it is exactly right where the take begins and
+progressively more of a guess after that. It is there to help you find the downbeat you are near,
+never to decide where the cut goes. **Nudge buttons** move either edge by 10 ms, because a finger
+covers about a tenth of a second of a take and "nearly right" is where every drag ends.
+
+The waveform **zooms**, which is what makes trimming an edit rather than a gesture at a smudge: at
+1x a thumb covers about a tenth of a second of a take, and the note attack you want to cut on is
+inside that. Pinch to zoom, drag to pan, and drag the strip along the bottom to cover the whole file
+in one movement — a viewport of zoom and offset mapping fractions to pixels, borrowed from
+RubberRing along with the markers. Takes are read at 4096 peaks rather than the 420 a phone screen
+has columns for, so zooming in shows more of the take rather than fatter bars; it is one pass over
+the file either way, and 16 kB of floats.
+
+All of it is one gesture detector, because these compete for the same finger: tap seeks, a held
+handle drags, one finger pans when zoomed and scrubs at 1x, two fingers zoom. At 1x with a selection
+open a stray drag does nothing at all — seeking out from under an edit is never what it meant.
+
+A WAV is cut on frame boundaries with no decode at all — the header is rebuilt for the new length
+and the selected bytes copied straight through, so what survives is exactly what was recorded.
+Anything else is decoded and written out as a WAV, for the same reason normalising is.
+
+**Double-tapping Play** starts the take from its first sample. Every tap still acts immediately —
+the second one is what means "from the top" — rather than holding the first back for a fifth of a
+second to see whether a second is coming, which is what a conventional double-click would do to the
+one button that must never feel slow.
 
 Playback outlives the screen it started from. A **mini player** sits above the tabs wherever you
 are, with the take's name, a play/stop toggle, a seek bar, and a close button — stop keeps the take

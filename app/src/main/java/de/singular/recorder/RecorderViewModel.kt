@@ -25,10 +25,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.log10
+import kotlin.math.max
+import kotlin.math.roundToInt
 
 /** Where the user is in their recordings folder, and what is in it. */
 data class LibraryState(
@@ -63,6 +67,51 @@ data class PlaybackState(
 ) {
     val uri: Uri? get() = take?.uri
 }
+
+/**
+ * A level test in progress: play something, and this is what was heard.
+ *
+ * [peak] and [heard] are *post-gain* — the levels that would land on disk with the current
+ * [gainDb] — because that is what the meter shows and what would clip. The suggestion works back
+ * from there to the raw input, so re-testing with a gain already set gives the same answer as
+ * testing from zero.
+ */
+data class LevelTest(
+    /** The gain that was in force while measuring. */
+    val gainDb: Int,
+    /** Loudest peak heard so far, 0f..1f. */
+    val peak: Float = 0f,
+    /** The current block's level, for the meter. */
+    val heard: Float = 0f,
+) {
+    /** Loudest peak in dBFS, or null if nothing above the noise floor has been played yet. */
+    val peakDb: Float? get() = if (peak <= 0.001f) null else 20f * log10(peak)
+
+    /**
+     * What to record at, in whole decibels.
+     *
+     * Aimed at [TARGET_PEAK_DB] rather than at full scale: this is a rehearsal of the take, and the
+     * take will have a louder moment in it than the test did. Never negative — turning a take down
+     * is what the player's normalise is for, and quiet-but-clean beats loud-and-clipped.
+     */
+    val suggestedGainDb: Int?
+        get() {
+            val db = peakDb ?: return null
+            val raw = db - gainDb
+            return (TARGET_PEAK_DB - raw).roundToInt().coerceIn(0, MAX_INPUT_GAIN_DB)
+        }
+
+    companion object {
+        /** Where the loudest thing played should sit, leaving room for a louder take. */
+        const val TARGET_PEAK_DB = -9f
+    }
+}
+
+/**
+ * As far as a take is worth lifting. Past this the microphone's own noise and the room are being
+ * amplified as much as the instrument, and the answer is to move the phone closer instead.
+ */
+const val MAX_INPUT_GAIN_DB = 24
 
 /** One take opened in the player, with the peak envelope it is drawn from. */
 data class OpenTake(
@@ -101,6 +150,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
             listenBeforeRecording = prefs.getBoolean(KEY_LISTEN_BEFORE_RECORDING, false),
             keepScreenOn = prefs.getBoolean(KEY_KEEP_SCREEN_ON, true),
             promptForFilename = prefs.getBoolean(KEY_PROMPT_FOR_FILENAME, false),
+            inputGainDb = prefs.getInt(KEY_INPUT_GAIN_DB, 0).coerceIn(0, MAX_INPUT_GAIN_DB),
             themeMode = runCatching {
                 ThemeMode.valueOf(prefs.getString(KEY_THEME_MODE, null) ?: "")
             }.getOrDefault(ThemeMode.SYSTEM),
@@ -122,6 +172,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     private var progressJob: Job? = null
 
     init {
+        recorder.setInputGain(_settings.value.inputGainDb)
         openRoot()
     }
 
@@ -249,6 +300,63 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
 
     fun stopMonitoring() = recorder.stopMonitoring()
 
+    // ---- the level test ---------------------------------------------------------------------
+
+    private val _levelTest = MutableStateFlow<LevelTest?>(null)
+    val levelTest: StateFlow<LevelTest?> = _levelTest.asStateFlow()
+
+    private var levelTestJob: Job? = null
+
+    /**
+     * Listen, and remember the loudest thing heard: play for a few seconds and the recorder can
+     * say what gain the take wants, rather than the user guessing at a number.
+     *
+     * Nothing is written — this is the monitoring path, which only ever looks at levels.
+     */
+    @SuppressLint("MissingPermission") // startMonitoring does the check
+    fun startLevelTest() {
+        if (!hasMicPermission) {
+            _message.value = "Spark Plug needs the microphone to measure the level."
+            return
+        }
+        if (_levelTest.value != null) return
+        _levelTest.value = LevelTest(gainDb = _settings.value.inputGainDb)
+        startMonitoring()
+        levelTestJob = viewModelScope.launch {
+            recorderState.collect { state ->
+                _levelTest.update { test ->
+                    test?.copy(peak = max(test.peak, state.level), heard = state.level)
+                }
+            }
+        }
+    }
+
+    /** Throw away what was measured and start listening again — a fluffed test costs one tap. */
+    fun restartLevelTest() {
+        _levelTest.update { it?.copy(peak = 0f, heard = 0f) }
+    }
+
+    fun stopLevelTest() {
+        levelTestJob?.cancel()
+        levelTestJob = null
+        _levelTest.value = null
+        // Leave the microphone as we found it: open only if the user asked for it to be.
+        if (!_settings.value.listenBeforeRecording) stopMonitoring()
+    }
+
+    /** Take the gain the test worked out, and close it. */
+    fun acceptLevelTest() {
+        _levelTest.value?.suggestedGainDb?.let(::setInputGainDb)
+        stopLevelTest()
+    }
+
+    fun setInputGainDb(db: Int) {
+        val v = db.coerceIn(0, MAX_INPUT_GAIN_DB)
+        _settings.value = _settings.value.copy(inputGainDb = v)
+        prefs.edit { putInt(KEY_INPUT_GAIN_DB, v) }
+        recorder.setInputGain(v)
+    }
+
     /** End the take and hold it, ready to be saved, restarted or thrown away. */
     fun finishRecording() = recorder.pause()
     fun restartRecording() = recorder.restart()
@@ -272,7 +380,12 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         val bpm = if (s.countInBars > 0 || s.visualMetronome) s.bpm.toFloat() else null
         viewModelScope.launch {
             val result = store.writeTake(target.uri, name.trim().ifBlank { defaultTakeName() }) {
-                recorder.writeWavTo(it, bpm = bpm, title = name.trim().ifBlank { null })
+                recorder.writeWavTo(
+                    it,
+                    bpm = bpm,
+                    title = name.trim().ifBlank { null },
+                    gainDb = s.inputGainDb,
+                )
             }
             result
                 .onSuccess { take ->
@@ -340,13 +453,13 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     fun normalizeOpenTake(mode: NormalizeMode, asCopy: Boolean) {
         val take = _openTake.value?.take ?: return
         val folder = _library.value.current
-        if (_normalizing.value) return
+        if (_busy.value) return
         if (asCopy && folder == null) {
             _message.value = "There is nowhere to write a copy."
             return
         }
         viewModelScope.launch {
-            _normalizing.value = true
+            _busy.value = true
             if (_playback.value.uri == take.uri) stopPlayback()
             store.normalize(take, mode, copyInto = if (asCopy) folder?.uri else null)
                 .onSuccess { result ->
@@ -360,13 +473,42 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
                     refresh()
                 }
                 .onFailure { _message.value = it.message ?: "That take could not be normalised." }
-            _normalizing.value = false
+            _busy.value = false
         }
     }
 
     /** True while a take is being rewritten — the player disables its edits for the duration. */
-    private val _normalizing = MutableStateFlow(false)
-    val normalizing: StateFlow<Boolean> = _normalizing.asStateFlow()
+    private val _busy = MutableStateFlow(false)
+    val busy: StateFlow<Boolean> = _busy.asStateFlow()
+
+    /**
+     * Keep the selected part of the open take and throw the rest away — over the take, or into a
+     * copy beside it.
+     *
+     * The player switches to whatever now holds the audio and reloads it: the waveform is a picture
+     * of samples that have just been cut, and the playhead is somewhere that may no longer exist.
+     */
+    fun trimOpenTake(startFrac: Float, endFrac: Float, asCopy: Boolean) {
+        val take = _openTake.value?.take ?: return
+        val folder = _library.value.current
+        if (_busy.value) return
+        if (asCopy && folder == null) {
+            _message.value = "There is nowhere to write a copy."
+            return
+        }
+        viewModelScope.launch {
+            _busy.value = true
+            if (_playback.value.uri == take.uri) stopPlayback()
+            store.trim(take, startFrac, endFrac, copyInto = if (asCopy) folder?.uri else null)
+                .onSuccess { trimmed ->
+                    _message.value = if (asCopy) "Saved ${trimmed.name}." else "Trimmed."
+                    openTake(trimmed)
+                    refresh()
+                }
+                .onFailure { _message.value = it.message ?: "That take could not be trimmed." }
+            _busy.value = false
+        }
+    }
 
     /** Leave the player. Playback carries on in the mini player rather than being cut off. */
     fun closeTake() {
@@ -414,6 +556,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     private fun play(take: Take, fromMs: Long) {
         pausePlayback()
         val mp = MediaPlayer()
+        mp.isLooping = _looping.value
         val started = runCatching {
             mp.setDataSource(getApplication<Application>(), take.uri)
             mp.prepare()
@@ -447,6 +590,27 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
                 _playback.value = _playback.value.copy(positionMs = at)
             }
         }
+    }
+
+    /**
+     * Whether playback repeats. A property of listening rather than of a take: you turn it on to
+     * learn a part, and it stays on until you turn it off.
+     */
+    private val _looping = MutableStateFlow(false)
+    val looping: StateFlow<Boolean> = _looping.asStateFlow()
+
+    fun toggleLoop() {
+        val on = !_looping.value
+        _looping.value = on
+        // Takes effect on what is already playing, not only on the next press.
+        player?.let { runCatching { it.isLooping = on } }
+        _message.value = if (on) "Looping." else "Loop off."
+    }
+
+    /** Play [take] from its first sample, whatever it was doing before. */
+    fun restartPlayback(take: Take) {
+        if (recorderState.value.phase != RecordPhase.IDLE) return
+        play(take, 0)
     }
 
     /** The mini player's transport, which always has a take to act on. */
@@ -530,5 +694,6 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
         const val KEY_PROMPT_FOR_FILENAME = "prompt_for_filename"
         const val KEY_THEME_MODE = "theme_mode"
+        const val KEY_INPUT_GAIN_DB = "input_gain_db"
     }
 }

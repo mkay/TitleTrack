@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -31,6 +30,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
@@ -50,12 +50,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import de.singular.recorder.RecorderViewModel
+import de.singular.recorder.LevelTest
+import de.singular.recorder.MAX_INPUT_GAIN_DB
 import de.singular.recorder.Settings
 import de.singular.recorder.audio.MAX_BPM
 import de.singular.recorder.audio.MIN_BPM
 import de.singular.recorder.audio.RecordPhase
 import de.singular.recorder.audio.RecorderState
+import java.util.Locale
 
 /**
  * The take in progress.
@@ -82,6 +84,11 @@ fun RecordScreen(
     onSetBpm: (Int) -> Unit,
     onSetCountInBars: (Int) -> Unit,
     onSetVisualMetronome: (Boolean) -> Unit,
+    levelTest: LevelTest?,
+    onStartLevelTest: () -> Unit,
+    onRestartLevelTest: () -> Unit,
+    onAcceptLevelTest: () -> Unit,
+    onStopLevelTest: () -> Unit,
     defaultName: () -> String,
     modifier: Modifier = Modifier,
 ) {
@@ -157,12 +164,17 @@ fun RecordScreen(
 
         when (state.phase) {
             RecordPhase.IDLE -> {
-                TakeSettings(settings, onSetBpm, onSetCountInBars, onSetVisualMetronome)
+                TakeSettings(
+                    settings, onSetBpm, onSetCountInBars, onSetVisualMetronome, onStartLevelTest,
+                )
                 Spacer(Modifier.height(16.dp))
                 BigButton(
                     text = "Record",
                     icon = Icons.Default.Mic,
                     onClick = onRecord,
+                    // Press to play, hold to find out how loud you are: the level test is a
+                    // rehearsal of this very button, so it lives on it.
+                    onLongClick = onStartLevelTest,
                     container = MaterialTheme.colorScheme.record,
                     enabled = folderLabel != null,
                 )
@@ -234,6 +246,15 @@ fun RecordScreen(
         }
     }
 
+    levelTest?.let { test ->
+        LevelTestDialog(
+            test = test,
+            onAgain = onRestartLevelTest,
+            onAccept = onAcceptLevelTest,
+            onDismiss = onStopLevelTest,
+        )
+    }
+
     if (saving) {
         SaveDialog(
             name = name,
@@ -262,6 +283,7 @@ private fun TakeSettings(
     onSetBpm: (Int) -> Unit,
     onSetCountInBars: (Int) -> Unit,
     onSetVisualMetronome: (Boolean) -> Unit,
+    onLevelTest: () -> Unit,
 ) {
     var tempoOpen by rememberSaveable { mutableStateOf(false) }
     var countInOpen by remember { mutableStateOf(false) }
@@ -302,6 +324,16 @@ private fun TakeSettings(
             value = if (settings.visualMetronome) "On" else "Off",
             onClick = { onSetVisualMetronome(!settings.visualMetronome) },
             dimValue = !settings.visualMetronome,
+            modifier = Modifier.weight(1f),
+        )
+        CellDivider()
+        // The gain is on the row rather than only behind a long-press: a boost applies to every
+        // take until it is changed, and state that loud has to be visible.
+        SettingCell(
+            label = "Input",
+            value = if (settings.inputGainDb == 0) "0 dB" else "+${settings.inputGainDb} dB",
+            onClick = onLevelTest,
+            dimValue = settings.inputGainDb == 0,
             modifier = Modifier.weight(1f),
         )
     }
@@ -506,36 +538,65 @@ private fun SaveDialog(
     )
 }
 
-/** A thumb-height, full-width action. */
+/**
+ * The level test: play something, and be told what to record at.
+ *
+ * Android has no microphone input level to turn up, so a quiet instrument is only ever lifted by
+ * multiplying samples — and the number to multiply by is not something anyone can guess from
+ * looking at a phone. Playing for five seconds settles it, and playing is what the user came here
+ * to do anyway.
+ *
+ * The peak shown is post-gain, the same level the meter and the take would show; the suggestion
+ * works back from it to the raw input, so re-testing with a gain already set gives the same answer.
+ */
 @Composable
-private fun BigButton(
-    text: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector?,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    container: androidx.compose.ui.graphics.Color? = null,
-    outlined: Boolean = false,
-    enabled: Boolean = true,
+private fun LevelTestDialog(
+    test: LevelTest,
+    onAgain: () -> Unit,
+    onAccept: () -> Unit,
+    onDismiss: () -> Unit,
 ) {
-    val content: @Composable () -> Unit = {
-        if (icon != null) {
-            Icon(icon, contentDescription = null, Modifier.size(22.dp))
-            Spacer(Modifier.width(10.dp))
-        }
-        Text(text, style = MaterialTheme.typography.titleMedium)
-    }
-    val shape = ControlShape
-    val sized = modifier.height(64.dp).let { if (modifier == Modifier) it.fillMaxWidth() else it }
-    if (outlined) {
-        OutlinedButton(onClick, sized, enabled = enabled, shape = shape) { content() }
-    } else {
-        Button(
-            onClick, sized, enabled = enabled, shape = shape,
-            colors = if (container != null) {
-                ButtonDefaults.buttonColors(containerColor = container)
-            } else {
-                ButtonDefaults.buttonColors()
-            },
-        ) { content() }
-    }
+    val suggested = test.suggestedGainDb
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Set the level") },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "Play the loudest thing you are going to play.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(Modifier.height(20.dp))
+                LevelMeter(test.heard)
+                Spacer(Modifier.height(20.dp))
+                Text(
+                    test.peakDb?.let { String.format(Locale.US, "Peak %.0f dBFS", it) }
+                        ?: "Listening…",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    when {
+                        suggested == null -> "Nothing heard yet."
+                        suggested == 0 -> "Loud enough already."
+                        suggested >= MAX_INPUT_GAIN_DB -> "Very quiet — move the phone closer."
+                        else -> "Quiet. Takes can be lifted by +$suggested dB."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center,
+                )
+                if (test.peakDb != null) {
+                    TextButton(onClick = onAgain) { Text("Measure again") }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onAccept, enabled = suggested != null) {
+                Text(if (suggested == null || suggested == 0) "Keep 0 dB" else "Record at +$suggested dB")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }

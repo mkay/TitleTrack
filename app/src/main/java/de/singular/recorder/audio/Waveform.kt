@@ -20,6 +20,14 @@ object Waveform {
     const val BUCKETS = 420
 
     /**
+     * What the player reads at. Ten times the columns a phone has, because the player zooms: past
+     * about 8x the drawing would otherwise be showing stretched buckets rather than the take, and
+     * trimming to a note attack means seeing the attack. Still only 16 kB of floats, and still one
+     * pass over the file.
+     */
+    const val DETAIL = 4_096
+
+    /**
      * Peaks in `0f..1f`, [buckets] of them, or null if this is not 16-bit PCM WAV.
      *
      * [fileBytes], the size of the file on disk, repairs a `data` size field the writer never
@@ -163,8 +171,10 @@ class PeakBuckets(private val buckets: Int, totalFrames: Long) {
         peak = max(peak, frame)
         frameIndex++
         seen++
-        // Close the bucket the moment this frame crosses its right edge.
-        if (frameIndex >= (bucket + 1) * perBucket) {
+        // Close every bucket this frame has crossed. Usually one; on a take shorter than the
+        // bucket count a single frame spans several columns, and closing only the first would
+        // leave the rest of the drawing empty.
+        while (!full && frameIndex >= (bucket + 1) * perBucket) {
             peaks[bucket] = peak
             peak = 0f
             bucket++

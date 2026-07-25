@@ -208,9 +208,11 @@ class RecordingStore(context: Context) {
      */
     suspend fun waveform(take: Take): FloatArray? = withContext(Dispatchers.IO) {
         val fromWav = runCatching {
-            resolver.openInputStream(take.uri)?.use { Waveform.readWav(it, take.sizeBytes) }
+            resolver.openInputStream(take.uri)?.use {
+                Waveform.readWav(it, take.sizeBytes, Waveform.DETAIL)
+            }
         }.getOrNull()
-        fromWav ?: AudioDecoder.peaks(appContext, take.uri) { isActive }
+        fromWav ?: AudioDecoder.peaks(appContext, take.uri, Waveform.DETAIL) { isActive }
     }
 
     /**
@@ -456,6 +458,165 @@ class RecordingStore(context: Context) {
             // Anything after the payload (a trailing INFO chunk, say) is not audio.
             input.copyTo(out)
         } ?: throw IllegalStateException("That file could not be read.")
+    }
+
+    /**
+     * Keep the part of [take] between [startFrac] and [endFrac] and throw the rest away — over the
+     * take itself, or into a copy beside it when [copyInto] is a folder.
+     *
+     * A WAV is cut on frame boundaries with no decode at all: the header is rebuilt for the new
+     * length and the selected bytes are copied straight through, so the samples that survive are
+     * the exact samples that were recorded. Anything else is decoded and the cut written out as a
+     * WAV, for the same reason normalising is — re-encoding a lossy file to shorten it would cost
+     * a generation of quality on top of the audio being removed on purpose.
+     *
+     * The tempo travels with the take, though a trim that does not land on a bar line makes it a
+     * claim about the music rather than about the first sample.
+     */
+    suspend fun trim(
+        take: Take,
+        startFrac: Float,
+        endFrac: Float,
+        copyInto: Uri? = null,
+    ): Result<Take> = withContext(Dispatchers.IO) {
+        if (endFrac <= startFrac) {
+            return@withContext Result.failure(IllegalStateException("Nothing selected to keep."))
+        }
+
+        val wav = readHeader(take.uri, take.sizeBytes)
+            ?.takeIf { it.bitsPerSample == 16 && it.dataStart >= 0 && it.dataBytes > 0 }
+
+        if (wav != null) {
+            val frameBytes = (wav.channels * wav.bitsPerSample / 8).coerceAtLeast(1)
+            val cut = cut(wav.dataBytes, frameBytes, startFrac, endFrac)
+                ?: return@withContext Result.failure(
+                    IllegalStateException("That selection is too short to keep."),
+                )
+            val header = Wav.header(
+                dataBytes = cut.bytes,
+                sampleRate = wav.sampleRate,
+                channels = wav.channels,
+                bitsPerSample = wav.bitsPerSample,
+                bpm = take.bpm,
+                title = take.name.substringBeforeLast('.'),
+            )
+            return@withContext writeTrimmed(take, copyInto, header) { out ->
+                resolver.openInputStream(take.uri)?.use { input ->
+                    input.skipExactly(wav.dataStart + cut.offset)
+                    copyExactly(input, out, cut.bytes)
+                } ?: throw IllegalStateException("That file could not be read.")
+            }
+        }
+
+        // Not PCM WAV: decode it once into the cache, then cut the cache.
+        if (copyInto == null) {
+            return@withContext Result.failure(
+                IllegalStateException("Only WAV takes can be trimmed in place. Save a copy instead."),
+            )
+        }
+        val scratch = File(appContext.cacheDir, "trim.pcm")
+        val decoded = runCatching {
+            scratch.outputStream().buffered(BLOCK).use { out ->
+                val sink = MeasuringPcmWriter(out)
+                if (!AudioDecoder.decode(appContext, take.uri, sink)) {
+                    throw IllegalStateException("Nothing on this device can decode that file.")
+                }
+                sink
+            }
+        }
+        val sink = decoded.getOrElse {
+            scratch.delete()
+            return@withContext Result.failure(it)
+        }
+        val frameBytes = (sink.channels * 2).coerceAtLeast(2)
+        val cut = cut(scratch.length(), frameBytes, startFrac, endFrac)
+        if (cut == null || sink.sampleRate <= 0) {
+            scratch.delete()
+            return@withContext Result.failure(
+                IllegalStateException("That selection is too short to keep."),
+            )
+        }
+        val header = Wav.header(
+            dataBytes = cut.bytes,
+            sampleRate = sink.sampleRate,
+            channels = sink.channels,
+            bpm = take.bpm,
+            title = take.name.substringBeforeLast('.'),
+        )
+        val result = writeTrimmed(take, copyInto, header) { out ->
+            scratch.inputStream().use { pcm ->
+                pcm.skipExactly(cut.offset)
+                copyExactly(pcm, out, cut.bytes)
+            }
+        }
+        scratch.delete()
+        result
+    }
+
+    /** The byte range [startFrac]..[endFrac] of a payload, rounded to whole frames. */
+    private fun cut(dataBytes: Long, frameBytes: Int, startFrac: Float, endFrac: Float): Cut? {
+        val frames = dataBytes / frameBytes
+        if (frames <= 0) return null
+        val first = (frames * startFrac.coerceIn(0f, 1f)).toLong().coerceIn(0, frames)
+        val last = (frames * endFrac.coerceIn(0f, 1f)).toLong().coerceIn(first, frames)
+        val kept = last - first
+        if (kept <= 0) return null
+        return Cut(offset = first * frameBytes, bytes = kept * frameBytes)
+    }
+
+    private data class Cut(val offset: Long, val bytes: Long)
+
+    /**
+     * Write [header] and whatever [payload] streams after it, either over [take] or into a new
+     * document in [copyInto].
+     *
+     * Overwriting builds the whole file in the cache first, because a trim shortens the original:
+     * a failure half way through a direct write would leave a take with the header of one length
+     * and the audio of another.
+     */
+    private fun writeTrimmed(
+        take: Take,
+        copyInto: Uri?,
+        header: ByteArray,
+        payload: (OutputStream) -> Unit,
+    ): Result<Take> {
+        if (copyInto != null) {
+            val name = take.name.substringBeforeLast('.') + " trimmed.wav"
+            val uri = runCatching {
+                DocumentsContract.createDocument(resolver, copyInto, MIME_WAV, name)
+            }.getOrNull()
+                ?: return Result.failure(IllegalStateException("The copy could not be created."))
+
+            val written = runCatching {
+                resolver.openOutputStream(uri, "w")?.use { out ->
+                    out.write(header)
+                    payload(out)
+                } ?: throw IllegalStateException("The copy could not be written.")
+            }
+            if (written.isFailure) {
+                runCatching { DocumentsContract.deleteDocument(resolver, uri) }
+                return Result.failure(written.exceptionOrNull()!!)
+            }
+            return Result.success(
+                describe(uri) ?: return Result.failure(
+                    IllegalStateException("The copy was written but could not be read back."),
+                ),
+            )
+        }
+
+        val scratch = File(appContext.cacheDir, "trim.wav")
+        val written = runCatching {
+            scratch.outputStream().buffered(BLOCK).use { out ->
+                out.write(header)
+                payload(out)
+            }
+            scratch.inputStream().use { src ->
+                openTruncating(take.uri).use { dest -> src.copyTo(dest) }
+            }
+        }
+        scratch.delete()
+        written.exceptionOrNull()?.let { return Result.failure(it) }
+        return Result.success(describe(take.uri) ?: take)
     }
 
     /** Re-read one take by uri — after a rename, or after anything else has moved under it. */

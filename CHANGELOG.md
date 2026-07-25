@@ -19,6 +19,12 @@ First cut: recording and take management.
   screen and before a take opens it.
 - Tempo, count-in and the metronome on one row of the record screen. Tempo opens to a slider,
   arrows, and a field to type a number into.
+- Input gain, measured rather than guessed: hold Record (or tap Input on the settings row), play,
+  and the level test suggests a gain that puts your loudest moment at −9 dBFS. Applied during
+  capture — from float, where the boost costs no resolution — and stamped into the WAV as `gain=`.
+  One fixed number, evenly applied: nothing tracks the signal, so decays are not swelled back up.
+- The player's waveform is drawn in decibels over the same 60 dB window as the record screen and the
+  level meter, instead of linearly. A well-recorded take no longer looks like a failed one.
 - Browse the recordings folder in place: sub-folders, playback with a seek bar, rename, delete,
   share. The triangle plays a take in place; its name opens it in the player.
 - A mini player above the tabs: it shows whatever take is loaded wherever you are, with a
@@ -41,6 +47,13 @@ First cut: recording and take management.
   level — instead of repeating the take name shown on the screen below it. Share moved up beside it.
 - The player's waveform fills the height that is left, on the record screen's panel and zero line.
 - Every take says its format (WAV, M4A, …) in the library list, the mini player and the player.
+- Double-tap Play to start the take from the beginning, without delaying the single tap.
+- The player's waveform zooms: pinch to zoom, drag to pan, a scroll strip along the bottom, and
+  peaks read at 4096 buckets so zooming in resolves more of the take instead of stretching bars.
+- Trim, in the player: two grip-tab handles on the waveform (hold to grab, as RubberRing's loop
+  markers), the discarded parts greyed over, 10 ms nudge buttons for either edge, and a faint beat
+  grid that magnets handles within an eighth of a beat without ever forcing them onto it. WAVs are
+  cut on frame boundaries without decoding; other formats come out as a trimmed WAV copy.
 - Edits in the player's overflow: rename, and normalise. Normalising asks for a mode (peak or
   loudness) and then a destination — overwrite the take, or save a normalised copy beside it. The
   header, tempo and title are carried through. Imported m4a, mp3, ogg and flac takes are decoded

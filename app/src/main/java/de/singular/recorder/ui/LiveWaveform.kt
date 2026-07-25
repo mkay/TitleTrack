@@ -16,7 +16,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.dp
-import kotlin.math.log10
 import kotlin.math.max
 
 /**
@@ -130,18 +129,6 @@ fun LiveWaveform(
             )
         }
     }
-}
-
-/**
- * Linear amplitude to bar height over a 60 dB window — the same scaling as [LevelMeter].
- *
- * A guitar picked at a sensible level sits around −20 dBFS, which drawn linearly is a tenth of the
- * height and looks like a fault rather than a take.
- */
-private fun amplitudeToHeight(level: Float): Float {
-    if (level <= 0f) return 0f
-    val db = 20f * log10(max(level, 1e-6f))
-    return ((db + 60f) / 60f).coerceIn(0f, 1f)
 }
 
 /** Loud enough to be worth warning about, matching the level meter's own threshold. */

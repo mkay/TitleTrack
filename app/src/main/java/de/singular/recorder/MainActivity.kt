@@ -109,7 +109,9 @@ class MainActivity : ComponentActivity() {
                 val playback by vm.playback.collectAsStateWithLifecycle()
                 val openTake by vm.openTake.collectAsStateWithLifecycle()
                 val message by vm.message.collectAsStateWithLifecycle()
-                val normalizing by vm.normalizing.collectAsStateWithLifecycle()
+                val busy by vm.busy.collectAsStateWithLifecycle()
+                val looping by vm.looping.collectAsStateWithLifecycle()
+                val levelTest by vm.levelTest.collectAsStateWithLifecycle()
 
                 var screen by rememberSaveable { mutableStateOf(Screen.RECORD) }
                 val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -152,7 +154,7 @@ class MainActivity : ComponentActivity() {
                 // Listen to the input, but only with the Record screen in front of a resumed
                 // activity and no take running — never in the background, and never once a take
                 // has the microphone. Leaving by any route releases it.
-                val monitor = settings.listenBeforeRecording &&
+                val monitor = (settings.listenBeforeRecording || levelTest != null) &&
                     screen == Screen.RECORD &&
                     recorderState.phase == RecordPhase.IDLE &&
                     vm.hasMicPermission
@@ -377,6 +379,11 @@ class MainActivity : ComponentActivity() {
                                 onSetBpm = vm::setBpm,
                                 onSetCountInBars = vm::setCountInBars,
                                 onSetVisualMetronome = vm::setVisualMetronome,
+                                levelTest = levelTest,
+                                onStartLevelTest = vm::startLevelTest,
+                                onRestartLevelTest = vm::restartLevelTest,
+                                onAcceptLevelTest = vm::acceptLevelTest,
+                                onStopLevelTest = vm::stopLevelTest,
                                 defaultName = vm::defaultTakeName,
                                 modifier = content,
                             )
@@ -418,11 +425,16 @@ class MainActivity : ComponentActivity() {
                                 PlayerScreen(
                                     open = open,
                                     playback = playback,
-                                    busy = normalizing,
+                                    busy = busy,
                                     onPlayPause = vm::togglePlayback,
                                     onSeek = vm::seekTo,
                                     onRename = vm::renameOpenTake,
                                     onNormalize = vm::normalizeOpenTake,
+                                    onTrim = vm::trimOpenTake,
+                                    onRestart = vm::restartPlayback,
+                                    looping = looping,
+                                    onToggleLoop = vm::toggleLoop,
+                                    beatsPerBar = settings.beatsPerBar,
                                     modifier = content,
                                 )
                             } ?: LaunchedEffect(Unit) { screen = Screen.LIBRARY }

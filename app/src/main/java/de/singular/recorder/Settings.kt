@@ -32,4 +32,15 @@ data class Settings(
      */
     val promptForFilename: Boolean = false,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    /**
+     * Digital gain applied to every take as it is captured, in whole decibels.
+     *
+     * Android exposes no microphone preamp gain — there is no input level to turn up — so this is a
+     * multiplication, done before the samples are reduced to the 16 bits that go on disk. That is
+     * the whole reason it happens at capture rather than afterwards: with float headroom the boost
+     * costs no resolution, where boosting a finished 16-bit file spends bits it cannot get back.
+     *
+     * 0 by default, and set from the level test rather than guessed at.
+     */
+    val inputGainDb: Int = 0,
 )

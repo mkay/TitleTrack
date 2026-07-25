@@ -5,11 +5,23 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -22,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Size
@@ -40,6 +53,15 @@ fun formatDuration(ms: Long, tenths: Boolean = false): String {
     return if (tenths) String.format(Locale.US, "%d:%02d.%d", minutes, seconds, (ms % 1_000) / 100)
     else String.format(Locale.US, "%d:%02d", minutes, seconds)
 }
+
+/** `0:02.40` — hundredths, for the trim edges, where a tenth is coarser than the nudge step. */
+fun formatPrecise(ms: Long): String = String.format(
+    Locale.US,
+    "%d:%02d.%02d",
+    ms / 60_000,
+    ms / 1_000 % 60,
+    ms % 1_000 / 10,
+)
 
 fun formatSize(bytes: Long): String = when {
     bytes >= 1_000_000 -> String.format(Locale.US, "%.1f MB", bytes / 1_000_000f)
@@ -119,6 +141,23 @@ fun rememberBeatPosition(elapsedMs: Long, running: Boolean, bpm: Int): Float {
 }
 
 /**
+ * Linear amplitude (0f..1f) to a fraction of the height available, over a 60 dB window.
+ *
+ * Every level in this app is drawn through here — the meter, the live waveform, the player's
+ * waveform — because they are all pictures of the same thing and must agree. A take peaking at
+ * −15 dBFS is a *well recorded* acoustic guitar; drawn linearly it fills a sixth of the height and
+ * reads as a failure, which is exactly the wrong thing to tell someone who just played it.
+ *
+ * 60 dB is the window a phone microphone in a room actually occupies: below that is the noise
+ * floor, and giving it height only makes silence look like signal.
+ */
+fun amplitudeToHeight(level: Float): Float {
+    if (level <= 0f) return 0f
+    val db = 20f * log10(max(level, 1e-6f))
+    return ((db + 60f) / 60f).coerceIn(0f, 1f)
+}
+
+/**
  * Input level, as a horizontal bar.
  *
  * Scaled in decibels over a 60 dB floor rather than linearly: a guitar picked at a sensible level
@@ -129,7 +168,7 @@ fun LevelMeter(level: Float, modifier: Modifier = Modifier, active: Boolean = tr
     // Smoothed, because the raw block peak at ~43 updates a second reads as flicker rather than
     // as level. Short enough that a transient still visibly moves the bar.
     val shown by animateFloatAsState(
-        targetValue = amplitudeToBar(level),
+        targetValue = amplitudeToHeight(level),
         animationSpec = tween(durationMillis = 120, easing = LinearEasing),
         label = "level",
     )
@@ -148,9 +187,75 @@ fun LevelMeter(level: Float, modifier: Modifier = Modifier, active: Boolean = tr
     }
 }
 
-/** Linear amplitude (0..1) to bar fraction, over a 60 dB window. */
-private fun amplitudeToBar(level: Float): Float {
-    if (level <= 0f) return 0f
-    val db = 20f * log10(max(level, 1e-6f))
-    return ((db + 60f) / 60f).coerceIn(0f, 1f)
+/**
+ * A thumb-height, full-width action — the shape of every button that has to be hit without looking.
+ *
+ * [trailing] is for a mode the button is *in* rather than a thing it does: drawn after the label,
+ * where it reads as a state of the action rather than a second action.
+ */
+@Composable
+fun BigButton(
+    text: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    container: androidx.compose.ui.graphics.Color? = null,
+    outlined: Boolean = false,
+    enabled: Boolean = true,
+    onLongClick: (() -> Unit)? = null,
+    trailing: androidx.compose.ui.graphics.vector.ImageVector? = null,
+) {
+    val content: @Composable () -> Unit = {
+        if (icon != null) {
+            Icon(icon, contentDescription = null, Modifier.size(22.dp))
+            Spacer(Modifier.width(10.dp))
+        }
+        Text(text, style = MaterialTheme.typography.titleMedium)
+        if (trailing != null) {
+            Spacer(Modifier.width(10.dp))
+            Icon(trailing, contentDescription = null, Modifier.size(20.dp))
+        }
+    }
+    val shape = ControlShape
+    val sized = modifier.height(64.dp).let { if (modifier == Modifier) it.fillMaxWidth() else it }
+    if (onLongClick != null) {
+        // Material's buttons take one gesture only, so a button with two is built from a surface.
+        // Same shape, same height, same colours — it is the same button, holdable.
+        val enabledContainer = container ?: MaterialTheme.colorScheme.primary
+        Surface(
+            modifier = sized.combinedClickable(
+                enabled = enabled,
+                onClick = onClick,
+                onLongClick = onLongClick,
+            ),
+            shape = shape,
+            color = if (enabled) {
+                enabledContainer
+            } else {
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+            },
+            contentColor = if (enabled) {
+                MaterialTheme.colorScheme.onPrimary
+            } else {
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+            },
+        ) {
+            Row(
+                Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) { content() }
+        }
+    } else if (outlined) {
+        OutlinedButton(onClick, sized, enabled = enabled, shape = shape) { content() }
+    } else {
+        Button(
+            onClick, sized, enabled = enabled, shape = shape,
+            colors = if (container != null) {
+                ButtonDefaults.buttonColors(containerColor = container)
+            } else {
+                ButtonDefaults.buttonColors()
+            },
+        ) { content() }
+    }
 }

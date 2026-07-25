@@ -20,8 +20,9 @@ object Wav {
     const val BITS_PER_SAMPLE = 16
     const val BYTES_PER_FRAME = CHANNELS * BITS_PER_SAMPLE / 8
 
-    /** Key used inside the INFO comment, e.g. `bpm=96`. */
+    /** Keys used inside the INFO comment, e.g. `bpm=96 gain=+12`. */
     private const val BPM_KEY = "bpm="
+    private const val GAIN_KEY = "gain="
 
     /**
      * The complete header preceding [dataBytes] bytes of PCM: `RIFF … fmt … [LIST] … data`.
@@ -35,8 +36,9 @@ object Wav {
         bitsPerSample: Int = BITS_PER_SAMPLE,
         bpm: Float? = null,
         title: String? = null,
+        gainDb: Int = 0,
     ): ByteArray {
-        val info = infoChunk(bpm, title)
+        val info = infoChunk(bpm, title, gainDb)
         val out = ByteArrayBuilder(44 + info.size)
         val byteRate = sampleRate * channels * bitsPerSample / 8
         val blockAlign = channels * bitsPerSample / 8
@@ -132,12 +134,23 @@ object Wav {
     }
 
     /** The `LIST/INFO` chunk carrying tempo and title, or empty when there is nothing to say. */
-    private fun infoChunk(bpm: Float?, title: String?): ByteArray {
-        if (bpm == null && title.isNullOrBlank()) return ByteArray(0)
+    private fun infoChunk(bpm: Float?, title: String?, gainDb: Int): ByteArray {
+        if (bpm == null && title.isNullOrBlank() && gainDb == 0) return ByteArray(0)
         val body = ByteArrayBuilder(64)
         body.ascii("INFO")
         if (!title.isNullOrBlank()) body.infoField("INAM", title)
-        if (bpm != null) body.infoField("ICMT", BPM_KEY + trimZeros(bpm))
+        // One comment, space separated: the tempo the take was played to, and the gain it was
+        // recorded with — so a file that sounds lifted can say by how much, on any desktop.
+        val comment = buildString {
+            if (bpm != null) append(BPM_KEY + trimZeros(bpm))
+            if (gainDb != 0) {
+                if (isNotEmpty()) append(' ')
+                append(GAIN_KEY)
+                append(if (gainDb > 0) "+" else "")
+                append(gainDb)
+            }
+        }
+        if (comment.isNotEmpty()) body.infoField("ICMT", comment)
         body.infoField("ISFT", "SparkPlug")
         val bodyBytes = body.toByteArray()
 
