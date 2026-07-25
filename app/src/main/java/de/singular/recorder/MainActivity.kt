@@ -62,6 +62,7 @@ import de.singular.recorder.ui.CompactTabBar
 import de.singular.recorder.ui.LibraryScreen
 import de.singular.recorder.ui.MiniPlayer
 import de.singular.recorder.ui.PlayerScreen
+import de.singular.recorder.ui.PlayerShareAction
 import de.singular.recorder.ui.RecordScreen
 import de.singular.recorder.ui.SettingsScreen
 import de.singular.recorder.ui.SparkPlugTheme
@@ -74,7 +75,7 @@ private enum class Screen(val title: String) {
     SETTINGS("Settings"),
     ABOUT("About"),
 
-    /** One take, opened from the library. Its title is the take's name, not this. */
+    /** One take, opened from the library. The bar names the folder it came from, not this. */
     PLAYER("Take"),
 }
 
@@ -108,6 +109,7 @@ class MainActivity : ComponentActivity() {
                 val playback by vm.playback.collectAsStateWithLifecycle()
                 val openTake by vm.openTake.collectAsStateWithLifecycle()
                 val message by vm.message.collectAsStateWithLifecycle()
+                val normalizing by vm.normalizing.collectAsStateWithLifecycle()
 
                 var screen by rememberSaveable { mutableStateOf(Screen.RECORD) }
                 val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -259,10 +261,16 @@ class MainActivity : ComponentActivity() {
                         topBar = {
                             TopAppBar(
                                 title = {
+                                    // The player names the take itself, in the middle of the
+                                    // screen; the bar names where the arrow goes instead of saying
+                                    // the same long filename twice — the folder the take sits in,
+                                    // or the library itself for one at the top level.
                                     Text(
                                         if (screen == Screen.PLAYER) {
-                                            openTake?.take?.name?.substringBeforeLast('.')
-                                                ?: screen.title
+                                            library.current
+                                                ?.takeIf { library.canGoUp }
+                                                ?.name
+                                                ?: Screen.LIBRARY.title
                                         } else {
                                             screen.title
                                         },
@@ -287,6 +295,9 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 actions = {
+                                    openTake?.takeIf { screen == Screen.PLAYER }?.let { open ->
+                                        PlayerShareAction { share(open.take) }
+                                    }
                                     // A quiet notice that the display is being held awake (it
                                     // drains battery); tap for the explanation and a way out.
                                     if (settings.keepScreenOn) {
@@ -407,9 +418,11 @@ class MainActivity : ComponentActivity() {
                                 PlayerScreen(
                                     open = open,
                                     playback = playback,
+                                    busy = normalizing,
                                     onPlayPause = vm::togglePlayback,
                                     onSeek = vm::seekTo,
-                                    onShare = ::share,
+                                    onRename = vm::renameOpenTake,
+                                    onNormalize = vm::normalizeOpenTake,
                                     modifier = content,
                                 )
                             } ?: LaunchedEffect(Unit) { screen = Screen.LIBRARY }

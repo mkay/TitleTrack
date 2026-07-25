@@ -9,17 +9,44 @@ import android.net.Uri
 import java.nio.ByteOrder
 
 /**
- * Decodes anything the device can play, far enough to draw it.
+ * Where a decode sends its PCM.
+ *
+ * The samples arrive a buffer at a time and in whichever encoding the codec chose, which is why
+ * this is a sink rather than a return value: nothing here ever holds a whole file. Drawing folds
+ * the buffers into peaks and forgets them; normalising writes them out again.
+ */
+interface PcmSink {
+
+    /** Called once, before the first buffer, with what the container says is coming. */
+    fun onStart(sampleRate: Int, channels: Int, totalFrames: Long) {}
+
+    /**
+     * The rate and channel count the codec actually settled on, once it announces them. Worth
+     * listening to: HE-AAC decoders hand back twice the sample rate the container declares.
+     */
+    fun onOutputFormat(sampleRate: Int, channels: Int) {}
+
+    /** [count] bytes of interleaved little-endian 16-bit PCM. */
+    fun onPcm16(pcm: ByteArray, count: Int, channels: Int)
+
+    /** [count] floats of interleaved PCM in `-1f..1f`, as some decoders hand back. */
+    fun onPcmFloat(pcm: FloatArray, count: Int, channels: Int)
+
+    /** False once the sink has all it needs — the decode stops there rather than running on. */
+    val wantsMore: Boolean get() = true
+}
+
+/**
+ * Decodes anything the device can play.
  *
  * A folder of recordings collects more than this app puts in it — takes from the stock recorder,
- * an idea mailed over as an mp3, a bounce from a laptop — and a waveform is exactly as useful for
- * those. So rather than only understanding the WAV we write, the platform's own decoders do the
- * work: whatever [android.media.MediaPlayer] would play, this can draw.
+ * an idea mailed over as an mp3, a bounce from a laptop — and a waveform, or a level lift, is
+ * exactly as useful for those. So rather than only understanding the WAV we write, the platform's
+ * own decoders do the work: whatever [android.media.MediaPlayer] would play, this can read.
  *
- * The PCM is never kept. It arrives a buffer at a time, is folded into [PeakBuckets], and is
- * dropped — a five-minute take is 26 MB of samples and about 420 floats worth keeping. Decoding
- * stops the moment the last column is filled, so a long file that is mostly tail costs no more
- * than the part that gets drawn.
+ * The PCM is never kept here. It arrives a buffer at a time, goes to a [PcmSink], and is dropped —
+ * a five-minute take is 26 MB of samples. Decoding stops the moment the sink has had enough, so a
+ * waveform that is already drawn costs nothing more.
  */
 object AudioDecoder {
 
@@ -58,37 +85,76 @@ object AudioDecoder {
         buckets: Int = Waveform.BUCKETS,
         stillWanted: () -> Boolean = { true },
     ): FloatArray? {
+        var peaks: PeakBuckets? = null
+        val sink = object : PcmSink {
+            override fun onStart(sampleRate: Int, channels: Int, totalFrames: Long) {
+                peaks = PeakBuckets(buckets, totalFrames)
+            }
+
+            override fun onPcm16(pcm: ByteArray, count: Int, channels: Int) {
+                peaks?.addPcm16(pcm, count, channels)
+            }
+
+            override fun onPcmFloat(pcm: FloatArray, count: Int, channels: Int) {
+                peaks?.addPcmFloat(pcm, count, channels)
+            }
+
+            // Once every column is filled there is nothing left for the rest of the file to say.
+            override val wantsMore: Boolean get() = peaks?.full != true
+        }
+        if (!decode(context, uri, sink, stillWanted)) return null
+        return if (stillWanted()) peaks?.finish() else null
+    }
+
+    /**
+     * Decode [uri] into [sink]. Returns false if it has no audio track this device can decode.
+     *
+     * Runs the codec synchronously, so call it off the main thread. [stillWanted] is polled between
+     * buffers: a user who backs out of the player should not leave a decoder running.
+     */
+    fun decode(
+        context: Context,
+        uri: Uri,
+        sink: PcmSink,
+        stillWanted: () -> Boolean = { true },
+    ): Boolean {
         val extractor = MediaExtractor()
         var codec: MediaCodec? = null
         try {
-            runCatching { extractor.setDataSource(context, uri, null) }.getOrElse { return null }
+            runCatching { extractor.setDataSource(context, uri, null) }.getOrElse { return false }
 
             val track = (0 until extractor.trackCount).firstOrNull {
                 extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)
                     ?.startsWith("audio/") == true
-            } ?: return null
+            } ?: return false
 
             val input = extractor.getTrackFormat(track)
-            val mime = input.getString(MediaFormat.KEY_MIME) ?: return null
-            val sampleRate = input.integer(MediaFormat.KEY_SAMPLE_RATE) ?: return null
-            val durationUs = input.long(MediaFormat.KEY_DURATION) ?: return null
-            if (sampleRate <= 0 || durationUs <= 0) return null
+            val mime = input.getString(MediaFormat.KEY_MIME) ?: return false
+            val sampleRate = input.integer(MediaFormat.KEY_SAMPLE_RATE) ?: return false
+            val durationUs = input.long(MediaFormat.KEY_DURATION) ?: return false
+            if (sampleRate <= 0 || durationUs <= 0) return false
 
             // Frames from the container's own duration. It is a claim rather than a count, but it
             // is the only length available before decoding, and it is right to within a frame.
             val totalFrames = durationUs / 1_000_000.0 * sampleRate
-            if (totalFrames < 1) return null
+            if (totalFrames < 1) return false
 
             extractor.selectTrack(track)
             codec = MediaCodec.createDecoderByType(mime)
             codec.configure(input, null, null, 0)
             codec.start()
 
-            return drain(extractor, codec, input, totalFrames.toLong(), buckets, stillWanted)
+            sink.onStart(
+                sampleRate,
+                input.integer(MediaFormat.KEY_CHANNEL_COUNT) ?: 1,
+                totalFrames.toLong(),
+            )
+            drain(extractor, codec, input, sink, stillWanted)
+            return true
         } catch (e: Exception) {
             // A malformed or half-copied file throws from anywhere in here. It is not worth
-            // distinguishing: none of it is drawable, and the player says so either way.
-            return null
+            // distinguishing: none of it is usable, and the caller says so either way.
+            return false
         } finally {
             runCatching { codec?.stop() }
             runCatching { codec?.release() }
@@ -96,16 +162,14 @@ object AudioDecoder {
         }
     }
 
-    /** The decode loop: feed the codec from the extractor, fold what comes out into buckets. */
+    /** The decode loop: feed the codec from the extractor, pass what comes out to the sink. */
     private fun drain(
         extractor: MediaExtractor,
         codec: MediaCodec,
         inputFormat: MediaFormat,
-        totalFrames: Long,
-        buckets: Int,
+        sink: PcmSink,
         stillWanted: () -> Boolean,
-    ): FloatArray? {
-        val peaks = PeakBuckets(buckets, totalFrames)
+    ) {
         val info = MediaCodec.BufferInfo()
 
         // Until the codec announces its output format these are the best guess available, and for
@@ -118,7 +182,7 @@ object AudioDecoder {
         var fedEverything = false
         var done = false
 
-        while (!done && !peaks.full && stillWanted()) {
+        while (!done && sink.wantsMore && stillWanted()) {
             if (!fedEverything) {
                 val index = codec.dequeueInputBuffer(TIMEOUT_US)
                 if (index >= 0) {
@@ -141,6 +205,9 @@ object AudioDecoder {
                     val out = codec.outputFormat
                     channels = out.integer(MediaFormat.KEY_CHANNEL_COUNT) ?: channels
                     encoding = out.integer(MediaFormat.KEY_PCM_ENCODING) ?: encoding
+                    val rate = out.integer(MediaFormat.KEY_SAMPLE_RATE)
+                        ?: inputFormat.integer(MediaFormat.KEY_SAMPLE_RATE) ?: 0
+                    sink.onOutputFormat(rate, channels)
                 }
 
                 MediaCodec.INFO_TRY_AGAIN_LATER -> Unit // nothing ready yet; go round again
@@ -155,11 +222,11 @@ object AudioDecoder {
                             if (floats.size < f.remaining()) floats = FloatArray(f.remaining())
                             val n = f.remaining()
                             f.get(floats, 0, n)
-                            peaks.addPcmFloat(floats, n, channels)
+                            sink.onPcmFloat(floats, n, channels)
                         } else {
                             if (bytes.size < info.size) bytes = ByteArray(info.size)
                             buffer.get(bytes, 0, info.size)
-                            peaks.addPcm16(bytes, info.size, channels)
+                            sink.onPcm16(bytes, info.size, channels)
                         }
                     }
                     codec.releaseOutputBuffer(index, false)
@@ -167,8 +234,6 @@ object AudioDecoder {
                 }
             }
         }
-
-        return if (stillWanted()) peaks.finish() else null
     }
 
     private fun MediaFormat.integer(key: String): Int? =

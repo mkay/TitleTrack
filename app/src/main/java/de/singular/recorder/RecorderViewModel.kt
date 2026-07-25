@@ -14,6 +14,7 @@ import androidx.lifecycle.viewModelScope
 import de.singular.recorder.audio.AudioRecorder
 import de.singular.recorder.audio.MAX_BPM
 import de.singular.recorder.audio.MIN_BPM
+import de.singular.recorder.audio.NormalizeMode
 import de.singular.recorder.audio.RecordPhase
 import de.singular.recorder.storage.Folder
 import de.singular.recorder.storage.Listing
@@ -305,6 +306,67 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
             }
         }
     }
+
+    /**
+     * Rename the open take and stay on it — the library list is refreshed behind us.
+     *
+     * A rename can mint a new uri, and it always changes the name the player is titled with, so the
+     * take is re-read rather than patched in place.
+     */
+    fun renameOpenTake(newName: String) {
+        val take = _openTake.value?.take ?: return
+        if (newName.isBlank()) return
+        viewModelScope.launch {
+            val renamed = store.rename(take.uri, newName)
+            if (renamed == null) {
+                _message.value = "That could not be renamed."
+                return@launch
+            }
+            // The file the player has open is the file that moved; drop it rather than leave the
+            // system player holding a uri that no longer resolves.
+            if (_playback.value.uri == take.uri) stopPlayback()
+            store.take(renamed)?.let { _openTake.value = OpenTake(it, _openTake.value?.peaks, false) }
+            refresh()
+        }
+    }
+
+    /**
+     * Normalise the open take — over itself, or into a copy beside it when [asCopy] is set.
+     *
+     * Either way the player switches to whichever file now holds the normalised audio and reloads
+     * it: the waveform on screen is drawn from samples that have just changed, and with a copy the
+     * take you want to hear is the new one.
+     */
+    fun normalizeOpenTake(mode: NormalizeMode, asCopy: Boolean) {
+        val take = _openTake.value?.take ?: return
+        val folder = _library.value.current
+        if (_normalizing.value) return
+        if (asCopy && folder == null) {
+            _message.value = "There is nowhere to write a copy."
+            return
+        }
+        viewModelScope.launch {
+            _normalizing.value = true
+            if (_playback.value.uri == take.uri) stopPlayback()
+            store.normalize(take, mode, copyInto = if (asCopy) folder?.uri else null)
+                .onSuccess { result ->
+                    val db = String.format(Locale.US, "%+.1f", result.gainDb)
+                    _message.value = when {
+                        result.gainDb <= 0f -> "Already at level — nothing to lift."
+                        asCopy -> "Saved ${result.take.name}, $db dB."
+                        else -> "Normalised, $db dB."
+                    }
+                    if (result.gainDb > 0f) openTake(result.take)
+                    refresh()
+                }
+                .onFailure { _message.value = it.message ?: "That take could not be normalised." }
+            _normalizing.value = false
+        }
+    }
+
+    /** True while a take is being rewritten — the player disables its edits for the duration. */
+    private val _normalizing = MutableStateFlow(false)
+    val normalizing: StateFlow<Boolean> = _normalizing.asStateFlow()
 
     /** Leave the player. Playback carries on in the mini player rather than being cut off. */
     fun closeTake() {

@@ -62,8 +62,15 @@ fun MiniPlayer(
                         maxLines = 1,
                     )
                     Text(
-                        "${formatDuration(playback.positionMs)} / " +
-                            formatDuration(playback.durationMs),
+                        buildString {
+                            formatKind(take.name).takeIf { it.isNotEmpty() }?.let {
+                                append(it)
+                                append(" · ")
+                            }
+                            append(formatDuration(playback.positionMs))
+                            append(" / ")
+                            append(formatDuration(playback.durationMs))
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     )

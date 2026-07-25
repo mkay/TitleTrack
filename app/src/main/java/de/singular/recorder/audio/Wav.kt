@@ -69,6 +69,8 @@ object Wav {
         val bitsPerSample: Int,
         val dataBytes: Long,
         val bpm: Float?,
+        /** Offset of the first PCM byte — where the header ends and the audio begins. */
+        val dataStart: Long = -1,
     ) {
         val durationMs: Long
             get() {
@@ -126,7 +128,7 @@ object Wav {
         val trueData = if (fileBytes > 0 && dataStart >= 0 &&
             (dataBytes <= 0 || dataBytes > fileBytes - dataStart)
         ) fileBytes - dataStart else dataBytes
-        return Info(sampleRate, channels, bits, trueData.coerceAtLeast(0), bpm)
+        return Info(sampleRate, channels, bits, trueData.coerceAtLeast(0), bpm, dataStart)
     }
 
     /** The `LIST/INFO` chunk carrying tempo and title, or empty when there is nothing to say. */

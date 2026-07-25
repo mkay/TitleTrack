@@ -76,6 +76,52 @@ and is dropped. A five-minute take is 26 MB of samples and nothing worth holding
 stops as soon as the last column is filled, and is cancelled if you leave the screen, so a long
 file that is mostly tail costs no more than the part that gets drawn.
 
+The waveform takes the whole height that is left, on the same panel with the same zero line the
+record screen draws on, so a take looks the same played back as it did being made.
+
+Every view says what a file **is** — `WAV`, `M4A`, `MP3` — in the list, in the mini player and here.
+The folder is the user's own, so it holds imports as well as recordings, and the format decides what
+can be done to a take.
+
+The app bar names **the folder the take came from** rather than repeating the take's name the screen
+already shows in full — "Library" for a take at the top level, the sub-folder's name below that. It
+is where the arrow goes, not what you are looking at. **Share** sits beside it, because that is
+something you do with the take rather than to it, and the two edits — **rename** and **normalise** —
+are buttons above the transport where they can be seen rather than remembered.
+
+Normalising lifts a quiet take, and does it **in the file**. Takes are played straight off storage
+by the system player, so there is no signal path to hang a fader on; and a level that existed only
+inside Spark Plug would go missing from every copy shared out of it. So it asks two things, one at
+a time. First how loud:
+
+- **Peak** scales until the loudest moment sits at full scale. It cannot distort, and it cannot
+  help a take that already touches the top once.
+- **Loudness** aims at an average level (−14 dBFS RMS, capped at +18 dB), which is what the ear
+  actually calls quiet. It has to push some peaks past full scale, where a tanh knee above 0.8
+  saturates them smoothly rather than shattering them into hard-clipped edges.
+
+Then where it goes: **overwrite this take**, which has no undo and says so, or **save a normalised
+copy** beside it, which leaves the original alone. Either way the player switches to whatever now
+holds the normalised audio, so you hear what you asked for rather than having to go and find it.
+
+A take Spark Plug recorded is 16-bit PCM WAV, and is scaled sample for sample: two passes over the
+file, measuring and then scaling, with the header copied through byte for byte so the tempo and
+title survive. An overwrite goes to a cache file and replaces the original only once it is
+complete, so a failure part-way leaves the take as it was; a copy needs none of that, because the
+original is never opened for writing at all.
+
+Imports get the same treatment by a different route. **An m4a, mp3, ogg or flac is decoded** —
+whatever the device can play — and **saved as a new WAV**, which the dialog says before it does it.
+Never back over the original: putting the level into a lossy file means encoding it again, and a
+second generation of artefacts is a poor price for a volume change. The decode happens once, with
+the samples going to a cache file and being measured on the way past, so the gain is known by the
+time there is anything to scale — and the length of that file is what the WAV header needs, which
+is not knowable in advance. Expect the result to be roughly ten times the size of the m4a it came
+from, and lossless.
+
+A take that is already at level is left alone and says so, rather than being rewritten for a
+fraction of a decibel.
+
 Playback outlives the screen it started from. A **mini player** sits above the tabs wherever you
 are, with the take's name, a play/stop toggle, a seek bar, and a close button — stop keeps the take
 and your place in it, close puts it away. Without it, wandering off to the Record tab would leave a
@@ -130,15 +176,16 @@ app/src/main/java/de/singular/recorder/
     AudioRecorder.kt     microphone -> PCM cache file; finish / restart / save; level monitoring
     Metronome.kt         count-in clicks (adapted from RubberRing)
     Wav.kt               RIFF header, with tempo in a LIST/INFO chunk
+    Gain.kt              measuring a take's level, and the maths of lifting it
     Waveform.kt          WAV -> peak envelope, and the bucketing both paths share
-    AudioDecoder.kt      everything else -> peak envelope, via MediaCodec
+    AudioDecoder.kt      everything else -> PCM, via MediaCodec: peaks, or a normalised WAV
   storage/
-    RecordingStore.kt    the granted folder: list, create, rename, delete, write
+    RecordingStore.kt    the granted folder: list, create, rename, delete, write, normalise
   ui/
     RecordScreen.kt      the take in progress
     LiveWaveform.kt      the scrolling input envelope, recording and listening
     LibraryScreen.kt     browsing the folder tree
-    PlayerScreen.kt      one take, its waveform and its transport
+    PlayerScreen.kt      one take, its waveform, its transport and its edits
     MiniPlayer.kt        the bar above the tabs, so playback is never orphaned
     VisualMetronome.kt   the beat dots and the count-in
     TabBar.kt            the compact bottom tabs

@@ -1,6 +1,7 @@
 package de.singular.recorder.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -15,29 +16,41 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DriveFileRenameOutline
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import de.singular.recorder.OpenTake
 import de.singular.recorder.PlaybackState
+import de.singular.recorder.audio.NormalizeMode
 import de.singular.recorder.storage.Take
 import kotlin.math.max
 import kotlin.math.roundToLong
@@ -53,9 +66,11 @@ import kotlin.math.roundToLong
 fun PlayerScreen(
     open: OpenTake,
     playback: PlaybackState,
+    busy: Boolean,
     onPlayPause: (Take, Long) -> Unit,
     onSeek: (Long) -> Unit,
-    onShare: (Take) -> Unit,
+    onRename: (String) -> Unit,
+    onNormalize: (NormalizeMode, Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val take = open.take
@@ -87,6 +102,10 @@ fun PlayerScreen(
         Spacer(Modifier.height(4.dp))
         Text(
             buildString {
+                formatKind(take.name).takeIf { it.isNotEmpty() }?.let {
+                    append(it)
+                    append(" · ")
+                }
                 append(formatDuration(take.durationMs))
                 take.bpm?.let {
                     append(" · ")
@@ -100,8 +119,10 @@ fun PlayerScreen(
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
         )
 
+        // The waveform takes whatever is left, as on the record screen: this is the screen's
+        // subject, and a 180dp strip in the middle of an empty half-page read as a placeholder.
         Box(
-            Modifier.weight(1f).fillMaxWidth().padding(vertical = 24.dp),
+            Modifier.weight(1f).fillMaxWidth().padding(vertical = 16.dp),
             contentAlignment = Alignment.Center,
         ) {
             when {
@@ -120,7 +141,7 @@ fun PlayerScreen(
                         val ms = (fraction * durationMs).roundToLong().coerceIn(0, durationMs)
                         if (loaded) onSeek(ms) else scrubMs = ms
                     },
-                    modifier = Modifier.fillMaxWidth().height(180.dp),
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
         }
@@ -130,7 +151,17 @@ fun PlayerScreen(
             Text(formatDuration(durationMs), style = MaterialTheme.typography.bodySmall)
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(16.dp))
+        // The edits sit in the screen rather than behind an overflow: they are two, they are what
+        // else there is to do here, and a menu would hide them behind a guess.
+        PlayerTools(
+            take = take,
+            busy = busy,
+            onRename = onRename,
+            onNormalize = onNormalize,
+        )
+
+        Spacer(Modifier.height(12.dp))
         Button(
             // -1 resumes wherever the take was left; a mark set before loading is passed as-is.
             onClick = { onPlayPause(take, if (loaded) -1L else scrubMs) },
@@ -145,18 +176,174 @@ fun PlayerScreen(
             Spacer(Modifier.width(10.dp))
             Text(if (playing) "Stop" else "Play", style = MaterialTheme.typography.titleMedium)
         }
-        Spacer(Modifier.height(12.dp))
-        OutlinedButton(
-            onClick = { onShare(take) },
-            Modifier.fillMaxWidth().height(52.dp),
-            shape = ControlShape,
-        ) {
-            Icon(Icons.Default.Share, contentDescription = null, Modifier.size(20.dp))
-            Spacer(Modifier.width(10.dp))
-            Text("Share")
-        }
     }
 }
+
+/** Share, in the app bar: something you do *with* the take, next to the way back out. */
+@Composable
+fun PlayerShareAction(onShare: () -> Unit) {
+    IconButton(onClick = onShare) {
+        Icon(Icons.Default.Share, contentDescription = "Share this take")
+    }
+}
+
+/**
+ * What can be done *to* the open take, rather than with it — the two edits, side by side above the
+ * transport, where they can be seen rather than remembered.
+ */
+@Composable
+private fun PlayerTools(
+    take: Take,
+    busy: Boolean,
+    onRename: (String) -> Unit,
+    onNormalize: (NormalizeMode, Boolean) -> Unit,
+) {
+    var renaming by remember { mutableStateOf(false) }
+    // Null until a mode is picked, then holds it while the second question is answered.
+    var normalizing by remember { mutableStateOf(false) }
+    var mode by remember { mutableStateOf<NormalizeMode?>(null) }
+
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        OutlinedButton(
+            onClick = { renaming = true },
+            Modifier.weight(1f).height(48.dp),
+            enabled = !busy,
+            shape = ControlShape,
+        ) {
+            Icon(Icons.Default.DriveFileRenameOutline, contentDescription = null, Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Rename")
+        }
+        OutlinedButton(
+            onClick = { normalizing = true },
+            Modifier.weight(1f).height(48.dp),
+            enabled = !busy,
+            shape = ControlShape,
+        ) {
+            // Rewriting a take takes a moment on a long one, and the spinner sits in the button
+            // that started it rather than somewhere else on the screen.
+            if (busy) {
+                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+            } else {
+                Icon(Icons.Default.GraphicEq, contentDescription = null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Normalise")
+            }
+        }
+    }
+
+    if (renaming) {
+        NameDialog(
+            title = "Rename",
+            initial = take.name.substringBeforeLast('.'),
+            confirm = "Rename",
+            onConfirm = {
+                renaming = false
+                onRename(it)
+            },
+            onDismiss = { renaming = false },
+        )
+    }
+
+    // Two questions, one at a time: how loud, then what to do with the result. Four buttons in one
+    // dialog would be a grid to read; two pairs are two glances.
+    if (normalizing) {
+        ChoiceDialog(
+            title = "Normalise",
+            body = { Text("Lift a quiet take to a usable level.", style = DialogBody) },
+            options = listOf(
+                "Peak — loudest moment hits the top" to {
+                    mode = NormalizeMode.PEAK
+                    normalizing = false
+                },
+                "Loudness — louder overall, peaks rounded" to {
+                    mode = NormalizeMode.LOUDNESS
+                    normalizing = false
+                },
+            ),
+            onDismiss = { normalizing = false },
+        )
+    }
+
+    mode?.let { chosen ->
+        // An imported m4a or mp3 has to be decoded to be lifted, and re-encoding it would cost a
+        // second generation of lossy audio — so those only ever come out as a new WAV, and the
+        // dialog offers what is actually possible rather than a button that would fail.
+        val isWav = take.name.endsWith(".wav", ignoreCase = true)
+        ChoiceDialog(
+            title = "Normalise",
+            body = {
+                Text(
+                    if (isWav) {
+                        buildAnnotatedString {
+                            append("Overwriting rewrites the recording itself: there is ")
+                            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("no undo") }
+                            append(". A copy leaves this take alone.")
+                        }
+                    } else {
+                        buildAnnotatedString {
+                            append("This one isn't a WAV, so it is decoded and saved as a new ")
+                            append("WAV file — bigger, and lossless. The original is left alone.")
+                        }
+                    },
+                    style = DialogBody,
+                )
+            },
+            options = buildList {
+                if (isWav) {
+                    add(
+                        "Overwrite this take" to {
+                            mode = null
+                            onNormalize(chosen, false)
+                        },
+                    )
+                }
+                add(
+                    (if (isWav) "Save a normalised copy" else "Save a normalised WAV") to {
+                        mode = null
+                        onNormalize(chosen, true)
+                    },
+                )
+            },
+            onDismiss = { mode = null },
+        )
+    }
+}
+
+/**
+ * A dialog whose answers are its buttons — a line of explanation, then one full-width choice per
+ * line, and Cancel where a confirm button would be.
+ */
+@Composable
+private fun ChoiceDialog(
+    title: String,
+    body: @Composable () -> Unit,
+    options: List<Pair<String, () -> Unit>>,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column {
+                body()
+                options.forEach { (label, onClick) ->
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = onClick,
+                        Modifier.fillMaxWidth(),
+                        shape = ControlShape,
+                    ) { Text(label) }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+private val DialogBody
+    @Composable get() = MaterialTheme.typography.bodyMedium
 
 /**
  * The peak envelope, mirrored about the centre line, with everything up to [progress] filled in.
@@ -173,9 +360,15 @@ private fun WaveformView(
 ) {
     val played = MaterialTheme.colorScheme.primary
     val unplayed = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.30f)
+    // The same panel and zero line the record screen draws on, so a take looks the same played
+    // back as it did being made.
+    val panel = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.045f)
+    val zeroLine = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
 
     Canvas(
         modifier
+            .clip(ControlShape)
+            .background(panel)
             .pointerInput(Unit) {
                 detectTapGestures { offset ->
                     if (size.width > 0) onScrub(offset.x / size.width)
@@ -193,6 +386,13 @@ private fun WaveformView(
         val barWidth = max(1f, step * 0.62f)
         val mid = size.height / 2
         val edge = progress.coerceIn(0f, 1f) * size.width
+
+        drawLine(
+            color = zeroLine,
+            start = Offset(0f, mid),
+            end = Offset(size.width, mid),
+            strokeWidth = 1.dp.toPx(),
+        )
 
         for (i in 0 until n) {
             val x = i * step + (step - barWidth) / 2

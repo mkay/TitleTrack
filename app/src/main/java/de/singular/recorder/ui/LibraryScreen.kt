@@ -35,7 +35,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -267,6 +266,10 @@ private fun TakeRow(
             )
             Text(
                 buildString {
+                    formatKind(take.name).takeIf { it.isNotEmpty() }?.let {
+                        append(it)
+                        append(" · ")
+                    }
                     append(formatDuration(take.durationMs))
                     take.bpm?.let {
                         append(" · ")
@@ -338,36 +341,6 @@ private fun RowMenu(onRename: () -> Unit, onDelete: () -> Unit, onShare: (() -> 
             )
         }
     }
-}
-
-@Composable
-private fun NameDialog(
-    title: String,
-    initial: String,
-    confirm: String,
-    onConfirm: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var text by rememberSaveable(initial) { mutableStateOf(initial) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                singleLine = true,
-                shape = ControlShape,
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(text) },
-                enabled = text.isNotBlank(),
-            ) { Text(confirm) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
 }
 
 @Composable

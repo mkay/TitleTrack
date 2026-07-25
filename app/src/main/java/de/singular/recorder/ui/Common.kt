@@ -8,12 +8,18 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Modifier
@@ -41,9 +47,50 @@ fun formatSize(bytes: Long): String = when {
     else -> "$bytes B"
 }
 
+/**
+ * `WAV`, `M4A` — a file's format, from its name.
+ *
+ * Worth saying out loud on every take: the folder is the user's own, so it holds imports as well as
+ * recordings, and what a file *is* decides what can be done to it (normalising an import writes a
+ * new WAV rather than touching the original). Empty for a name with no extension to read.
+ */
+fun formatKind(name: String): String =
+    name.substringAfterLast('.', "").takeIf { it.isNotEmpty() && it.length <= 5 }?.uppercase() ?: ""
+
 fun formatDate(epochMs: Long): String =
     if (epochMs <= 0) "" else SimpleDateFormat("d MMM yyyy, HH:mm", Locale.getDefault())
         .format(Date(epochMs))
+
+/** One text field and two buttons: what naming a folder, a take or a rename all come down to. */
+@Composable
+fun NameDialog(
+    title: String,
+    initial: String,
+    confirm: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var text by rememberSaveable(initial) { mutableStateOf(initial) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                singleLine = true,
+                shape = ControlShape,
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(text) },
+                enabled = text.isNotBlank(),
+            ) { Text(confirm) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
 
 /**
  * Where the beat is, as a continuous count since the take began — 2.5 means halfway between the

@@ -36,3 +36,11 @@ First cut: recording and take management.
 - While keep-screen-on is active an indicator sits in the app bar; tapping it explains the battery
   cost and offers a way to turn it off (as in RubberRing).
 - Compact bottom tabs, and a library list of even rows with dividers and accented folder icons.
+- The player's app bar names where the back arrow goes — the take's folder, or "Library" at the top
+  level — instead of repeating the take name shown on the screen below it. Share moved up beside it.
+- The player's waveform fills the height that is left, on the record screen's panel and zero line.
+- Every take says its format (WAV, M4A, …) in the library list, the mini player and the player.
+- Edits in the player's overflow: rename, and normalise. Normalising asks for a mode (peak or
+  loudness) and then a destination — overwrite the take, or save a normalised copy beside it. The
+  header, tempo and title are carried through. Imported m4a, mp3, ogg and flac takes are decoded
+  and saved as a normalised WAV beside the original, which is never re-encoded.
