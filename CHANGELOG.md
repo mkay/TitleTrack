@@ -12,7 +12,8 @@ First cut: recording and take management.
   scaled in decibels, with anything near full scale drawn red. It sits on a panel with a zero line
   that is there from the first launch, so the screen says where the take will appear before there
   is one.
-- Silent visual metronome: one dot per beat below the buttons, the lit one walking the bar.
+- Silent visual metronome: one dot per beat below the buttons, the lit one walking the bar. It
+  starts on the first click of the count-in and carries straight into the take, in step.
 - "Listen before recording" (off by default) draws the input before a take starts, for catching
   clipping and setting mic distance. Nothing is written; the microphone is released on leaving the
   screen and before a take opens it.

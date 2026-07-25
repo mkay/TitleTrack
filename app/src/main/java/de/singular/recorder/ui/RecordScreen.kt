@@ -216,14 +216,20 @@ fun RecordScreen(
 
         if (settings.visualMetronome && state.phase != RecordPhase.IDLE) {
             Spacer(Modifier.height(14.dp))
+            // The count-in is part of the same bar as the take that follows it, so the dots run
+            // through it on negative time — counting up to the downbeat, where the clicks stop and
+            // the take's own clock takes over without the walk breaking step. Playing in is the
+            // hard part, and by the time it matters you have already watched a bar of it.
+            val countingIn = state.phase == RecordPhase.COUNT_IN
+            val ticking = countingIn || state.phase == RecordPhase.RECORDING
             BeatDots(
                 beats = rememberBeatPosition(
-                    elapsedMs = state.elapsedMs,
-                    running = state.phase == RecordPhase.RECORDING,
+                    elapsedMs = if (countingIn) -state.countInRemainingMs else state.elapsedMs,
+                    running = ticking,
                     bpm = settings.bpm,
                 ),
                 beatsPerBar = settings.beatsPerBar,
-                running = state.phase == RecordPhase.RECORDING,
+                running = ticking,
             )
         }
     }

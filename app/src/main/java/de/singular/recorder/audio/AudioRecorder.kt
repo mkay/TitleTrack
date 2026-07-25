@@ -50,6 +50,12 @@ data class RecorderState(
     val level: Float = 0f,
     /** Clicks still to sound before capture begins; 0 outside [RecordPhase.COUNT_IN]. */
     val countInBeatsLeft: Int = 0,
+    /**
+     * Milliseconds until capture begins, counted on the beat grid the clicks are on — so the
+     * screen can run the visual metronome through the count-in and hand it over on the downbeat.
+     * 0 outside [RecordPhase.COUNT_IN].
+     */
+    val countInRemainingMs: Long = 0,
     /** Set when the microphone could not be opened at all. */
     val error: String? = null,
 ) {
@@ -257,6 +263,9 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
             var countingIn = countInBars > 0
             var countInEndsAt = 0L
             val beatMs = (60_000f / bpm.coerceIn(MIN_BPM, MAX_BPM)).toLong().coerceAtLeast(1)
+            // The clicks themselves, without the metronome's silent lead-in: the lead is latency
+            // cover, not a beat, and the dots on screen must not count it as one.
+            val countInMusicalMs = (beatsPerBar * countInBars).coerceAtLeast(1) * beatMs
 
             fun beginCountIn() {
                 countingIn = true
@@ -293,6 +302,7 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
                         _state.value = _state.value.copy(
                             phase = RecordPhase.RECORDING, elapsedMs = 0, level = 0f,
                             countInBeatsLeft = 0,
+                            countInRemainingMs = 0,
                         )
                     }
                     continue
@@ -301,11 +311,13 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
                 val peak = peakOf(block, read)
 
                 if (countingIn) {
-                    val left = (countInEndsAt - SystemClock.elapsedRealtime() + beatMs - 1) / beatMs
+                    val untilDownbeat = countInEndsAt - SystemClock.elapsedRealtime()
+                    val left = (untilDownbeat + beatMs - 1) / beatMs
                     _state.value = _state.value.copy(
                         phase = RecordPhase.COUNT_IN,
                         level = peak,
                         countInBeatsLeft = left.toInt().coerceAtLeast(0),
+                        countInRemainingMs = untilDownbeat.coerceIn(0, countInMusicalMs),
                     )
                     continue // the clicks are not part of the take
                 }
@@ -329,6 +341,7 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
                     elapsedMs = framesToMs(framesWritten),
                     level = peak,
                     countInBeatsLeft = 0,
+                    countInRemainingMs = 0,
                 )
             }
         } finally {

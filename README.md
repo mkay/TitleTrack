@@ -25,7 +25,10 @@ Early-stage — the recording and take-management half is built; the accompanime
 - **Silent visual metronome** — one dot per beat under the buttons, the lit one walking the bar,
   driven from the sample count actually on disk. Position in the bar, not just the pulse: a glance
   tells you where you are, which is what you need to come back in after counting yourself out of a
-  phrase. Silent by design — an audible click on a phone speaker ends up inside the take.
+  phrase. Silent by design — an audible click on a phone speaker ends up inside the take. **It
+  starts with the count-in**, running on negative time up to the downbeat and handing over to the
+  take's own clock without breaking step, so the bar is already familiar by the time you play into
+  it.
 - **Listen before recording** *(optional, off)* — draws what the microphone hears before you press
   Record, so clipping and mic distance are settled while it still costs nothing. Nothing is
   written and the microphone is released the moment you leave the screen or start a take.
