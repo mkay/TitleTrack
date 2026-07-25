@@ -9,9 +9,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
@@ -23,10 +27,12 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -43,6 +49,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
@@ -57,6 +64,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import de.singular.recorder.audio.RecordPhase
 import de.singular.recorder.storage.Take
 import de.singular.recorder.ui.AboutScreen
+import de.singular.recorder.ui.ControlShape
 import de.singular.recorder.ui.CompactTab
 import de.singular.recorder.ui.CompactTabBar
 import de.singular.recorder.ui.LibraryScreen
@@ -362,82 +370,123 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         },
-                        snackbarHost = { SnackbarHost(snackbar) },
+                        // No snackbarHost here: the Scaffold slot is pinned to the bottom, which
+                        // on this app is exactly where the buttons a message is reporting on live.
+                        // "Looping." landing on top of the button you just held means waiting for
+                        // it to clear to see whether it worked.
                     ) { padding ->
                         val content = Modifier.padding(padding)
-                        when (screen) {
-                            Screen.RECORD -> RecordScreen(
-                                state = recorderState,
-                                settings = settings,
-                                folderLabel = library.current?.name,
-                                onChooseFolder = { folderPicker.launch(null) },
-                                onRecord = onRecord,
-                                onFinish = vm::finishRecording,
-                                onRestart = vm::restartRecording,
-                                onDiscard = vm::discardTake,
-                                onSave = vm::saveTake,
-                                onSetBpm = vm::setBpm,
-                                onSetCountInBars = vm::setCountInBars,
-                                onSetVisualMetronome = vm::setVisualMetronome,
-                                levelTest = levelTest,
-                                onStartLevelTest = vm::startLevelTest,
-                                onRestartLevelTest = vm::restartLevelTest,
-                                onAcceptLevelTest = vm::acceptLevelTest,
-                                onStopLevelTest = vm::stopLevelTest,
-                                defaultName = vm::defaultTakeName,
-                                modifier = content,
-                            )
-
-                            Screen.LIBRARY -> LibraryScreen(
-                                state = library,
-                                playback = playback,
-                                onOpenFolder = vm::openFolder,
-                                onBreadcrumb = vm::goTo,
-                                onCreateFolder = vm::createFolder,
-                                onPlay = { vm.togglePlayback(it) },
-                                onOpen = {
-                                    vm.openTake(it)
-                                    screen = Screen.PLAYER
-                                },
-                                onRename = vm::renameDocument,
-                                onDelete = vm::deleteDocument,
-                                onShare = ::share,
-                                modifier = content,
-                            )
-
-                            Screen.SETTINGS -> SettingsScreen(
-                                settings = settings,
-                                folderLabel = library.path.firstOrNull()?.name,
-                                onChooseFolder = { folderPicker.launch(null) },
-                                onSetBeatsPerBar = vm::setBeatsPerBar,
-                                onSetListenBeforeRecording = vm::setListenBeforeRecording,
-                                onSetPromptForFilename = vm::setPromptForFilename,
-                                onSetKeepScreenOn = vm::setKeepScreenOn,
-                                onSetThemeMode = vm::setThemeMode,
-                                modifier = content,
-                            )
-
-                            Screen.ABOUT -> AboutScreen(content)
-
-                            // A take that vanished under us (deleted from another app) leaves
-                            // nothing to show, so fall back to the list it came from.
-                            Screen.PLAYER -> openTake?.let { open ->
-                                PlayerScreen(
-                                    open = open,
-                                    playback = playback,
-                                    busy = busy,
-                                    onPlayPause = vm::togglePlayback,
-                                    onSeek = vm::seekTo,
-                                    onRename = vm::renameOpenTake,
-                                    onNormalize = vm::normalizeOpenTake,
-                                    onTrim = vm::trimOpenTake,
-                                    onRestart = vm::restartPlayback,
-                                    looping = looping,
-                                    onToggleLoop = vm::toggleLoop,
-                                    beatsPerBar = settings.beatsPerBar,
+                        Box(Modifier.fillMaxSize()) {
+                            when (screen) {
+                                Screen.RECORD -> RecordScreen(
+                                    state = recorderState,
+                                    settings = settings,
+                                    folderLabel = library.current?.name,
+                                    onChooseFolder = { folderPicker.launch(null) },
+                                    onRecord = onRecord,
+                                    onFinish = vm::finishRecording,
+                                    onRestart = vm::restartRecording,
+                                    onDiscard = vm::discardTake,
+                                    onSave = vm::saveTake,
+                                    onSetBpm = vm::setBpm,
+                                    onSetCountInBars = vm::setCountInBars,
+                                    onSetVisualMetronome = vm::setVisualMetronome,
+                                    levelTest = levelTest,
+                                    onStartLevelTest = vm::startLevelTest,
+                                    onRestartLevelTest = vm::restartLevelTest,
+                                    onAcceptLevelTest = vm::acceptLevelTest,
+                                    onStopLevelTest = vm::stopLevelTest,
+                                    defaultName = vm::defaultTakeName,
                                     modifier = content,
                                 )
-                            } ?: LaunchedEffect(Unit) { screen = Screen.LIBRARY }
+
+                                Screen.LIBRARY -> LibraryScreen(
+                                    state = library,
+                                    playback = playback,
+                                    onOpenFolder = vm::openFolder,
+                                    onBreadcrumb = vm::goTo,
+                                    onCreateFolder = vm::createFolder,
+                                    onPlay = { vm.togglePlayback(it) },
+                                    onOpen = {
+                                        vm.openTake(it)
+                                        screen = Screen.PLAYER
+                                    },
+                                    onRename = vm::renameDocument,
+                                    onDelete = vm::deleteDocument,
+                                    onShare = ::share,
+                                    modifier = content,
+                                )
+
+                                Screen.SETTINGS -> SettingsScreen(
+                                    settings = settings,
+                                    folderLabel = library.path.firstOrNull()?.name,
+                                    onChooseFolder = { folderPicker.launch(null) },
+                                    onSetBeatsPerBar = vm::setBeatsPerBar,
+                                    onSetListenBeforeRecording = vm::setListenBeforeRecording,
+                                    onSetPromptForFilename = vm::setPromptForFilename,
+                                    onSetKeepScreenOn = vm::setKeepScreenOn,
+                                    onSetThemeMode = vm::setThemeMode,
+                                    modifier = content,
+                                )
+
+                                Screen.ABOUT -> AboutScreen(content)
+
+                                // A take that vanished under us (deleted from another app) leaves
+                                // nothing to show, so fall back to the list it came from.
+                                Screen.PLAYER -> openTake?.let { open ->
+                                    PlayerScreen(
+                                        open = open,
+                                        playback = playback,
+                                        busy = busy,
+                                        onPlayPause = vm::togglePlayback,
+                                        onSeek = vm::seekTo,
+                                        onRename = vm::renameOpenTake,
+                                        onNormalize = vm::normalizeOpenTake,
+                                        onTrim = vm::trimOpenTake,
+                                        onRestart = vm::restartPlayback,
+                                        looping = looping,
+                                        onToggleLoop = vm::toggleLoop,
+                                        beatsPerBar = settings.beatsPerBar,
+                                        modifier = content,
+                                    )
+                                } ?: LaunchedEffect(Unit) { screen = Screen.LIBRARY }
+                            }
+
+                            // Over the middle of the screen instead: a message is about what just
+                            // happened, and the middle is the one place nothing is being pressed.
+                            // Slightly transparent, so what it is reporting on still shows through
+                            // and it reads as a note laid over the screen, not a new surface.
+                            SnackbarHost(
+                                snackbar,
+                                Modifier.align(Alignment.Center).padding(horizontal = 24.dp),
+                            ) { data ->
+                                Snackbar(
+                                    // Only as wide as what it has to say. A full-width slab across
+                                    // the middle of the screen is a dialog; this is a remark.
+                                    modifier = Modifier
+                                        .wrapContentWidth()
+                                        .border(
+                                            1.dp,
+                                            MaterialTheme.colorScheme.outlineVariant
+                                                .copy(alpha = 0.6f),
+                                            ControlShape,
+                                        ),
+                                    shape = ControlShape,
+                                    // The app's own surface rather than Material's inverse pair:
+                                    // inverting puts a near-white slab over a dark screen, which is
+                                    // louder than any of these messages deserve. This follows the
+                                    // theme, and the outline is what separates it from the panel
+                                    // underneath now that the two are close in tone.
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                                        .copy(alpha = 0.88f),
+                                    contentColor = MaterialTheme.colorScheme.onSurface,
+                                ) {
+                                    Text(
+                                        data.visuals.message,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
+                            }
                         }
                     }
                 }

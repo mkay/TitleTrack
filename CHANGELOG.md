@@ -47,6 +47,9 @@ First cut: recording and take management.
   level — instead of repeating the take name shown on the screen below it. Share moved up beside it.
 - The player's waveform fills the height that is left, on the record screen's panel and zero line.
 - Every take says its format (WAV, M4A, …) in the library list, the mini player and the player.
+- Messages appear over the middle of the screen rather than pinned to the bottom, where they used
+  to cover the very button they were reporting on. Translucent, outlined, and in the app's own
+  surface colours so they follow the theme instead of inverting it.
 - Double-tap Play to start the take from the beginning, without delaying the single tap.
 - The player's waveform zooms: pinch to zoom, drag to pan, a scroll strip along the bottom, and
   peaks read at 4096 buckets so zooming in resolves more of the take instead of stretching bars.
