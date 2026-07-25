@@ -187,12 +187,7 @@ fun LevelMeter(level: Float, modifier: Modifier = Modifier, active: Boolean = tr
     }
 }
 
-/**
- * A thumb-height, full-width action — the shape of every button that has to be hit without looking.
- *
- * [trailing] is for a mode the button is *in* rather than a thing it does: drawn after the label,
- * where it reads as a state of the action rather than a second action.
- */
+/** A thumb-height, full-width action — the shape of every button hit without looking. */
 @Composable
 fun BigButton(
     text: String,
@@ -203,7 +198,6 @@ fun BigButton(
     outlined: Boolean = false,
     enabled: Boolean = true,
     onLongClick: (() -> Unit)? = null,
-    trailing: androidx.compose.ui.graphics.vector.ImageVector? = null,
 ) {
     val content: @Composable () -> Unit = {
         if (icon != null) {
@@ -211,10 +205,6 @@ fun BigButton(
             Spacer(Modifier.width(10.dp))
         }
         Text(text, style = MaterialTheme.typography.titleMedium)
-        if (trailing != null) {
-            Spacer(Modifier.width(10.dp))
-            Icon(trailing, contentDescription = null, Modifier.size(20.dp))
-        }
     }
     val shape = ControlShape
     val sized = modifier.height(64.dp).let { if (modifier == Modifier) it.fillMaxWidth() else it }

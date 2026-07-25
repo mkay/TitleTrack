@@ -251,7 +251,14 @@ fun PlayerScreen(
         var lastTapAt by remember { mutableLongStateOf(0L) }
         BigButton(
             text = if (playing) "Stop" else "Play",
-            icon = if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+            // In loop mode the lemniscate takes the transport's place rather than sitting next to
+            // it: the label already says what a press will do, so the icon is free to say what
+            // kind of playback this is.
+            icon = when {
+                looping -> ImageVector.vectorResource(R.drawable.ic_all_inclusive)
+                playing -> Icons.Default.Pause
+                else -> Icons.Default.PlayArrow
+            },
             onClick = {
                 val now = SystemClock.uptimeMillis()
                 val second = now - lastTapAt < DOUBLE_TAP_MS
@@ -262,13 +269,6 @@ fun PlayerScreen(
             // Holding the transport is where a mode belongs: repeat is something playback *is*,
             // not a fourth button competing with the three edits above it.
             onLongClick = onToggleLoop,
-            // Only when it is on. A mode you have switched on wants saying; one you have not is
-            // just an icon to decode every time you look at the screen.
-            trailing = if (looping) {
-                ImageVector.vectorResource(R.drawable.ic_all_inclusive)
-            } else {
-                null
-            },
         )
     }
 }
