@@ -8,8 +8,16 @@ First cut: recording and take management.
 - Count-in of 0, 1 or 2 bars at a settable tempo, with an accented downbeat.
 - Done → Save, and a Restart that wipes the take and counts back in. Save writes straight
   away under a date-and-time name unless "Prompt for a filename" is turned on.
-- Silent visual metronome (swinging arm, beat flash, accented downbeat).
-- Input level meter, scaled in decibels.
+- A live waveform on the record screen: the last eight seconds as a scrolling peak envelope,
+  scaled in decibels, with anything near full scale drawn red. It sits on a panel with a zero line
+  that is there from the first launch, so the screen says where the take will appear before there
+  is one.
+- Silent visual metronome: one dot per beat below the buttons, the lit one walking the bar.
+- "Listen before recording" (off by default) draws the input before a take starts, for catching
+  clipping and setting mic distance. Nothing is written; the microphone is released on leaving the
+  screen and before a take opens it.
+- Tempo, count-in and the metronome on one row of the record screen. Tempo opens to a slider,
+  arrows, and a field to type a number into.
 - Browse the recordings folder in place: sub-folders, playback with a seek bar, rename, delete,
   share. The triangle plays a take in place; its name opens it in the player.
 - A mini player above the tabs: it shows whatever take is loaded wherever you are, with a
@@ -22,6 +30,9 @@ First cut: recording and take management.
   the phone.
 - Record and Library as bottom-bar tabs; Settings and About in the drawer.
 - The recordings folder is asked for on first launch, and again if it stops being reachable.
-- Settings: time signature, prompt-for-filename, keep-screen-on, System/Light/Dark theme.
+- Settings: time signature, listen-before-recording, prompt-for-filename, keep-screen-on,
+  System/Light/Dark theme.
+- The record colour is derived from the accent rather than fixed, so the two stay a matched pair.
 - While keep-screen-on is active an indicator sits in the app bar; tapping it explains the battery
   cost and offers a way to turn it off (as in RubberRing).
+- Compact bottom tabs, and a library list of even rows with dividers and accented folder icons.
