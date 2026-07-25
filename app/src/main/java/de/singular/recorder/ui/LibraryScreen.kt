@@ -10,11 +10,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
@@ -101,7 +102,8 @@ fun LibraryScreen(
                 Hint("Nothing here yet. Recorded takes will appear in this folder.", Modifier.weight(1f))
 
             listing != null -> LazyColumn(Modifier.weight(1f)) {
-                items(listing.folders, key = { it.uri.toString() }) { folder ->
+                itemsIndexed(listing.folders, key = { _, it -> it.uri.toString() }) { i, folder ->
+                    if (i > 0) RowDivider()
                     FolderRow(
                         folder = folder,
                         onOpen = { onOpenFolder(folder) },
@@ -115,7 +117,8 @@ fun LibraryScreen(
                         },
                     )
                 }
-                items(listing.takes, key = { it.uri.toString() }) { take ->
+                itemsIndexed(listing.takes, key = { _, it -> it.uri.toString() }) { i, take ->
+                    if (i > 0 || listing.folders.isNotEmpty()) RowDivider()
                     TakeRow(
                         take = take,
                         playing = playback.uri == take.uri && playback.playing,
@@ -215,11 +218,17 @@ private fun FolderRow(
     onDelete: () -> Unit,
 ) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(horizontal = 16.dp, vertical = 14.dp),
+        Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(RowPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Icons.Default.Folder, contentDescription = null, Modifier.size(24.dp))
-        Spacer(Modifier.width(16.dp))
+        Icon(
+            Icons.Default.Folder,
+            contentDescription = null,
+            // The same 48dp footprint the play button has, so folder names and take names start
+            // at the same place however the list is mixed.
+            Modifier.size(LeadingSlot).padding(12.dp),
+            tint = MaterialTheme.colorScheme.primary,
+        )
         Text(folder.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
         RowMenu(onRename = onRename, onDelete = onDelete, onShare = null)
     }
@@ -240,7 +249,7 @@ private fun TakeRow(
     onShare: () -> Unit,
 ) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(horizontal = 8.dp, vertical = 6.dp),
+        Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(RowPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onPlay) {
@@ -279,6 +288,18 @@ private fun TakeRow(
         }
         RowMenu(onRename = onRename, onDelete = onDelete, onShare = onShare)
     }
+}
+
+/**
+ * Rows are as tall as the 48dp touch targets inside them and no taller: the icon buttons set the
+ * height, so the padding only has to keep them off each other rather than reserve room of its own.
+ */
+private val RowPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+private val LeadingSlot = 48.dp
+
+@Composable
+private fun RowDivider() {
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 }
 
 @Composable
