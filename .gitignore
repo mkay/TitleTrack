@@ -1,0 +1,17 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/app/build
+/captures
+.externalNativeBuild
+.cxx
+PLAN.md
+*.apk
+*.idsig
+.kotlin
+
+# Local Claude Code settings (machine paths, not shared)
+.claude/settings.local.json
