@@ -1,6 +1,6 @@
 <h1>
-  <img src="docs/icon.png" alt="Spark Plug icon" height="52" align="middle" />
-  Spark Plug
+  <img src="docs/icon.png" alt="Title Track icon" height="52" align="middle" />
+  Title Track
 </h1>
 
 An Android recorder for instruments rather than for voice memos. Count yourself in at a tempo you
@@ -118,7 +118,7 @@ are buttons above the transport where they can be seen rather than remembered.
 
 Normalising lifts a quiet take, and does it **in the file**. Takes are played straight off storage
 by the system player, so there is no signal path to hang a fader on; and a level that existed only
-inside Spark Plug would go missing from every copy shared out of it. So it asks two things, one at
+inside Title Track would go missing from every copy shared out of it. So it asks two things, one at
 a time. First how loud:
 
 - **Peak** scales until the loudest moment sits at full scale. It cannot distort, and it cannot
@@ -131,7 +131,7 @@ Then where it goes: **overwrite this take**, which has no undo and says so, or *
 copy** beside it, which leaves the original alone. Either way the player switches to whatever now
 holds the normalised audio, so you hear what you asked for rather than having to go and find it.
 
-A take Spark Plug recorded is 16-bit PCM WAV, and is scaled sample for sample: two passes over the
+A take Title Track recorded is 16-bit PCM WAV, and is scaled sample for sample: two passes over the
 file, measuring and then scaling, with the header copied through byte for byte so the tempo and
 title survive. An overwrite goes to a cache file and replaces the original only once it is
 complete, so a failure part-way leaves the take as it was; a copy needs none of that, because the

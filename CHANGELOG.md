@@ -4,6 +4,9 @@
 
 First cut: recording and take management.
 
+- The app is **Title Track**, and its icon is a mirrored waveform in two greens on a dark ground.
+  The lime from it is the accent throughout.
+
 - Record to a folder of your choosing (Storage Access Framework tree grant), as 44.1 kHz mono WAV.
 - Count-in of 0, 1 or 2 bars at a settable tempo, with an accented downbeat.
 - Done → Save, and a Restart that wipes the take and counts back in. Save writes straight
@@ -41,9 +44,9 @@ First cut: recording and take management.
   System/Light/Dark theme.
 - The record colour is derived from the accent rather than fixed, so the two stay a matched pair —
   per theme, and deeper the closer the accent comes to red, so the two can never merge.
-- A darker accent in light mode: the icon's orange rather than its yellow. The accent is a text
-  colour as well as a button fill, and the yellow measured 1.6:1 on a white page — invisible. The
-  orange, darkened, reads at 4.8:1.
+- A darker accent in light mode: the icon's lime, darkened to a green that holds its hue. The
+  accent is a text colour as well as a button fill, and the lime measures 1.4:1 on a white page —
+  invisible. The green reads at 4.9:1, with white on it at 5.1:1.
 - While keep-screen-on is active an indicator sits in the app bar; tapping it explains the battery
   cost and offers a way to turn it off (as in RubberRing).
 - Compact bottom tabs, and a library list of even rows with dividers and accented folder icons.

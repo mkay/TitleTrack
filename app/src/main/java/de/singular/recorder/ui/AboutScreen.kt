@@ -22,7 +22,7 @@ fun AboutScreen(modifier: Modifier = Modifier) {
             .verticalScroll(rememberScrollState())
             .padding(20.dp),
     ) {
-        Text("Spark Plug", style = MaterialTheme.typography.headlineSmall)
+        Text("Title Track", style = MaterialTheme.typography.headlineSmall)
         Text(
             "Version ${BuildConfig.VERSION_NAME}",
             style = MaterialTheme.typography.bodyMedium,

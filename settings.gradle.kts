@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "SparkPlug"
+rootProject.name = "TitleTrack"
 include(":app")

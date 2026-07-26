@@ -151,7 +151,7 @@ object Wav {
             }
         }
         if (comment.isNotEmpty()) body.infoField("ICMT", comment)
-        body.infoField("ISFT", "SparkPlug")
+        body.infoField("ISFT", "TitleTrack")
         val bodyBytes = body.toByteArray()
 
         val out = ByteArrayBuilder(bodyBytes.size + 8)

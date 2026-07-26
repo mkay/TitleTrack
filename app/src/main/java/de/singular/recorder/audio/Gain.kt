@@ -19,7 +19,7 @@ enum class NormalizeMode { PEAK, LOUDNESS }
 /**
  * Level maths for normalising a take: measure it, decide on a gain, apply it to 16-bit PCM.
  *
- * Nothing here knows about files. Spark Plug plays takes straight off storage through the system
+ * Nothing here knows about files. Title Track plays takes straight off storage through the system
  * player, so unlike a mixer's fader this gain has to be written into the audio itself — see
  * [de.singular.recorder.storage.RecordingStore.normalize] for where that happens.
  */

@@ -164,7 +164,7 @@ class PeakBuckets(private val buckets: Int, totalFrames: Long) {
     }
 
     /**
-     * Mono is what Spark Plug records; anything else collapses to its loudest channel, which keeps
+     * Mono is what Title Track records; anything else collapses to its loudest channel, which keeps
      * a stereo import from drawing at half height.
      */
     private fun advance(frame: Float) {
