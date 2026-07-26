@@ -126,6 +126,12 @@ class MainActivity : ComponentActivity() {
                 val levelTest by vm.levelTest.collectAsStateWithLifecycle()
 
                 var screen by rememberSaveable { mutableStateOf(Screen.RECORD) }
+                // Where leaving the player goes back to. The player is reached from three places —
+                // a row in the library, the mini player from wherever it is showing, and a save on
+                // the record screen — and "back to the library" is only right for the first. After
+                // a save it is wrong in the way that matters most, because the reason to be on the
+                // record screen is that another take is coming.
+                var playerReturn by rememberSaveable { mutableStateOf(Screen.LIBRARY) }
                 val drawerState = rememberDrawerState(DrawerValue.Closed)
                 val scope = rememberCoroutineScope()
                 val snackbar = remember { SnackbarHostState() }
@@ -148,10 +154,28 @@ class MainActivity : ComponentActivity() {
                     else micPermission.launch(Manifest.permission.RECORD_AUDIO)
                 }
 
+                fun enterPlayer(take: Take) {
+                    playerReturn = screen
+                    vm.openTake(take)
+                    screen = Screen.PLAYER
+                }
+
                 LaunchedEffect(message) {
                     message?.let {
                         snackbar.showSnackbar(it)
                         vm.clearMessage()
+                    }
+                }
+
+                // Saving hands the take straight to the player. A take is saved in order to listen
+                // back to it — leaving the record screen empty afterwards makes you go and find in
+                // the library the thing you were just holding. The "Saved as …" snackbar still
+                // fires, over the player, so the name is confirmed where the take now is.
+                val justSaved by vm.justSaved.collectAsStateWithLifecycle()
+                LaunchedEffect(justSaved) {
+                    justSaved?.let {
+                        enterPlayer(it)
+                        vm.clearJustSaved()
                     }
                 }
 
@@ -233,7 +257,7 @@ class MainActivity : ComponentActivity() {
 
                 fun leavePlayer() {
                     vm.closeTake()
-                    screen = Screen.LIBRARY
+                    screen = playerReturn
                 }
 
                 // Which library rows are picked, by document URI. Held here rather than in the
@@ -446,12 +470,7 @@ class MainActivity : ComponentActivity() {
                                         playback = playback,
                                         onToggle = vm::toggleCurrent,
                                         onSeek = vm::seekTo,
-                                        onOpen = {
-                                            playback.take?.let {
-                                                vm.openTake(it)
-                                                screen = Screen.PLAYER
-                                            }
-                                        },
+                                        onOpen = { playback.take?.let { enterPlayer(it) } },
                                         onDismiss = vm::stopPlayback,
                                     )
                                 }
@@ -520,10 +539,7 @@ class MainActivity : ComponentActivity() {
                                     onBreadcrumb = vm::goTo,
                                     onCreateFolder = vm::createFolder,
                                     onPlay = { vm.togglePlayback(it) },
-                                    onOpen = {
-                                        vm.openTake(it)
-                                        screen = Screen.PLAYER
-                                    },
+                                    onOpen = { enterPlayer(it) },
                                     onRename = vm::renameDocument,
                                     onDelete = vm::deleteDocument,
                                     onShare = ::share,

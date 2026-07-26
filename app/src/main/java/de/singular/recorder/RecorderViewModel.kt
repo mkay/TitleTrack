@@ -168,6 +168,14 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
 
+    /**
+     * The take a save just produced, for the UI to open. A one-shot, cleared once acted on, in the
+     * same shape as [message]: the write is asynchronous, so the screen that asked for it cannot
+     * simply carry on afterwards — it has to be told what came out.
+     */
+    private val _justSaved = MutableStateFlow<Take?>(null)
+    val justSaved: StateFlow<Take?> = _justSaved.asStateFlow()
+
     private var player: MediaPlayer? = null
     private var progressJob: Job? = null
 
@@ -316,7 +324,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     @SuppressLint("MissingPermission") // startMonitoring does the check
     fun startLevelTest() {
         if (!hasMicPermission) {
-            _message.value = "Spark Plug needs the microphone to measure the level."
+            _message.value = "Title Track needs the microphone to measure the level."
             return
         }
         if (_levelTest.value != null) return
@@ -391,6 +399,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
                 .onSuccess { take ->
                     recorder.discard()
                     _message.value = "Saved as ${take.name}"
+                    _justSaved.value = take
                     refresh()
                 }
                 .onFailure { _message.value = it.message ?: "The take could not be saved." }
@@ -673,6 +682,10 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     fun setThemeMode(mode: ThemeMode) {
         _settings.value = _settings.value.copy(themeMode = mode)
         prefs.edit { putString(KEY_THEME_MODE, mode.name) }
+    }
+
+    fun clearJustSaved() {
+        _justSaved.value = null
     }
 
     fun clearMessage() {
