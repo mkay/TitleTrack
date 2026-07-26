@@ -41,6 +41,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -48,6 +49,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -507,6 +509,30 @@ private fun WaveformView(
     // Read inside the gesture without re-arming the detector on every pixel of a drag.
     val currentSelection by rememberUpdatedState(selection)
 
+    // Zoomed in, a playing take walks off the right edge within seconds and you are left watching
+    // a stretch of waveform the sound has already left. The window comes after it whenever the
+    // playhead leaves the visible span, landing it a tenth of the way in so there is a run of
+    // waveform ahead of it rather than a jump on every frame.
+    //
+    // Always on, with no setting. The only reason to want the view somewhere the playhead is not is
+    // to look ahead while it plays, and a pan does exactly that until the playhead catches up —
+    // which is the moment you would have wanted to be brought back anyway. At 1x nothing happens,
+    // because the whole take is already in view.
+    //
+    // `progress` is mirrored through [rememberUpdatedState] because this effect is keyed on the file
+    // and must not restart per frame: the mirror is snapshot state, so `snapshotFlow` registers it
+    // as a dependency and re-emits on every update, where a closure over the parameter itself would
+    // not. Same arrangement as RubberRing's loop waveform, which this follows.
+    val currentProgress by rememberUpdatedState(progress)
+    LaunchedEffect(peaks) {
+        snapshotFlow { currentProgress }.collect { at ->
+            val window = 1f / zoom
+            if (zoom > 1f && (at < offset || at > offset + window)) {
+                offset = (at - window * FollowLead).coerceIn(0f, (1f - window).coerceAtLeast(0f))
+            }
+        }
+    }
+
     Canvas(
         modifier
             .clip(ControlShape)
@@ -808,6 +834,14 @@ private const val LONG_PRESS_MS = 350L
 
 /** As far in as the viewport goes: a couple of seconds across the screen on a long take. */
 private const val MAX_ZOOM = 40f
+
+/**
+ * Where the playhead is put when the view is brought back to it: a tenth of the window in from the
+ * left, so what follows is a stretch of waveform still to come rather than the edge of the screen.
+ * Small, because the point is to keep playing in view, not to centre it — centring throws away half
+ * the window on audio already heard.
+ */
+private const val FollowLead = 0.1f
 
 /** The scroll strip along the bottom, and the reach for it. */
 private val ScrollbarHeight = 10.dp

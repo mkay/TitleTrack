@@ -617,7 +617,7 @@ private fun LevelTestDialog(
 }
 
 /**
- * The app's name, drawn from `title.svg` as a vector rather than set as text: the wordmark has its
+ * The app's name, drawn from `icon.svg` as a vector rather than set as text: the wordmark has its
  * own letter spacing and an emblem between the two words, none of which survives being typed out.
  *
  * Two drawables rather than one tinted drawable, because it is two-tone — lettering and emblem — and
@@ -644,5 +644,5 @@ private fun TitleWordmark(modifier: Modifier = Modifier) {
     )
 }
 
-/** The wordmark's own proportions, from the source SVG's 735x133 viewBox. */
-private const val WordmarkAspect = 735f / 133f
+/** The wordmark's own proportions, from the source SVG's 833x224 viewBox. */
+private const val WordmarkAspect = 833f / 224f
