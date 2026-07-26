@@ -72,6 +72,7 @@ import de.singular.recorder.ui.ControlShape
 import de.singular.recorder.ui.CompactTab
 import de.singular.recorder.ui.CompactTabBar
 import de.singular.recorder.ui.LibraryScreen
+import de.singular.recorder.ui.LibraryTab
 import de.singular.recorder.ui.MiniPlayer
 import de.singular.recorder.ui.PlayerScreen
 import de.singular.recorder.ui.PlayerShareAction
@@ -124,6 +125,8 @@ class MainActivity : ComponentActivity() {
                 val busy by vm.busy.collectAsStateWithLifecycle()
                 val looping by vm.looping.collectAsStateWithLifecycle()
                 val levelTest by vm.levelTest.collectAsStateWithLifecycle()
+                val starred by vm.starred.collectAsStateWithLifecycle()
+                val starredTakes by vm.starredTakes.collectAsStateWithLifecycle()
 
                 var screen by rememberSaveable { mutableStateOf(Screen.RECORD) }
                 // Where leaving the player goes back to. The player is reached from three places —
@@ -266,6 +269,8 @@ class MainActivity : ComponentActivity() {
                 var selection by remember { mutableStateOf(emptySet<String>()) }
                 val selecting = screen == Screen.LIBRARY && selection.isNotEmpty()
                 var deletingSelection by remember { mutableStateOf(false) }
+                var libraryTab by rememberSaveable { mutableStateOf(LibraryTab.ALL) }
+                val onStarredTab = screen == Screen.LIBRARY && libraryTab == LibraryTab.STARRED
 
                 // Deleting a batch is the one thing this mode exists for, and the one thing in the
                 // app that cannot be undone — so it says how many and what kind before it goes.
@@ -325,17 +330,25 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // Back drops the selection before it goes anywhere: while picking, that is what
-                // the gesture is for, and walking up a folder mid-batch is never what was meant.
+                // The whole back chain, in one place and with mutually exclusive guards — no two
+                // of these are ever enabled at once, so which one runs does not depend on the order
+                // the compositions happen to register them in.
+                //
+                // Drop the selection first: while picking, that is what the gesture is for, and
+                // walking up a folder mid-batch is never what was meant. Then out of the player,
+                // then off the starred tab, then up the folder tree, then home.
                 BackHandler(enabled = selecting) { selection = emptySet() }
-                // Then out of the player, then up the folder tree, then home.
                 BackHandler(enabled = !selecting && screen == Screen.PLAYER) { leavePlayer() }
+                // Starred is a tab, not a place: leaving it returns to the files beside it, the
+                // same way leaving a sub-folder goes up rather than out.
+                BackHandler(enabled = !selecting && onStarredTab) { libraryTab = LibraryTab.ALL }
                 BackHandler(
-                    enabled = !selecting && screen == Screen.LIBRARY && library.canGoUp,
+                    enabled = !selecting && !onStarredTab && screen == Screen.LIBRARY &&
+                        library.canGoUp,
                 ) { vm.goUp() }
                 BackHandler(
-                    enabled = !selecting && screen != Screen.RECORD && screen != Screen.PLAYER &&
-                        !library.canGoUp,
+                    enabled = !selecting && !onStarredTab && screen != Screen.RECORD &&
+                        screen != Screen.PLAYER && !library.canGoUp,
                 ) { screen = Screen.RECORD }
 
                 ModalNavigationDrawer(
@@ -543,6 +556,13 @@ class MainActivity : ComponentActivity() {
                                     onRename = vm::renameDocument,
                                     onDelete = vm::deleteDocument,
                                     onShare = ::share,
+                                    starredKeys = starred,
+                                    starKeyOf = vm::starKey,
+                                    onToggleStar = { vm.toggleStar(it.uri) },
+                                    starredTakes = starredTakes,
+                                    onLoadStarred = vm::loadStarred,
+                                    tab = libraryTab,
+                                    onTabChange = { libraryTab = it },
                                     selection = selection,
                                     onToggleSelect = { uri ->
                                         selection = if (uri in selection) {

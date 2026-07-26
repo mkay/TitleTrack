@@ -31,6 +31,8 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.DropdownMenu
@@ -39,9 +41,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -49,6 +54,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.composed
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -56,6 +62,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.singular.recorder.LibraryState
 import de.singular.recorder.PlaybackState
+import de.singular.recorder.StarredTake
 import de.singular.recorder.storage.Folder
 import de.singular.recorder.storage.Take
 
@@ -81,9 +88,23 @@ fun LibraryScreen(
     onShare: (Take) -> Unit,
     selection: Set<String>,
     onToggleSelect: (String) -> Unit,
+    starredKeys: Set<String>,
+    starKeyOf: (Uri) -> String?,
+    onToggleStar: (Take) -> Unit,
+    starredTakes: List<StarredTake>?,
+    onLoadStarred: () -> Unit,
+    // Hoisted, because back has to be able to leave the starred tab, and the whole back chain
+    // lives with the screen state a level up. Handling it here would leave which handler wins to
+    // the order the two compositions happen to register in.
+    tab: LibraryTab,
+    onTabChange: (LibraryTab) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val selecting = selection.isNotEmpty()
+
+    // Resolved on arrival rather than held: takes can be renamed, moved or deleted between one
+    // look and the next, and a stale list of favourites is worse than a moment's wait.
+    LaunchedEffect(tab, starredKeys) { if (tab == LibraryTab.STARRED) onLoadStarred() }
     var newFolder by rememberSaveable { mutableStateOf(false) }
     var renaming by rememberSaveable { mutableStateOf<String?>(null) } // uri being renamed
     var renamingName by rememberSaveable { mutableStateOf("") }
@@ -91,6 +112,42 @@ fun LibraryScreen(
     var deletingName by rememberSaveable { mutableStateOf("") }
 
     Column(modifier.fillMaxSize()) {
+        // Hidden while picking: the contextual bar has taken the top of the screen, and switching
+        // tabs mid-batch would abandon a selection that only means anything in the folder it was
+        // made in.
+        if (!selecting) {
+            TabRow(selectedTabIndex = tab.ordinal, containerColor = Color.Transparent) {
+                LibraryTab.entries.forEach { entry ->
+                    Tab(
+                        selected = tab == entry,
+                        onClick = { onTabChange(entry) },
+                        text = { Text(entry.title) },
+                    )
+                }
+            }
+        }
+
+        if (tab == LibraryTab.STARRED) {
+            StarredList(
+                takes = starredTakes,
+                playback = playback,
+                onPlay = onPlay,
+                onOpen = onOpen,
+                onToggleStar = onToggleStar,
+                onRename = { take ->
+                    renaming = take.uri.toString()
+                    renamingName = take.name.substringBeforeLast('.')
+                },
+                onDelete = { take ->
+                    deleting = take.uri.toString()
+                    deletingName = take.name
+                },
+                onShare = onShare,
+                modifier = Modifier.weight(1f),
+            )
+            return@Column
+        }
+
         Row(
             Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -136,6 +193,8 @@ fun LibraryScreen(
                         playing = playback.uri == take.uri && playback.playing,
                         selected = take.uri.toString() in selection,
                         selecting = selecting,
+                        starred = starKeyOf(take.uri) in starredKeys,
+                        onToggleStar = { onToggleStar(take) },
                         onPlay = { onPlay(take) },
                         onOpen = { onOpen(take) },
                         onToggleSelect = { onToggleSelect(take.uri.toString()) },
@@ -265,17 +324,22 @@ private fun FolderRow(
  * the row lands on the name, which is the one of the two that does not make a noise.
  */
 @Composable
-private fun TakeRow(
+internal fun TakeRow(
     take: Take,
     playing: Boolean,
     selected: Boolean,
     selecting: Boolean,
+    starred: Boolean,
+    onToggleStar: () -> Unit,
     onPlay: () -> Unit,
     onOpen: () -> Unit,
     onToggleSelect: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
     onShare: () -> Unit,
+    // Where the take lives, for lists that gather takes from more than one folder. Null in the
+    // library itself, where every row is in the folder named at the top of the screen already.
+    folder: String? = null,
 ) {
     Row(
         Modifier
@@ -324,13 +388,36 @@ private fun TakeRow(
                         append(" · ")
                         append(date)
                     }
+                    // Last, not first: the name is what is being scanned for, and a folder
+                    // prefixed to every line would push the useful part of each one rightwards.
+                    if (folder != null) {
+                        append(" · ")
+                        append(folder)
+                    }
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 maxLines = 1,
             )
         }
-        if (!selecting) RowMenu(onRename = onRename, onDelete = onDelete, onShare = onShare)
+        // Hidden while picking, as the play button is: one meaning per tap, and a row being added
+        // to a batch is not the moment to be changing what it is.
+        if (!selecting) {
+            IconButton(onClick = onToggleStar, modifier = Modifier.size(StarSlot)) {
+                Icon(
+                    if (starred) Icons.Default.Star else Icons.Outlined.StarOutline,
+                    contentDescription = if (starred) "Starred" else "Not starred",
+                    tint = if (starred) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        // Faint: an unstarred take is the normal case, and a folder of them should
+                        // not read as a column of grey stars down the side of the list.
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = UnstarredTint)
+                    },
+                )
+            }
+            RowMenu(onRename = onRename, onDelete = onDelete, onShare = onShare)
+        }
     }
 }
 
@@ -390,8 +477,16 @@ private val LeadingSlot = 48.dp
 /** Enough accent to mark the row, not enough to colour it — see [selectionTint]. */
 private const val SelectedTint = 0.14f
 
+/**
+ * The star is narrower than the 48dp the play button and the menu take. Three touch targets on one
+ * row is already most of its width, and the name is what gets squeezed — 40dp is still comfortably
+ * over the 32dp a thumb needs when the targets either side of it are full size.
+ */
+private val StarSlot = 40.dp
+private const val UnstarredTint = 0.30f
+
 @Composable
-private fun RowDivider() {
+internal fun RowDivider() {
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 }
 
@@ -434,7 +529,7 @@ private fun RowMenu(onRename: () -> Unit, onDelete: () -> Unit, onShare: (() -> 
 }
 
 @Composable
-private fun Hint(text: String, modifier: Modifier = Modifier) {
+internal fun Hint(text: String, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
         Text(
             text,
@@ -442,4 +537,10 @@ private fun Hint(text: String, modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
         )
     }
+}
+
+/** The two ways of looking at the same takes: where they sit, and which ones were kept. */
+enum class LibraryTab(val title: String) {
+    ALL("All files"),
+    STARRED("Starred"),
 }

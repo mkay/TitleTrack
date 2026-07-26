@@ -19,12 +19,16 @@ import de.singular.recorder.audio.RecordPhase
 import de.singular.recorder.storage.Folder
 import de.singular.recorder.storage.Listing
 import de.singular.recorder.storage.RecordingStore
+import de.singular.recorder.storage.Stars
 import de.singular.recorder.storage.Take
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -35,6 +39,18 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 /** Where the user is in their recordings folder, and what is in it. */
+/**
+ * A starred take, with the key it is starred under.
+ *
+ * The key doubles as the take's whereabouts: it is a path under the root, so its parent is the
+ * folder to show beside the name — the whole point of this list being that the takes in it come
+ * from all over the tree and the name alone does not say where from.
+ */
+data class StarredTake(val take: Take, val key: String) {
+    /** The folder this sits in, or null at the root, where there is nothing useful to say. */
+    val folder: String? get() = key.substringBeforeLast('/', "").takeIf { it.isNotEmpty() }
+}
+
 data class LibraryState(
     /** Root first, current folder last; empty until a root has been granted. */
     val path: List<Folder> = emptyList(),
@@ -148,6 +164,53 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     val recorderState = recorder.state
 
     private val prefs = application.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    private val stars = Stars(application)
+
+    /**
+     * The starred takes, as keys — see [Stars]. Held as a flow so the list can reorder itself and
+     * the row can fill its star in the same frame the tap lands, rather than waiting for a refresh
+     * of the folder to come back from the provider.
+     */
+    private val _starred = MutableStateFlow(stars.all())
+    val starred: StateFlow<Set<String>> = _starred.asStateFlow()
+
+    /**
+     * The starred takes, resolved, for the Starred view. Null until they have been looked up once —
+     * which is what tells the screen to say "loading" rather than "nothing starred yet".
+     */
+    private val _starredTakes = MutableStateFlow<List<StarredTake>?>(null)
+    val starredTakes: StateFlow<List<StarredTake>?> = _starredTakes.asStateFlow()
+
+    private var starredJob: Job? = null
+
+    /**
+     * Resolve every starred key into a take, dropping the ones that no longer exist.
+     *
+     * That dropping is the index's only garbage collection. A star can be orphaned by a rename or
+     * a delete done outside the app, which nothing in here can be told about; going to look is the
+     * only way to find out, and this is the one place that has reason to look at every key at once.
+     */
+    fun loadStarred() {
+        starredJob?.cancel()
+        starredJob = viewModelScope.launch {
+            val keys = _starred.value.sorted()
+            val found = keys.mapNotNull { key -> store.takeAt(key)?.let { StarredTake(it, key) } }
+            val gone = keys.toSet() - found.map { it.key }.toSet()
+            if (gone.isNotEmpty()) _starred.value = stars.removeAll(gone)
+            _starredTakes.value = found.sortedByDescending { it.take.modifiedAt }
+        }
+    }
+
+    /** The key [uri] is starred under, or null if it is not under the granted root. */
+    fun starKey(uri: Uri): String? = Stars.keyFor(store.root, uri)
+
+    fun toggleStar(uri: Uri) {
+        val key = starKey(uri) ?: return
+        _starred.value = stars.toggle(key)
+        // Unstarring from inside the Starred view should take the row out of it, rather than
+        // leaving a starless entry sitting in a list of favourites until the screen is reopened.
+        _starredTakes.value = _starredTakes.value?.filter { it.key in _starred.value }
+    }
 
     private val _settings = MutableStateFlow(
         Settings(
@@ -167,7 +230,38 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     val settings: StateFlow<Settings> = _settings.asStateFlow()
 
     private val _library = MutableStateFlow(LibraryState())
-    val library: StateFlow<LibraryState> = _library.asStateFlow()
+
+    /**
+     * The folder on screen, with starred takes brought to the front.
+     *
+     * Ordering happens here rather than in [RecordingStore] because a star is not a property of
+     * storage — the store lists what is in a folder, and what a favourite is is none of its
+     * business. It also cannot happen there: a star can be given and taken back without the folder
+     * changing at all, so the order has to be able to move without a listing being fetched again.
+     * Combining the two flows is what gives that; [_library] keeps the provider's own order and is
+     * what the rest of this class works from.
+     */
+    val library: StateFlow<LibraryState> = combine(_library, _starred) { state, stars ->
+        state.starredFirst(stars)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, LibraryState())
+
+    /**
+     * Starred takes first, then newest first within each group — which is the order the provider
+     * already gives, so unstarring a take drops it back exactly where it would have been. Sorting
+     * is stable, so nothing else shifts around it.
+     */
+    private fun LibraryState.starredFirst(stars: Set<String>): LibraryState {
+        val listing = listing ?: return this
+        if (stars.isEmpty() || listing.takes.size < 2) return this
+        return copy(
+            listing = listing.copy(
+                takes = listing.takes.sortedWith(
+                    compareByDescending<Take> { starKey(it.uri) in stars }
+                        .thenByDescending { it.modifiedAt },
+                ),
+            ),
+        )
+    }
 
     private val _playback = MutableStateFlow(PlaybackState())
     val playback: StateFlow<PlaybackState> = _playback.asStateFlow()
@@ -270,7 +364,19 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     fun renameDocument(uri: Uri, newName: String) {
         if (newName.isBlank()) return
         viewModelScope.launch {
-            if (store.rename(uri, newName) == null) _message.value = "That could not be renamed."
+            val before = starKey(uri)
+            val renamed = store.rename(uri, newName)
+            if (renamed == null) {
+                _message.value = "That could not be renamed."
+            } else {
+                // A star is kept against the document id, which is the path — so renaming moves it.
+                // Folders matter more than takes here: renaming one changes the id of everything
+                // inside it, and [Stars.rename] rewrites the prefix so those stars come along.
+                val after = starKey(renamed)
+                if (before != null && after != null && before != after) {
+                    _starred.value = stars.rename(before, after)
+                }
+            }
             refresh()
         }
     }
@@ -278,7 +384,14 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     fun deleteDocument(uri: Uri) {
         viewModelScope.launch {
             if (uri == _playback.value.uri) stopPlayback()
-            if (!store.delete(uri)) _message.value = "That could not be deleted."
+            if (!store.delete(uri)) {
+                _message.value = "That could not be deleted."
+            } else {
+                // Deleting a folder takes the stars inside it with it, which is what [Stars.remove]
+                // does with a prefix — otherwise they would sit in the index forever, pointing at
+                // nothing and costing a failed lookup every time the set is read.
+                starKey(uri)?.let { _starred.value = stars.remove(it) }
+            }
             refresh()
         }
     }

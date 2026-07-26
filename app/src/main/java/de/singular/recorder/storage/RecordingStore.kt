@@ -147,6 +147,43 @@ class RecordingStore(context: Context) {
         )
     }
 
+    /**
+     * The take at [key] — a path under the granted root, as [Stars] stores them — or null if
+     * nothing is there any more.
+     *
+     * One query per file rather than a walk of the tree. A starred take can be anywhere in the
+     * folder tree, and listing every folder to find a handful of them would cost a provider round
+     * trip per folder; this costs one per star, which for the tens of stars a person keeps is the
+     * cheaper side of the trade by a wide margin.
+     *
+     * Null is the ordinary answer, not an error: a take starred months ago may since have been
+     * renamed or deleted from a desktop, and the caller uses that to drop it from the index.
+     */
+    suspend fun takeAt(key: String): Take? = withContext(Dispatchers.IO) {
+        val tree = root ?: return@withContext null
+        val rootId = runCatching { DocumentsContract.getTreeDocumentId(tree) }.getOrNull()
+            ?: return@withContext null
+        val uri = documentUri(tree, if (key.isEmpty()) rootId else "$rootId/$key")
+        val columns = arrayOf(
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            DocumentsContract.Document.COLUMN_MIME_TYPE,
+            DocumentsContract.Document.COLUMN_SIZE,
+            DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+        )
+        val cursor = runCatching { resolver.query(uri, columns, null, null, null) }.getOrNull()
+            ?: return@withContext null
+        cursor.use {
+            if (!it.moveToFirst()) return@withContext null
+            val name = it.getString(0) ?: return@withContext null
+            val mime = it.getString(1) ?: ""
+            if (!isAudio(name, mime)) return@withContext null
+            val size = if (it.isNull(2)) 0L else it.getLong(2)
+            val modified = if (it.isNull(3)) 0L else it.getLong(3)
+            val (durationMs, bpm) = header(uri, size, modified)
+            Take(uri, name, size, modified, durationMs, bpm)
+        }
+    }
+
     /** Create a sub-folder under [parent]. Returns its uri, or null if the provider refused. */
     suspend fun createFolder(parent: Uri, name: String): Uri? = withContext(Dispatchers.IO) {
         runCatching {
@@ -223,7 +260,7 @@ class RecordingStore(context: Context) {
      *
      * The level has to go into a file either way: takes are played straight off storage by the
      * system player, so there is no signal path to hang a fader on, and a level that only existed
-     * inside Spark Plug would be missing from every copy shared out of it.
+     * inside Title Track would be missing from every copy shared out of it.
      *
      * 16-bit PCM WAV — what this app records — is scaled sample for sample, header and all, and can
      * be overwritten in place. Anything else the device can decode goes through
