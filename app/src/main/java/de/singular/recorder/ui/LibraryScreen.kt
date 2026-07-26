@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CreateNewFolder
@@ -86,6 +87,8 @@ fun LibraryScreen(
     onRename: (Uri, String) -> Unit,
     onDelete: (Uri) -> Unit,
     onShare: (Take) -> Unit,
+    /** Opens the destination picker for one take, or for a whole batch of them. */
+    onMove: (List<Uri>) -> Unit,
     selection: Set<String>,
     onToggleSelect: (String) -> Unit,
     starredKeys: Set<String>,
@@ -143,6 +146,7 @@ fun LibraryScreen(
                     deletingName = take.name
                 },
                 onShare = onShare,
+                onMove = { take -> onMove(listOf(take.uri)) },
                 modifier = Modifier.weight(1f),
             )
             return@Column
@@ -207,6 +211,7 @@ fun LibraryScreen(
                             deletingName = take.name
                         },
                         onShare = { onShare(take) },
+                        onMove = { onMove(listOf(take.uri)) },
                     )
                 }
             }
@@ -337,6 +342,7 @@ internal fun TakeRow(
     onRename: () -> Unit,
     onDelete: () -> Unit,
     onShare: () -> Unit,
+    onMove: () -> Unit,
     // Where the take lives, for lists that gather takes from more than one folder. Null in the
     // library itself, where every row is in the folder named at the top of the screen already.
     folder: String? = null,
@@ -416,7 +422,12 @@ internal fun TakeRow(
                     },
                 )
             }
-            RowMenu(onRename = onRename, onDelete = onDelete, onShare = onShare)
+            RowMenu(
+                onRename = onRename,
+                onDelete = onDelete,
+                onShare = onShare,
+                onMove = onMove,
+            )
         }
     }
 }
@@ -491,7 +502,12 @@ internal fun RowDivider() {
 }
 
 @Composable
-private fun RowMenu(onRename: () -> Unit, onDelete: () -> Unit, onShare: (() -> Unit)?) {
+private fun RowMenu(
+    onRename: () -> Unit,
+    onDelete: () -> Unit,
+    onShare: (() -> Unit)?,
+    onMove: (() -> Unit)? = null,
+) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
@@ -506,6 +522,16 @@ private fun RowMenu(onRename: () -> Unit, onDelete: () -> Unit, onShare: (() -> 
                     onRename()
                 },
             )
+            if (onMove != null) {
+                DropdownMenuItem(
+                    text = { Text("Move to…") },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.DriveFileMove, null) },
+                    onClick = {
+                        open = false
+                        onMove()
+                    },
+                )
+            }
             if (onShare != null) {
                 DropdownMenuItem(
                     text = { Text("Share") },

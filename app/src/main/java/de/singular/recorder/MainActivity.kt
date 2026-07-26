@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
@@ -74,6 +75,7 @@ import de.singular.recorder.ui.CompactTabBar
 import de.singular.recorder.ui.LibraryScreen
 import de.singular.recorder.ui.LibraryTab
 import de.singular.recorder.ui.MiniPlayer
+import de.singular.recorder.ui.MoveDialog
 import de.singular.recorder.ui.PlayerScreen
 import de.singular.recorder.ui.PlayerOverflowAction
 import de.singular.recorder.ui.RecordScreen
@@ -127,6 +129,7 @@ class MainActivity : ComponentActivity() {
                 val levelTest by vm.levelTest.collectAsStateWithLifecycle()
                 val starred by vm.starred.collectAsStateWithLifecycle()
                 val starredTakes by vm.starredTakes.collectAsStateWithLifecycle()
+                val movePicker by vm.movePicker.collectAsStateWithLifecycle()
 
                 var screen by rememberSaveable { mutableStateOf(Screen.RECORD) }
                 // Where leaving the player goes back to. The player is reached from three places —
@@ -342,6 +345,23 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
+                // Aiming a move: the tree, browsed for somewhere to put what is being moved. Held
+                // up here with the other dialogs because a move can be started from three places —
+                // a row, a batch, the player — and all three land in the same picker.
+                movePicker?.let { picker ->
+                    MoveDialog(
+                        picker = picker,
+                        onOpenFolder = vm::openMoveFolder,
+                        onUp = vm::moveGoUp,
+                        onConfirm = {
+                            vm.confirmMove()
+                            // The rows are on their way out of this folder; the batch is over.
+                            selection = emptySet()
+                        },
+                        onDismiss = vm::cancelMove,
+                    )
+                }
+
                 // A selection belongs to the folder it was made in: leave the library, walk into a
                 // sub-folder, or have a row deleted underneath it, and it is over. Intersecting
                 // rather than clearing keeps it across a bare refresh of the same listing.
@@ -474,6 +494,14 @@ class MainActivity : ComponentActivity() {
                                 },
                                 actions = {
                                     if (selecting) {
+                                        IconButton(onClick = {
+                                            vm.startMove(selection.map(Uri::parse))
+                                        }) {
+                                            Icon(
+                                                Icons.AutoMirrored.Filled.DriveFileMove,
+                                                contentDescription = "Move selected",
+                                            )
+                                        }
                                         IconButton(onClick = { deletingSelection = true }) {
                                             Icon(
                                                 Icons.Default.Delete,
@@ -502,6 +530,7 @@ class MainActivity : ComponentActivity() {
                                             starred = vm.starKey(open.take.uri) in starred,
                                             onShare = { share(open.take) },
                                             onToggleStar = { vm.toggleStar(open.take.uri) },
+                                            onMove = { vm.startMove(listOf(open.take.uri)) },
                                             onDelete = { deletingOpenTake = true },
                                         )
                                     }
@@ -591,6 +620,7 @@ class MainActivity : ComponentActivity() {
                                     onRename = vm::renameDocument,
                                     onDelete = vm::deleteDocument,
                                     onShare = ::share,
+                                    onMove = vm::startMove,
                                     starredKeys = starred,
                                     starKeyOf = vm::starKey,
                                     onToggleStar = { vm.toggleStar(it.uri) },

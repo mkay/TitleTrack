@@ -225,9 +225,154 @@ class RecordingStore(context: Context) {
         Result.success(saved)
     }
 
-    /** Rename a take or a folder. Returns the new uri (some providers mint one). */
+    /**
+     * Rename a take or a folder. Returns the new uri (some providers mint one).
+     *
+     * What the user types is a *title*, not a filename: the rename field never shows the extension,
+     * because renaming is not a way to change what a file is. Passing the typed name straight to
+     * the provider would take the extension off the file, leaving a take that nothing will open and
+     * that this app no longer lists as audio at all — so it is put back here. Folders, which have
+     * no extension to keep, get exactly what was typed.
+     */
     suspend fun rename(uri: Uri, newName: String): Uri? = withContext(Dispatchers.IO) {
-        runCatching { DocumentsContract.renameDocument(resolver, uri, newName.trim()) }.getOrNull()
+        val wanted = newName.trim()
+        if (wanted.isEmpty()) return@withContext null
+        runCatching {
+            DocumentsContract.renameDocument(resolver, uri, keepExtension(uri, wanted))
+        }.getOrNull()
+    }
+
+    /** [newName] with the document's own extension restored — see [rename]. */
+    private fun keepExtension(uri: Uri, newName: String): String {
+        val row = runCatching {
+            val columns = arrayOf(
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE,
+            )
+            resolver.query(uri, columns, null, null, null)?.use {
+                if (it.moveToFirst()) (it.getString(0) ?: "") to (it.getString(1) ?: "") else null
+            }
+        }.getOrNull() ?: return newName
+        val (oldName, mime) = row
+        if (mime == DocumentsContract.Document.MIME_TYPE_DIR) return newName
+        val ext = oldName.substringAfterLast('.', "")
+        // A typed name that already ends in the file's own extension is left alone; anything else
+        // the user typed after a dot is part of the title ("Take 2.1"), not a new file type.
+        if (ext.isEmpty() || newName.endsWith(".$ext", ignoreCase = true)) return newName
+        return "$newName.$ext"
+    }
+
+    /** Just the sub-folders of [folder] — for aiming a move, where the takes are not the point. */
+    suspend fun folders(folder: Uri): List<Folder> = withContext(Dispatchers.IO) {
+        val tree = root ?: return@withContext emptyList()
+        val children = runCatching {
+            DocumentsContract.buildChildDocumentsUriUsingTree(
+                tree, DocumentsContract.getDocumentId(folder),
+            )
+        }.getOrNull() ?: return@withContext emptyList()
+        val columns = arrayOf(
+            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            DocumentsContract.Document.COLUMN_MIME_TYPE,
+        )
+        val cursor = runCatching { resolver.query(children, columns, null, null, null) }.getOrNull()
+            ?: return@withContext emptyList()
+        val found = ArrayList<Folder>()
+        cursor.use {
+            while (it.moveToNext()) {
+                val id = it.getString(0) ?: continue
+                val name = it.getString(1) ?: continue
+                if (it.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR) {
+                    found += Folder(documentUri(tree, id), name)
+                }
+            }
+        }
+        found.sortedBy { f -> f.name.lowercase() }
+    }
+
+    /**
+     * Move [uri] into [destination], and say where it ended up.
+     *
+     * Asks the provider to move it first, which is instant and keeps the file's own bytes and
+     * timestamps. That needs the folder it is coming *out* of, which the Storage Access Framework
+     * does not hand back for a document — [parentOf] works it out of the document id, which for the
+     * providers this app meets is a path. When either of those does not hold, the take is copied
+     * across and the original deleted, which costs a read and a write but always works.
+     */
+    suspend fun move(uri: Uri, destination: Uri): Result<Uri> = withContext(Dispatchers.IO) {
+        val parent = parentOf(uri)
+        if (parent == destination) return@withContext Result.success(uri)
+        if (parent != null) {
+            val moved = runCatching {
+                DocumentsContract.moveDocument(resolver, uri, parent, destination)
+            }.getOrNull()
+            if (moved != null) return@withContext Result.success(moved)
+        }
+        copyInto(uri, destination)
+    }
+
+    /**
+     * The long way round: write the document into [destination] byte for byte, then delete the
+     * original.
+     *
+     * Files only — a folder would mean walking everything under it, and a move that has to fall
+     * back this far is better refused than half done. Nothing is deleted until the copy is whole,
+     * and a delete that fails takes the copy back out again rather than leaving the take in two
+     * places for the user to work out.
+     */
+    private fun copyInto(uri: Uri, destination: Uri): Result<Uri> {
+        val row = runCatching {
+            val columns = arrayOf(
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE,
+            )
+            resolver.query(uri, columns, null, null, null)?.use {
+                if (it.moveToFirst()) (it.getString(0) ?: "") to (it.getString(1) ?: "") else null
+            }
+        }.getOrNull() ?: return Result.failure(IllegalStateException("That file could not be read."))
+        val (name, mime) = row
+        if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
+            return Result.failure(IllegalStateException("Folders cannot be moved here."))
+        }
+
+        val copy = runCatching {
+            DocumentsContract.createDocument(resolver, destination, mime.ifEmpty { MIME_WAV }, name)
+        }.getOrNull() ?: return Result.failure(
+            IllegalStateException("Nothing could be written into that folder."),
+        )
+
+        val written = runCatching {
+            resolver.openInputStream(uri)?.use { input ->
+                resolver.openOutputStream(copy, "w")?.use { input.copyTo(it) }
+                    ?: throw IllegalStateException("The copy could not be written.")
+            } ?: throw IllegalStateException("That file could not be read.")
+        }
+        if (written.isFailure) {
+            runCatching { DocumentsContract.deleteDocument(resolver, copy) }
+            return Result.failure(written.exceptionOrNull()!!)
+        }
+
+        val gone = runCatching { DocumentsContract.deleteDocument(resolver, uri) }.getOrDefault(false)
+        if (!gone) {
+            runCatching { DocumentsContract.deleteDocument(resolver, copy) }
+            return Result.failure(IllegalStateException("The original could not be removed."))
+        }
+        return Result.success(copy)
+    }
+
+    /**
+     * The folder [uri] sits in, worked out from its document id — a path under the granted tree for
+     * the providers this app meets. Null when the id is not path-shaped or leads outside the grant,
+     * which is [move]'s cue to take the long way round.
+     */
+    private fun parentOf(uri: Uri): Uri? {
+        val tree = root ?: return null
+        val rootId = runCatching { DocumentsContract.getTreeDocumentId(tree) }.getOrNull() ?: return null
+        val id = runCatching { DocumentsContract.getDocumentId(uri) }.getOrNull() ?: return null
+        if (!id.startsWith("$rootId/")) return null
+        val parentId = id.substringBeforeLast('/', "")
+        if (parentId != rootId && !parentId.startsWith("$rootId/")) return null
+        return documentUri(tree, parentId)
     }
 
     suspend fun delete(uri: Uri): Boolean = withContext(Dispatchers.IO) {

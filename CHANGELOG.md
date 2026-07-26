@@ -68,3 +68,12 @@ First cut: recording and take management.
   loudness) and then a destination — overwrite the take, or save a normalised copy beside it. The
   header, tempo and title are carried through. Imported m4a, mp3, ogg and flac takes are decoded
   and saved as a normalised WAV beside the original, which is never re-encoded.
+- Renaming keeps the file's extension. The field shows the name without it, because a rename is not
+  a way to change what a file is — and typing a bare name no longer left a take with no extension at
+  all, invisible to the app that had just renamed it.
+- Move takes between folders: from a row's menu, from the player's overflow, and from the selection
+  bar for a whole batch. The destination is browsed in a dialog rather than typed, so the list you
+  are standing in stays where it is. The provider moves the file where it can, and the take is
+  copied across and the original removed where it cannot; stars follow the take either way.
+- Starring a take fills its star at once but leaves the row where it is for a moment before the list
+  re-sorts. A row that rises to the top under your thumb reads as having starred the wrong take.

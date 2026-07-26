@@ -69,6 +69,25 @@ data class LibraryState(
 }
 
 /**
+ * A move being aimed: what is going, and where in the tree the user has got to looking for
+ * somewhere to put it.
+ *
+ * The destination is browsed rather than typed, and browsed separately from the library itself: the
+ * whole point of moving a take is to put it somewhere other than where you are standing, and
+ * walking the list out from under the user to find that place would lose their selection on the way.
+ */
+data class MovePicker(
+    val uris: List<Uri>,
+    /** Root first, the folder being looked at last. */
+    val path: List<Folder>,
+    val folders: List<Folder> = emptyList(),
+    val loading: Boolean = true,
+) {
+    val destination: Folder get() = path.last()
+    val canGoUp: Boolean get() = path.size > 1
+}
+
+/**
  * The take loaded for playback, if any — which outlives playing it.
  *
  * Stopping keeps the take and the position, so the mini player can stay on screen with something
@@ -175,6 +194,39 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     val starred: StateFlow<Set<String>> = _starred.asStateFlow()
 
     /**
+     * The same stars, as the *order* sees them — [_starred] a beat later.
+     *
+     * The star fills the moment it is tapped, but the row it is on stays put for [REORDER_DELAY_MS]
+     * before rising to the top of the folder. A row that leaves under your thumb reads as having
+     * starred the wrong take: the confirmation and the movement arrive together, so there is no
+     * moment where the take you touched is still where you left it and visibly marked. Waiting
+     * separates the two, and the delay is short enough that the list is in its settled order long
+     * before you have finished looking at it.
+     */
+    private val _orderStars = MutableStateFlow(stars.all())
+
+    private var reorderJob: Job? = null
+
+    /** Let the order catch up with the stars, after the pause described on [_orderStars]. */
+    private fun reorderAfterPause() {
+        reorderJob?.cancel()
+        reorderJob = viewModelScope.launch {
+            delay(REORDER_DELAY_MS)
+            _orderStars.value = _starred.value
+        }
+    }
+
+    /**
+     * Order by the stars as they stand, now — for a listing that has just been fetched, where
+     * there is no row under a thumb to be considerate of and a stale order would simply be wrong.
+     */
+    private fun reorderNow() {
+        reorderJob?.cancel()
+        reorderJob = null
+        _orderStars.value = _starred.value
+    }
+
+    /**
      * The starred takes, resolved, for the Starred view. Null until they have been looked up once —
      * which is what tells the screen to say "loading" rather than "nothing starred yet".
      */
@@ -210,6 +262,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         // Unstarring from inside the Starred view should take the row out of it, rather than
         // leaving a starless entry sitting in a list of favourites until the screen is reopened.
         _starredTakes.value = _starredTakes.value?.filter { it.key in _starred.value }
+        reorderAfterPause()
     }
 
     private val _settings = MutableStateFlow(
@@ -241,10 +294,14 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
      * changing at all, so the order has to be able to move without a listing being fetched again.
      * Combining the two flows is what gives that; [_library] keeps the provider's own order and is
      * what the rest of this class works from.
+     *
+     * The stars it orders by are [_orderStars] — the tapped ones, a moment later — so a take does
+     * not leave from under the thumb that starred it. The rows themselves are drawn from [starred],
+     * which is immediate.
      */
     val library: StateFlow<LibraryState> = combine(
         _library,
-        _starred,
+        _orderStars,
         _settings,
     ) { state, stars, settings ->
         if (settings.starredFirst) state.starredFirst(stars) else state
@@ -327,6 +384,9 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
             // A root that will not list is as good as gone — the card it lived on was pulled, or
             // it was deleted from under us. Sub-folders failing only means that sub-folder went.
             val rootGone = !_library.value.canGoUp && listing.error != null
+            // A listing that has just arrived is drawn in its settled order: the pause is for the
+            // row that was tapped, and by now there is a new set of rows.
+            reorderNow()
             _library.value = _library.value.copy(
                 listing = listing,
                 loading = false,
@@ -383,6 +443,97 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
                 }
             }
             refresh()
+        }
+    }
+
+    // ---- moving -----------------------------------------------------------------------------
+
+    private val _movePicker = MutableStateFlow<MovePicker?>(null)
+    val movePicker: StateFlow<MovePicker?> = _movePicker.asStateFlow()
+
+    /** Open the destination browser for [uris], starting at the root of the granted folder. */
+    fun startMove(uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        val root = _library.value.path.firstOrNull() ?: run {
+            _message.value = "Choose a folder to keep your recordings in first."
+            return
+        }
+        _movePicker.value = MovePicker(uris, path = listOf(root))
+        loadMoveFolders()
+    }
+
+    fun openMoveFolder(folder: Folder) {
+        val picker = _movePicker.value ?: return
+        _movePicker.value = picker.copy(path = picker.path + folder, folders = emptyList(), loading = true)
+        loadMoveFolders()
+    }
+
+    fun moveGoUp() {
+        val picker = _movePicker.value ?: return
+        if (!picker.canGoUp) return
+        _movePicker.value = picker.copy(
+            path = picker.path.dropLast(1), folders = emptyList(), loading = true,
+        )
+        loadMoveFolders()
+    }
+
+    private fun loadMoveFolders() {
+        val at = _movePicker.value?.destination ?: return
+        viewModelScope.launch {
+            val folders = store.folders(at.uri)
+            // The user may have walked on while the provider was answering.
+            _movePicker.update { picker ->
+                if (picker == null || picker.destination != at) picker
+                else picker.copy(folders = folders, loading = false)
+            }
+        }
+    }
+
+    fun cancelMove() {
+        _movePicker.value = null
+    }
+
+    /**
+     * Move what the picker holds into the folder it is showing.
+     *
+     * A star travels with its take — the key is the path, so moving one rewrites it, exactly as a
+     * rename does. So does the player: if the take on screen is one of the ones that moved, it is
+     * re-read at its new home rather than left pointing at a file that is no longer there.
+     */
+    fun confirmMove() {
+        val picker = _movePicker.value ?: return
+        _movePicker.value = null
+        val destination = picker.destination
+        viewModelScope.launch {
+            var moved = 0
+            var failure: String? = null
+            picker.uris.forEach { uri ->
+                val before = starKey(uri)
+                store.move(uri, destination.uri)
+                    .onSuccess { newUri ->
+                        moved++
+                        val after = starKey(newUri)
+                        if (before != null && after != null && before != after) {
+                            _starred.value = stars.rename(before, after)
+                        }
+                        if (_playback.value.uri == uri) stopPlayback()
+                        if (_openTake.value?.take?.uri == uri) {
+                            store.take(newUri)?.let {
+                                _openTake.value = OpenTake(it, _openTake.value?.peaks, false)
+                            }
+                        }
+                    }
+                    .onFailure { failure = it.message ?: "That could not be moved." }
+            }
+            val failed = failure
+            _message.value = when {
+                failed != null && moved == 0 -> failed
+                failed != null -> "Moved $moved — the rest could not be moved."
+                moved == 1 -> "Moved to ${destination.name}."
+                else -> "Moved $moved takes to ${destination.name}."
+            }
+            refresh()
+            if (_starredTakes.value != null) loadStarred()
         }
     }
 
@@ -832,6 +983,13 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     }
 
     private companion object {
+        /**
+         * How long a freshly starred take stays where it is before the list re-sorts around it.
+         * Long enough to watch the star fill on the row you touched, short enough that the order is
+         * settled by the time you look back at the list.
+         */
+        const val REORDER_DELAY_MS = 1_200L
+
         const val KEY_BPM = "bpm"
         const val KEY_BEATS_PER_BAR = "beats_per_bar"
         const val KEY_COUNT_IN_BARS = "count_in_bars"

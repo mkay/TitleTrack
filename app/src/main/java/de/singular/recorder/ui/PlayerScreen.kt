@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Delete
@@ -297,6 +298,7 @@ fun PlayerOverflowAction(
     starred: Boolean,
     onShare: () -> Unit,
     onToggleStar: () -> Unit,
+    onMove: () -> Unit,
     onDelete: () -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
@@ -321,6 +323,14 @@ fun PlayerOverflowAction(
                 onClick = {
                     open = false
                     onToggleStar()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("Move to…") },
+                leadingIcon = { Icon(Icons.AutoMirrored.Filled.DriveFileMove, null) },
+                onClick = {
+                    open = false
+                    onMove()
                 },
             )
             DropdownMenuItem(

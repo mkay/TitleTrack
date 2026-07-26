@@ -35,6 +35,7 @@ fun StarredList(
     onRename: (Take) -> Unit,
     onDelete: (Take) -> Unit,
     onShare: (Take) -> Unit,
+    onMove: (Take) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when {
@@ -61,6 +62,7 @@ fun StarredList(
                     onRename = { onRename(starred.take) },
                     onDelete = { onDelete(starred.take) },
                     onShare = { onShare(starred.take) },
+                    onMove = { onMove(starred.take) },
                     folder = starred.folder,
                 )
             }
