@@ -75,7 +75,7 @@ import de.singular.recorder.ui.LibraryScreen
 import de.singular.recorder.ui.LibraryTab
 import de.singular.recorder.ui.MiniPlayer
 import de.singular.recorder.ui.PlayerScreen
-import de.singular.recorder.ui.PlayerShareAction
+import de.singular.recorder.ui.PlayerOverflowAction
 import de.singular.recorder.ui.RecordScreen
 import de.singular.recorder.ui.SettingsScreen
 import de.singular.recorder.ui.TitleTrackTheme
@@ -269,6 +269,33 @@ class MainActivity : ComponentActivity() {
                 var selection by remember { mutableStateOf(emptySet<String>()) }
                 val selecting = screen == Screen.LIBRARY && selection.isNotEmpty()
                 var deletingSelection by remember { mutableStateOf(false) }
+                var deletingOpenTake by remember { mutableStateOf(false) }
+
+                // Deleting the take you are listening to also has to get you out of the screen
+                // showing it, or the player is left holding a file that is no longer there.
+                openTake?.takeIf { deletingOpenTake }?.let { open ->
+                    AlertDialog(
+                        onDismissRequest = { deletingOpenTake = false },
+                        title = { Text("Delete?") },
+                        text = {
+                            Text(
+                                "“${open.take.name}” will be removed from your storage. " +
+                                    "This cannot be undone.",
+                            )
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                deletingOpenTake = false
+                                val uri = open.take.uri
+                                leavePlayer()
+                                vm.deleteDocument(uri)
+                            }) { Text("Delete") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { deletingOpenTake = false }) { Text("Cancel") }
+                        },
+                    )
+                }
                 var libraryTab by rememberSaveable { mutableStateOf(LibraryTab.ALL) }
                 val onStarredTab = screen == Screen.LIBRARY && libraryTab == LibraryTab.STARRED
 
@@ -455,9 +482,6 @@ class MainActivity : ComponentActivity() {
                                         }
                                         return@TopAppBar
                                     }
-                                    openTake?.takeIf { screen == Screen.PLAYER }?.let { open ->
-                                        PlayerShareAction { share(open.take) }
-                                    }
                                     // A quiet notice that the display is being held awake (it
                                     // drains battery); tap for the explanation and a way out.
                                     if (settings.keepScreenOn) {
@@ -469,6 +493,17 @@ class MainActivity : ComponentActivity() {
                                                 contentDescription = "Screen kept on",
                                             )
                                         }
+                                    }
+                                    // Last, so it stays in the corner whether or not the notice
+                                    // beside it is showing — a menu that moves is a menu you have
+                                    // to look for.
+                                    openTake?.takeIf { screen == Screen.PLAYER }?.let { open ->
+                                        PlayerOverflowAction(
+                                            starred = vm.starKey(open.take.uri) in starred,
+                                            onShare = { share(open.take) },
+                                            onToggleStar = { vm.toggleStar(open.take.uri) },
+                                            onDelete = { deletingOpenTake = true },
+                                        )
                                     }
                                 },
                             )
@@ -581,6 +616,7 @@ class MainActivity : ComponentActivity() {
                                     onSetBeatsPerBar = vm::setBeatsPerBar,
                                     onSetListenBeforeRecording = vm::setListenBeforeRecording,
                                     onSetPromptForFilename = vm::setPromptForFilename,
+                                    onSetStarredFirst = vm::setStarredFirst,
                                     onSetKeepScreenOn = vm::setKeepScreenOn,
                                     onSetThemeMode = vm::setThemeMode,
                                     modifier = content,

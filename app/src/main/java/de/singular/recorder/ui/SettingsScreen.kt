@@ -33,6 +33,7 @@ fun SettingsScreen(
     onSetBeatsPerBar: (Int) -> Unit,
     onSetListenBeforeRecording: (Boolean) -> Unit,
     onSetPromptForFilename: (Boolean) -> Unit,
+    onSetStarredFirst: (Boolean) -> Unit,
     onSetKeepScreenOn: (Boolean) -> Unit,
     onSetThemeMode: (ThemeMode) -> Unit,
     modifier: Modifier = Modifier,
@@ -99,6 +100,24 @@ fun SettingsScreen(
                 checked = settings.promptForFilename,
                 onCheckedChange = onSetPromptForFilename,
             )
+        }
+
+        Spacer(Modifier.height(24.dp))
+        Section("Library")
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Starred takes first", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "Off: every folder stays in date order. The Starred tab still gathers them.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                )
+            }
+            Switch(checked = settings.starredFirst, onCheckedChange = onSetStarredFirst)
         }
 
         Spacer(Modifier.height(24.dp))

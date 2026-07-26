@@ -220,6 +220,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
             visualMetronome = prefs.getBoolean(KEY_VISUAL_METRONOME, true),
             listenBeforeRecording = prefs.getBoolean(KEY_LISTEN_BEFORE_RECORDING, false),
             keepScreenOn = prefs.getBoolean(KEY_KEEP_SCREEN_ON, true),
+            starredFirst = prefs.getBoolean(KEY_STARRED_FIRST, true),
             promptForFilename = prefs.getBoolean(KEY_PROMPT_FOR_FILENAME, false),
             inputGainDb = prefs.getInt(KEY_INPUT_GAIN_DB, 0).coerceIn(0, MAX_INPUT_GAIN_DB),
             themeMode = runCatching {
@@ -241,8 +242,12 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
      * Combining the two flows is what gives that; [_library] keeps the provider's own order and is
      * what the rest of this class works from.
      */
-    val library: StateFlow<LibraryState> = combine(_library, _starred) { state, stars ->
-        state.starredFirst(stars)
+    val library: StateFlow<LibraryState> = combine(
+        _library,
+        _starred,
+        _settings,
+    ) { state, stars, settings ->
+        if (settings.starredFirst) state.starredFirst(stars) else state
     }.stateIn(viewModelScope, SharingStarted.Eagerly, LibraryState())
 
     /**
@@ -792,6 +797,11 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         if (!on) stopMonitoring()
     }
 
+    fun setStarredFirst(on: Boolean) {
+        _settings.value = _settings.value.copy(starredFirst = on)
+        prefs.edit { putBoolean(KEY_STARRED_FIRST, on) }
+    }
+
     fun setKeepScreenOn(on: Boolean) {
         _settings.value = _settings.value.copy(keepScreenOn = on)
         prefs.edit { putBoolean(KEY_KEEP_SCREEN_ON, on) }
@@ -828,6 +838,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         const val KEY_VISUAL_METRONOME = "visual_metronome"
         const val KEY_LISTEN_BEFORE_RECORDING = "listen_before_recording"
         const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
+        const val KEY_STARRED_FIRST = "starred_first"
         const val KEY_PROMPT_FOR_FILENAME = "prompt_for_filename"
         const val KEY_THEME_MODE = "theme_mode"
         const val KEY_INPUT_GAIN_DB = "input_gain_db"

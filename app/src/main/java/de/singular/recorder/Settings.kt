@@ -26,6 +26,15 @@ data class Settings(
     /** Hold the display awake — you are holding a guitar, not the phone. */
     val keepScreenOn: Boolean = true,
     /**
+     * Lift starred takes to the top of the folder they are in.
+     *
+     * On by default, because a star is usually given to a take you mean to come back to. Off suits
+     * anyone who reads a folder as a record of an afternoon: date order is then the thing being
+     * read, and a starred take jumping the queue loses the sequence the takes were made in. The
+     * Starred tab gathers them either way, so nothing is out of reach with this off.
+     */
+    val starredFirst: Boolean = true,
+    /**
      * Ask for a name when saving. Off by default: a take is named after the moment it was played,
      * which is how one recalls it anyway, and the library can rename it later. Naming takes at the
      * point of saving interrupts the loop of play-something, keep-it, play-something-else.

@@ -25,14 +25,20 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCut
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -275,11 +281,57 @@ fun PlayerScreen(
     }
 }
 
-/** Share, in the app bar: something you do *with* the take, next to the way back out. */
+/**
+ * Everything that can be done to the open take that is not an edit, folded into one menu.
+ *
+ * Rename, Trim and Level stay above the transport: they are what you came to the player to do, and
+ * worth the space. These three are not. Starring is a verdict passed once, sharing leaves the app
+ * entirely, and deleting is done rarely and never by accident — none of them earns a permanent
+ * button, and a delete sitting beside a play button is an invitation to a mistake.
+ *
+ * Share was its own icon in the bar until the other two arrived. One lone icon is a shortcut; three
+ * is a row of guesswork, and the odd one out reads as more important than it is.
+ */
 @Composable
-fun PlayerShareAction(onShare: () -> Unit) {
-    IconButton(onClick = onShare) {
-        Icon(Icons.Default.Share, contentDescription = "Share this take")
+fun PlayerOverflowAction(
+    starred: Boolean,
+    onShare: () -> Unit,
+    onToggleStar: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) {
+            Icon(Icons.Default.MoreVert, contentDescription = "More")
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text("Share") },
+                leadingIcon = { Icon(Icons.Default.Share, null) },
+                onClick = {
+                    open = false
+                    onShare()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(if (starred) "Unstar" else "Star") },
+                leadingIcon = {
+                    Icon(if (starred) Icons.Default.Star else Icons.Outlined.StarOutline, null)
+                },
+                onClick = {
+                    open = false
+                    onToggleStar()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("Delete") },
+                leadingIcon = { Icon(Icons.Default.Delete, null) },
+                onClick = {
+                    open = false
+                    onDelete()
+                },
+            )
+        }
     }
 }
 
