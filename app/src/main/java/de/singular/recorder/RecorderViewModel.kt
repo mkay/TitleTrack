@@ -64,6 +64,14 @@ data class PlaybackState(
     val positionMs: Long = 0,
     val durationMs: Long = 0,
     val playing: Boolean = false,
+    /**
+     * The take played all the way through rather than being stopped part-way. It stays loaded
+     * either way — that is what lets it be played again from where it sits — but the two are not
+     * the same thing to look at: a take someone paused is one they are in the middle of, and a
+     * take that ran out is one they are done with. Only the first is worth a bar across the
+     * bottom of every other screen.
+     */
+    val finished: Boolean = false,
 ) {
     val uri: Uri? get() = take?.uri
 }
@@ -579,10 +587,12 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
             _message.value = "That file could not be played."
             return
         }
-        // Reaching the end leaves the take loaded at its start, ready to go again.
+        // Reaching the end leaves the take loaded at its start, ready to go again — but marked as
+        // done with, so nothing has to keep reporting on it. Playing it again clears the mark,
+        // since [play] builds the state fresh.
         mp.setOnCompletionListener {
             pausePlayback()
-            _playback.value = _playback.value.copy(positionMs = 0)
+            _playback.value = _playback.value.copy(positionMs = 0, finished = true)
         }
         player = mp
         _playback.value = PlaybackState(
