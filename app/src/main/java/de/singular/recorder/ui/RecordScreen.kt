@@ -45,7 +45,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.clip
@@ -617,32 +616,27 @@ private fun LevelTestDialog(
 }
 
 /**
- * The app's name, drawn from `icon.svg` as a vector rather than set as text: the wordmark has its
- * own letter spacing and an emblem between the two words, none of which survives being typed out.
+ * The app's name, drawn from `title.svg` as a vector rather than set as text: the lettering is a
+ * dot-matrix face with its own spacing, and the launcher icon's swirl stands between the two words,
+ * neither of which survives being typed out.
  *
- * Two drawables rather than one tinted drawable, because it is two-tone — lettering and emblem — and
- * a tint would flatten it to a single colour. The pale emblem also cannot survive the swap: at
- * lime-200 it is 15.9:1 on the dark page and 1.2:1 on the light one, so each theme gets its own
- * pair, holding the relationship (emblem lighter than lettering) rather than the values.
- *
- * The theme is read off the scheme's own surface rather than from `isSystemInDarkTheme`, because
- * this app's theme is a user setting that can disagree with the system's — see `ThemeMode`.
+ * One drawable for both themes, where there used to be a recoloured pair. The mark now contains the
+ * swirl itself — three gradients and five greens — and there is no honest way to restate that per
+ * theme; a wordmark is a fixed thing, not a themed one. The lettering reads 6.1:1 on the dark page
+ * and 3.0:1 on the light one, the same trade the accent already makes.
  *
  * Sized by width and left to find its own height, so it keeps its proportions on any screen while
  * its centre line stays on the canvas's zero line.
  */
 @Composable
 private fun TitleWordmark(modifier: Modifier = Modifier) {
-    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     Image(
-        painter = painterResource(
-            if (dark) R.drawable.title_wordmark_dark else R.drawable.title_wordmark_light,
-        ),
+        painter = painterResource(R.drawable.title_wordmark),
         contentDescription = null, // the app bar already names the screen; this is decoration
         contentScale = ContentScale.Fit,
         modifier = modifier.aspectRatio(WordmarkAspect),
     )
 }
 
-/** The wordmark's own proportions, from the source SVG's 833x224 viewBox. */
-private const val WordmarkAspect = 833f / 224f
+/** The wordmark's own proportions, from the source SVG's 1386x217 viewBox. */
+private const val WordmarkAspect = 1386f / 217f

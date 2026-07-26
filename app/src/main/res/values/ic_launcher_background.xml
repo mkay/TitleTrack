@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#313131</color>
+    <!--
+      The tile the swirl sits on. The foreground is open artwork on transparency, not a disc, so
+      this shows through its middle and around it and is the icon's actual ground: near-black, so
+      the five greens keep their range whatever mask the launcher cuts.
+    -->
+    <color name="ic_launcher_background">#1E1E1E</color>
 </resources>
