@@ -8,29 +8,58 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 import de.singular.recorder.ThemeMode
-import kotlin.math.abs
 
 /**
- * The app's accent, taken from the spark in the icon — one for each theme, because a single yellow
- * cannot serve both.
+ * The app's accent, from the Tailwind lime scale: lime-600 on dark, lime-500 on light.
  *
- * The accent is not only a button fill: it is the *text* colour of the selected tab, the setting
- * values, the played part of a waveform. On a dark screen the bright amber does that at 11:1. On a
- * light one it managed 1.6:1 — a yellow label on a white page, effectively invisible — so the light
- * theme takes the orange from the icon and darkens it until it reads: same hue, 4.8:1 against the
- * page, 5.1:1 for white sitting on it.
+ * Green (hue 142) and emerald (160) were both tried in full and both rejected on sight: they are
+ * calmer, and calmer turned out to be the wrong target — they read as generic where the lime reads
+ * as this app's. The chartreuse edge is the point, not a defect to be engineered out.
+ *
+ * The two themes take different steps, and note that they move in the *opposite* direction to the
+ * intuition: on a near-black page a darker accent has less contrast, not more. lime-600 on dark is
+ * 6.1:1 against the page and 4.5:1 on the tab bar, down from lime-500's 9.6:1 and 7.0:1. It is
+ * chosen for presence rather than legibility — lime-500 dominated a dark screen, and a step down
+ * settles it without dropping below the bar anywhere it is used as text.
+ *
+ * On the light theme lime-500 stays, and there it does not clear the bar. The accent is not only a
+ * button fill — it is the *text* colour of the selected tab, the setting values, the played part of
+ * a waveform — and lime-500 on Material's near-white page is **1.9:1** against the 4.5:1 body text
+ * needs; on the tab bar, where the selected tab's label is the only thing marking which tab you are
+ * on, it is **1.7:1**. The page colour does not move this: lime-50, Material's default and the
+ * near-white tint now in use all land within a few hundredths of each other for a mid-lime.
+ *
+ * This is chosen with that known, and it survived three palettes and two page colours: the numbers
+ * shifted (green 2.2/1.9, emerald 2.4/2.1) without ever reaching legibility, because the cause is
+ * structural rather than chromatic. A mid-scale accent on any near-white page cannot clear 4.5:1 in
+ * these families; only the 700 step and below does, two steps away. lime-600 — the step the dark
+ * theme already takes — would bring it to 3.0:1, which is most of the fix if it is ever wanted.
+ *
+ * Filled controls are unaffected either way — those set their own content colour, see [OnBrandDark].
  */
-private val BrandOnDark = Color(0xFFF2C14E)
-private val BrandOnLight = Color(0xFFB84E15)
+private val BrandOnDark = Color(0xFF65A30D) // lime-600
+private val BrandOnLight = Color(0xFF84CC16) // lime-500
 
 /**
- * Content sitting *on* the accent, which flips with it: near-black over the bright amber (white
- * there lands nowhere near 4.5:1), white over the dark one, each clearing 5:1.
+ * Content sitting *on* the accent — the scale's darkest step, at 4.7:1 on lime-600 and 7.4:1 on
+ * lime-500. White would be 2.0:1 against either, so dark content is not a stylistic choice here but
+ * the only legible one.
  */
-private val OnBrandDark = Color(0xFF1B1C22)
-private val OnBrandLight = Color(0xFFFFFFFF)
+private val OnBrandDark = Color(0xFF1A2E05) // lime-950
+private val OnBrandLight = Color(0xFF1A2E05) // lime-950
+
+/**
+ * The scale's ends, which is what a tinted surface wants: lime-100 is too light to be an accent on
+ * a white page but exactly right as the *ground* for one, and lime-950 is too dark to be anything
+ * else. Each fills whichever role the theme leaves it — the container on a light screen, the
+ * container's content on a dark one — and the pairing reads at 13.5:1 either way round.
+ */
+private val BrandPale = Color(0xFFECFCCB) // lime-100
+private val BrandDeep = Color(0xFF1A2E05) // lime-950
+private val OnBrandPale = Color(0xFF1A2E05) // lime-950
 
 /**
  * Recording, everywhere it appears — the button, the elapsed time, the beat flash.
@@ -39,105 +68,111 @@ private val OnBrandLight = Color(0xFFFFFFFF)
  * screen has to answer from across a room, and it should never be answered in the same colour as an
  * ordinary control.
  *
- * Derived from the accent rather than fixed, so the two stay a matched pair while the accent is
- * still being chosen: the accent's own saturation and lightness, moved to red. Deriving per theme
- * falls out of that for free — the light theme's darker accent yields a deeper red
- * (#941C11 against #F14B3C), which is what a light background needed anyway. That is what makes
- * them look like they come from the same palette instead of one being stapled on. Note that the
- * accent's *hue* is discarded by design — this has to stay red wherever the accent goes — so two
- * accents of equal saturation and lightness derive the same red however far apart they look.
+ * Fixed per theme rather than derived. It was computed from the accent for a while, on the argument
+ * that the two should stay a matched pair while the accent was still moving; now that the palette is
+ * settled that buys nothing, and a derived red inherits whatever the accent does — one softening of
+ * the accent pushed the red to a washed #F5685C, which is the opposite of what this colour is for.
+ * Urgency does not follow the accent around.
  *
- * An accent in the red-orange quadrant is the hard case: derive naively and this lands on top of
- * it, and the distinction the colour exists to make is gone. So the closer the accent comes, the
- * deeper this goes — see [crowding]. Past that there is no rescuing it; an accent *at* hue 5 would
- * need a fixed red here instead.
+ * The light theme uses oklch(50.5% 0.213 27.518) = #C10007 — 6.1:1 against its page, white label at
+ * 6.4:1.
+ *
+ * The dark theme takes that same red down to #A01A1F: the hue held, saturation 100% → 72%,
+ * lightness barely moved. On a near-black screen a fully saturated red slab 64dp tall and the full
+ * width of the page dominates everything else on it, including the waveform it sits under. Note
+ * that saturation is what was cut, not lightness — going *darker* was tried and is the wrong lever,
+ * because it drops the button toward the page without making it any less strident, and the point is
+ * to make the red recede in intensity while staying exactly where it is in the layout.
+ *
+ * The cost is that it reads 2.4:1 as a shape, down from 2.9:1. Both are under the 3:1 usually asked
+ * of a control's boundary, and neither matters here: a full-width filled slab carrying a white label
+ * at 7.9:1 is not something anyone fails to find. The label is what gets read, and it got better.
  */
-val ColorScheme.record: Color get() = recordFrom(primary)
-
-/** Red at [accent]'s lightness, and a little below its saturation — deeper as the accent nears it. */
-private fun recordFrom(accent: Color): Color {
-    val r = accent.red
-    val g = accent.green
-    val b = accent.blue
-    val high = maxOf(r, g, b)
-    val low = minOf(r, g, b)
-    val lightness = (high + low) / 2f
-    val delta = high - low
-    val saturation = if (delta == 0f) {
-        0f
-    } else {
-        delta / (1f - abs(2f * lightness - 1f)).coerceAtLeast(1e-4f)
-    }
-    val crowding = crowding(hueOf(r, g, b, high, delta))
-    return Color.hsl(
-        hue = RecordHue,
-        // Floors, not just a scale: a muted or near-grey accent would otherwise derive a grey
-        // "red", and a very pale or very dark one a red nobody would call a record button.
-        saturation = saturation.coerceIn(MinSaturation, 1f),
-        lightness = (lightness * RecordLightness * (1f - crowding * CrowdedDarkening))
-            .coerceIn(
-                // A crowded red is allowed deeper than the usual floor: that depth is the whole
-                // difference between it and the orange sitting next to it.
-                MinLightness - crowding * (MinLightness - CrowdedMinLightness),
-                MaxLightness,
-            ),
-    )
-}
-
-/** Standard HSL hue in degrees, from components already to hand. */
-private fun hueOf(r: Float, g: Float, b: Float, high: Float, delta: Float): Float {
-    if (delta == 0f) return 0f
-    val h = when (high) {
-        r -> ((g - b) / delta) % 6f
-        g -> (b - r) / delta + 2f
-        else -> (r - g) / delta + 4f
-    }
-    return (h * 60f + 360f) % 360f
-}
+val ColorScheme.record: Color get() =
+    if (surface.luminance() < 0.5f) RecordRedOnDark else RecordRed
 
 /**
- * How much an accent at [hue] crowds the record colour: 0 for anything a comfortable distance away,
- * rising to 1 as it arrives on top of it. An amber accent at 42° is clear of this; the icon's
- * orange at 21° is halfway into it.
+ * What sits *on* [record] — white on both themes, both reds being dark enough to take it (6.4:1 on
+ * light, 7.9:1 on dark). Not `onPrimary`, which follows the accent: that is lime-950, and lime-950
+ * on either red is under 2.5:1.
  */
-private fun crowding(hue: Float): Float {
-    val gap = abs(hue - RecordHue).let { minOf(it, 360f - it) }
-    return ((CrowdingWindow - gap) / CrowdingWindow).coerceIn(0f, 1f)
-}
+@Suppress("UnusedReceiverParameter")
+val ColorScheme.onRecord: Color get() = OnRecord
 
-/** Far enough round to read as red, not so far as to look pink. */
-private const val RecordHue = 5f
+private val RecordRed = Color(0xFFC10007)
+private val RecordRedOnDark = Color(0xFFA01A1F)
+private val OnRecord = Color(0xFFFFFFFF)
 
 /**
- * Red at the same nominal lightness as the accent comes out looking washed rather than urgent, so
- * it is taken down a little. Saturation is inherited whole: a record button is the one control
- * that should not look restrained. Against the dark theme's amber this gives #F14B3C — that accent
- * is far enough round to be left alone — and against the light theme's orange a deep #95210F.
+ * The ground the accent stands on, and the reason it stops reading as neon.
+ *
+ * Material's own neutrals are not neutral — they carry a faint violet, and a green on a violet-grey
+ * is being pushed nearly as far from its background as the wheel allows. That hue contrast was most
+ * of what "neon" was describing; the accent itself was only ever half the problem.
+ *
+ * So the surfaces are re-tinted onto the accent's own hue (85°) at a saturation low enough to still
+ * read as a dark grey — 20–30% at the near-black end, tapering as the ramp lightens so the higher
+ * containers do not turn into a colour in their own right. The accent sits *within* its background's
+ * family rather than opposite it, which reads as considered rather than electric.
+ *
+ * Body text holds at 16.1:1 and secondary text at 12.3:1 over this ground.
  */
-private const val RecordLightness = 0.94f
-private const val MinSaturation = 0.60f
-private const val MinLightness = 0.38f
-private const val MaxLightness = 0.66f
-
-/** How near an accent has to come, in degrees, before the record colour starts moving away. */
-private const val CrowdingWindow = 30f
-
-/** How much deeper a fully crowded accent drives it, and how far the floor gives way. */
-private const val CrowdedDarkening = 0.35f
-private const val CrowdedMinLightness = 0.26f
-
-private val SparkDarkColors = darkColorScheme(
+private val TrackDarkColors = darkColorScheme(
     primary = BrandOnDark,
     onPrimary = OnBrandDark,
+    primaryContainer = BrandDeep,
+    onPrimaryContainer = BrandPale,
     secondaryContainer = BrandOnDark,
     onSecondaryContainer = OnBrandDark,
+    background = Color(0xFF0F120A),
+    onBackground = Color(0xFFEBEEE7),
+    surface = Color(0xFF0F120A),
+    onSurface = Color(0xFFEBEEE7),
+    surfaceVariant = Color(0xFF38412D),
+    onSurfaceVariant = Color(0xFFCDD3C5),
+    surfaceContainerLowest = Color(0xFF090C06),
+    surfaceContainerLow = Color(0xFF14180E),
+    surfaceContainer = Color(0xFF191E12),
+    surfaceContainerHigh = Color(0xFF212719),
+    surfaceContainerHighest = Color(0xFF292F20),
+    outline = Color(0xFF8F9A7E),
+    outlineVariant = Color(0xFF444D38),
 )
 
-private val SparkLightColors = lightColorScheme(
+/**
+ * The light theme is tinted onto the same hue as the dark one, but far more lightly.
+ *
+ * Three pages have been tried here. Material's own default is not white — it is #FEF7FF, a
+ * near-white carrying a faint *violet*, which is the accent's opposite and quietly works against it.
+ * A full lime-50 page (#F7FEE7) fixed that but committed harder than a light theme wants to. This
+ * sits between them at #FAFEF1: a hair over 1.02:1 against true white, so it reads as a warm white
+ * that happens to lean green rather than as a green page — enough to take the violet out and put the
+ * accent on its own ground, and not enough to be a colour in its own right.
+ *
+ * The ramp below descends from it on hue 80 with the saturation tapering as it darkens, so the
+ * containers deepen without turning into a colour either. Body text holds at 13.8:1, secondary at
+ * 6.0:1.
+ */
+private val TrackLightColors = lightColorScheme(
     primary = BrandOnLight,
     onPrimary = OnBrandLight,
+    primaryContainer = BrandPale,
+    onPrimaryContainer = OnBrandPale,
     secondaryContainer = BrandOnLight,
     onSecondaryContainer = OnBrandLight,
+    background = Color(0xFFFAFEF1),
+    onBackground = Color(0xFF242F0E),
+    surface = Color(0xFFFAFEF1),
+    onSurface = Color(0xFF242F0E),
+    surfaceVariant = Color(0xFFE0EEC4),
+    onSurfaceVariant = Color(0xFF54682C),
+    surfaceContainerLowest = Color(0xFFFEFFFB),
+    surfaceContainerLow = Color(0xFFF6FDE8),
+    surfaceContainer = Color(0xFFF2FCE0),
+    surfaceContainerHigh = Color(0xFFEEF9D8),
+    surfaceContainerHighest = Color(0xFFE9F6CF),
+    outline = Color(0xFF829759),
+    outlineVariant = Color(0xFFCDDDAF),
 )
 
 /** Controls use a gentle corner rather than the fully-rounded Material default, as in RubberRing. */
@@ -152,9 +187,9 @@ fun isDark(mode: ThemeMode): Boolean = when (mode) {
 }
 
 @Composable
-fun SparkPlugTheme(mode: ThemeMode = ThemeMode.SYSTEM, content: @Composable () -> Unit) {
+fun TitleTrackTheme(mode: ThemeMode = ThemeMode.SYSTEM, content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = if (isDark(mode)) SparkDarkColors else SparkLightColors,
+        colorScheme = if (isDark(mode)) TrackDarkColors else TrackLightColors,
         content = content,
     )
 }

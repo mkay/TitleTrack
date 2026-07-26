@@ -1,7 +1,9 @@
 package de.singular.recorder.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -43,6 +45,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -52,6 +57,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import de.singular.recorder.LevelTest
 import de.singular.recorder.MAX_INPUT_GAIN_DB
+import de.singular.recorder.R
 import de.singular.recorder.Settings
 import de.singular.recorder.audio.MAX_BPM
 import de.singular.recorder.audio.MIN_BPM
@@ -136,6 +142,7 @@ fun RecordScreen(
             }
         }
 
+        val monitoring = settings.listenBeforeRecording && state.phase == RecordPhase.IDLE
         Box(
             Modifier.weight(1f).fillMaxWidth().padding(vertical = 16.dp),
             contentAlignment = Alignment.Center,
@@ -146,10 +153,17 @@ fun RecordScreen(
                 level = state.level,
                 running = state.phase == RecordPhase.RECORDING,
                 hasTake = state.hasTake,
-                monitoring = settings.listenBeforeRecording &&
-                    state.phase == RecordPhase.IDLE,
+                monitoring = monitoring,
                 modifier = Modifier.fillMaxSize(),
             )
+            // At rest the canvas is a single horizontal line across an empty panel, which is the
+            // one place on this screen the name can sit without being in the way of anything: the
+            // wordmark is built around its own centre line, so centring it in the canvas lands that
+            // line on the zero line and the two read as one mark. It goes the moment there is a
+            // level to draw.
+            if (state.phase == RecordPhase.IDLE && !monitoring) {
+                TitleWordmark(Modifier.fillMaxWidth(0.66f))
+            }
             // Nothing is being captured during the count-in, so the count borrows the space.
             if (state.phase == RecordPhase.COUNT_IN) {
                 Text(
@@ -176,6 +190,7 @@ fun RecordScreen(
                     // rehearsal of this very button, so it lives on it.
                     onLongClick = onStartLevelTest,
                     container = MaterialTheme.colorScheme.record,
+                    onContainer = MaterialTheme.colorScheme.onRecord,
                     enabled = folderLabel != null,
                 )
                 if (folderLabel == null) {
@@ -600,3 +615,34 @@ private fun LevelTestDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
+
+/**
+ * The app's name, drawn from `title.svg` as a vector rather than set as text: the wordmark has its
+ * own letter spacing and an emblem between the two words, none of which survives being typed out.
+ *
+ * Two drawables rather than one tinted drawable, because it is two-tone — lettering and emblem — and
+ * a tint would flatten it to a single colour. The pale emblem also cannot survive the swap: at
+ * lime-200 it is 15.9:1 on the dark page and 1.2:1 on the light one, so each theme gets its own
+ * pair, holding the relationship (emblem lighter than lettering) rather than the values.
+ *
+ * The theme is read off the scheme's own surface rather than from `isSystemInDarkTheme`, because
+ * this app's theme is a user setting that can disagree with the system's — see `ThemeMode`.
+ *
+ * Sized by width and left to find its own height, so it keeps its proportions on any screen while
+ * its centre line stays on the canvas's zero line.
+ */
+@Composable
+private fun TitleWordmark(modifier: Modifier = Modifier) {
+    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    Image(
+        painter = painterResource(
+            if (dark) R.drawable.title_wordmark_dark else R.drawable.title_wordmark_light,
+        ),
+        contentDescription = null, // the app bar already names the screen; this is decoration
+        contentScale = ContentScale.Fit,
+        modifier = modifier.aspectRatio(WordmarkAspect),
+    )
+}
+
+/** The wordmark's own proportions, from the source SVG's 735x133 viewBox. */
+private const val WordmarkAspect = 735f / 133f

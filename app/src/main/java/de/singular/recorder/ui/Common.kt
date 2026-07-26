@@ -195,6 +195,7 @@ fun BigButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     container: androidx.compose.ui.graphics.Color? = null,
+    onContainer: androidx.compose.ui.graphics.Color? = null,
     outlined: Boolean = false,
     enabled: Boolean = true,
     onLongClick: (() -> Unit)? = null,
@@ -225,7 +226,7 @@ fun BigButton(
                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
             },
             contentColor = if (enabled) {
-                MaterialTheme.colorScheme.onPrimary
+                onContainer ?: MaterialTheme.colorScheme.onPrimary
             } else {
                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
             },
@@ -242,7 +243,10 @@ fun BigButton(
         Button(
             onClick, sized, enabled = enabled, shape = shape,
             colors = if (container != null) {
-                ButtonDefaults.buttonColors(containerColor = container)
+                ButtonDefaults.buttonColors(
+                    containerColor = container,
+                    contentColor = onContainer ?: MaterialTheme.colorScheme.onPrimary,
+                )
             } else {
                 ButtonDefaults.buttonColors()
             },

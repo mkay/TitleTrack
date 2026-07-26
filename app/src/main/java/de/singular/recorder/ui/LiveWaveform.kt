@@ -83,19 +83,33 @@ fun LiveWaveform(
         }
     }
 
+    // Neutral rather than the accent. The waveform is the one thing on this screen being read for
+    // its shape rather than its meaning, and a coloured trace competes with that — the eye spends
+    // effort on the colour before it gets to the peaks. Ink on paper is what it wants. It also
+    // leaves the accent to mean "a control", which is easier to read once nothing else claims it.
+    //
     // Muted while only listening: the same shape, plainly not being kept. The difference has to be
     // legible at a glance, because "am I recording?" is the one question this screen must never
-    // leave ambiguous.
-    val fill = if (running) {
-        MaterialTheme.colorScheme.primary
-    } else if (monitoring) {
-        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.30f)
+    // leave ambiguous — and it survives the change, near-white against grey being a wider gap than
+    // lime against grey was.
+    val fill = if (monitoring && !running) {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = WaveformMuted)
     } else {
-        MaterialTheme.colorScheme.primary
+        MaterialTheme.colorScheme.onSurface.copy(alpha = WaveformInk)
     }
     val clipped = MaterialTheme.colorScheme.record
+    // Ink over the page rather than a surface container, and deliberately so: mixing toward
+    // `onSurface` darkens *and* desaturates, so the panel comes out greyer than the tinted page
+    // around it. That is what this one wants. It is the largest single area on the screen, and the
+    // theme's tint at full strength over that much of it would stop being a tint and start being
+    // the subject. A container token would hold the hue and is the wrong choice here.
     val panel = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.045f)
     val zeroLine = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
+    // At rest the wordmark is centred on this canvas, and the wordmark is built around its own
+    // centre line — so the zero line would run straight through the lettering. The line has a job
+    // only once there is something to read against it, and nothing is lost by holding it back until
+    // then: the wordmark marks the axis in its place, and more legibly.
+    val atRest = !running && !monitoring && !hasTake
 
     Canvas(
         modifier
@@ -105,15 +119,16 @@ fun LiveWaveform(
         version // read, so a new column redraws this
         val mid = size.height / 2
 
-        // The zero line runs the full width whether or not anything has been recorded yet: it is
-        // what says "your take appears here" to an otherwise blank screen, and once a take is
-        // running it is the axis the bars are read against.
-        drawLine(
-            color = zeroLine,
-            start = Offset(0f, mid),
-            end = Offset(size.width, mid),
-            strokeWidth = 1.dp.toPx(),
-        )
+        // Once there is a level to draw, this is the axis the bars are read against. Before that
+        // the wordmark is standing in for it — see [atRest].
+        if (!atRest) {
+            drawLine(
+                color = zeroLine,
+                start = Offset(0f, mid),
+                end = Offset(size.width, mid),
+                strokeWidth = 1.dp.toPx(),
+            )
+        }
 
         val step = size.width / history.size
         val barWidth = max(1f, step * 0.6f)
@@ -133,6 +148,17 @@ fun LiveWaveform(
 
 /** Loud enough to be worth warning about, matching the level meter's own threshold. */
 private const val CLIP = 0.95f
+
+/**
+ * The waveform's ink, as alpha over `onSurface` so it follows the theme without being a colour:
+ * near-white on the dark screen, near-black on the light one. Short of full strength, because a
+ * hundred and sixty hard-edged bars at 1.0 read as harsh rather than as crisp.
+ *
+ * [WaveformMuted] is the same ink while only monitoring — far enough down to be unmistakably "not
+ * being kept", still solid enough to show the level is arriving.
+ */
+internal const val WaveformInk = 0.86f
+internal const val WaveformMuted = 0.30f
 
 /** 50 ms a column: 20 a second, so [COLUMNS] of them hold eight seconds. */
 private const val COLUMN_MS = 50L

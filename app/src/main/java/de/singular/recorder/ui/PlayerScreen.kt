@@ -481,8 +481,11 @@ private fun WaveformView(
     beatsPerBar: Int = 4,
     onHandleDrag: (TrimEdge, Float) -> Unit = { _, _ -> },
 ) {
-    val played = MaterialTheme.colorScheme.primary
-    val unplayed = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.30f)
+    // Neutral, matching the record screen: the played part is the waveform's own ink, the unplayed
+    // part the same ink dimmed. Position is carried by the step in weight rather than by a change
+    // of colour, which is the reading a waveform wants — see [WaveformInk].
+    val played = MaterialTheme.colorScheme.onSurface.copy(alpha = WaveformInk)
+    val unplayed = MaterialTheme.colorScheme.onSurface.copy(alpha = WaveformMuted)
     // The same panel and zero line the record screen draws on, so a take looks the same played
     // back as it did being made.
     val panel = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.045f)
