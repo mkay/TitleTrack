@@ -1,7 +1,9 @@
 package de.singular.recorder.ui
 
 import android.net.Uri
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
@@ -26,6 +29,7 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -45,6 +49,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.singular.recorder.LibraryState
@@ -72,8 +79,11 @@ fun LibraryScreen(
     onRename: (Uri, String) -> Unit,
     onDelete: (Uri) -> Unit,
     onShare: (Take) -> Unit,
+    selection: Set<String>,
+    onToggleSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val selecting = selection.isNotEmpty()
     var newFolder by rememberSaveable { mutableStateOf(false) }
     var renaming by rememberSaveable { mutableStateOf<String?>(null) } // uri being renamed
     var renamingName by rememberSaveable { mutableStateOf("") }
@@ -105,7 +115,10 @@ fun LibraryScreen(
                     if (i > 0) RowDivider()
                     FolderRow(
                         folder = folder,
+                        selected = folder.uri.toString() in selection,
+                        selecting = selecting,
                         onOpen = { onOpenFolder(folder) },
+                        onToggleSelect = { onToggleSelect(folder.uri.toString()) },
                         onRename = {
                             renaming = folder.uri.toString()
                             renamingName = folder.name
@@ -121,8 +134,11 @@ fun LibraryScreen(
                     TakeRow(
                         take = take,
                         playing = playback.uri == take.uri && playback.playing,
+                        selected = take.uri.toString() in selection,
+                        selecting = selecting,
                         onPlay = { onPlay(take) },
                         onOpen = { onOpen(take) },
+                        onToggleSelect = { onToggleSelect(take.uri.toString()) },
                         onRename = {
                             renaming = take.uri.toString()
                             renamingName = take.name.substringBeforeLast('.')
@@ -212,24 +228,35 @@ private fun Breadcrumb(path: List<Folder>, onJump: (Int) -> Unit, modifier: Modi
 @Composable
 private fun FolderRow(
     folder: Folder,
+    selected: Boolean,
+    selecting: Boolean,
     onOpen: () -> Unit,
+    onToggleSelect: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
 ) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(RowPadding),
+        Modifier
+            .fillMaxWidth()
+            .selectionTint(selected)
+            .rowClicks(selecting, onOpen, onToggleSelect)
+            .padding(RowPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            Icons.Default.Folder,
-            contentDescription = null,
-            // The same 48dp footprint the play button has, so folder names and take names start
-            // at the same place however the list is mixed.
-            Modifier.size(LeadingSlot).padding(12.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
+        if (selecting) {
+            SelectionTick(selected)
+        } else {
+            Icon(
+                Icons.Default.Folder,
+                contentDescription = null,
+                // The same 48dp footprint the play button has, so folder names and take names start
+                // at the same place however the list is mixed.
+                Modifier.size(LeadingSlot).padding(12.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
         Text(folder.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        RowMenu(onRename = onRename, onDelete = onDelete, onShare = null)
+        if (!selecting) RowMenu(onRename = onRename, onDelete = onDelete, onShare = null)
     }
 }
 
@@ -241,22 +268,36 @@ private fun FolderRow(
 private fun TakeRow(
     take: Take,
     playing: Boolean,
+    selected: Boolean,
+    selecting: Boolean,
     onPlay: () -> Unit,
     onOpen: () -> Unit,
+    onToggleSelect: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
     onShare: () -> Unit,
 ) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(RowPadding),
+        Modifier
+            .fillMaxWidth()
+            .selectionTint(selected)
+            .rowClicks(selecting, onOpen, onToggleSelect)
+            .padding(RowPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = onPlay) {
-            Icon(
-                if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
-                contentDescription = if (playing) "Stop" else "Play",
-                tint = MaterialTheme.colorScheme.primary,
-            )
+        // The tick takes the play button's slot rather than the menu's, which is not where the
+        // pattern usually puts it: play is the one control here that would make a noise if it were
+        // still live while picking, so it is the one that has to go.
+        if (selecting) {
+            SelectionTick(selected)
+        } else {
+            IconButton(onClick = onPlay) {
+                Icon(
+                    if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = if (playing) "Stop" else "Play",
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
         Column(Modifier.weight(1f)) {
             Text(
@@ -289,8 +330,54 @@ private fun TakeRow(
                 maxLines = 1,
             )
         }
-        RowMenu(onRename = onRename, onDelete = onDelete, onShare = onShare)
+        if (!selecting) RowMenu(onRename = onRename, onDelete = onDelete, onShare = onShare)
     }
+}
+
+/**
+ * Long-press starts picking, and once picking a tap picks too rather than opening — one meaning per
+ * tap, so a batch can be built without a stray tap navigating out of the list halfway through.
+ */
+private fun Modifier.rowClicks(
+    selecting: Boolean,
+    onOpen: () -> Unit,
+    onToggleSelect: () -> Unit,
+) = composed {
+    val haptic = LocalHapticFeedback.current
+    combinedClickable(
+        onClick = { if (selecting) onToggleSelect() else onOpen() },
+        onLongClick = {
+            // Confirm the grab in the hand: the gesture has no on-screen affordance until it fires.
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onToggleSelect()
+        },
+    )
+}
+
+/**
+ * A picked row, as a wash of the accent rather than a slab of it.
+ *
+ * The usual choice is `secondaryContainer`, which this app maps to the accent itself — a solid lime
+ * row, and lime at full strength across a whole list is exactly what the palette spent its time
+ * getting away from. A low-alpha tint reads as "picked" just as plainly and leaves the row's own
+ * text colours alone, which matters here because these rows carry two tiers of type.
+ */
+private fun Modifier.selectionTint(selected: Boolean) = composed {
+    if (selected) background(MaterialTheme.colorScheme.primary.copy(alpha = SelectedTint)) else this
+}
+
+@Composable
+private fun SelectionTick(selected: Boolean) {
+    Icon(
+        if (selected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+        contentDescription = if (selected) "Selected" else "Not selected",
+        Modifier.size(LeadingSlot).padding(12.dp),
+        tint = if (selected) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+        },
+    )
 }
 
 /**
@@ -299,6 +386,9 @@ private fun TakeRow(
  */
 private val RowPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
 private val LeadingSlot = 48.dp
+
+/** Enough accent to mark the row, not enough to colour it — see [selectionTint]. */
+private const val SelectedTint = 0.14f
 
 @Composable
 private fun RowDivider() {

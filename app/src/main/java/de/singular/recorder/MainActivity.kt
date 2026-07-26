@@ -2,6 +2,7 @@ package de.singular.recorder
 
 import android.Manifest
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -18,6 +19,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Menu
@@ -38,6 +41,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -73,7 +77,7 @@ import de.singular.recorder.ui.PlayerScreen
 import de.singular.recorder.ui.PlayerShareAction
 import de.singular.recorder.ui.RecordScreen
 import de.singular.recorder.ui.SettingsScreen
-import de.singular.recorder.ui.SparkPlugTheme
+import de.singular.recorder.ui.TitleTrackTheme
 import de.singular.recorder.ui.isDark
 import kotlinx.coroutines.launch
 
@@ -111,7 +115,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            SparkPlugTheme(settings.themeMode) {
+            TitleTrackTheme(settings.themeMode) {
                 val recorderState by vm.recorderState.collectAsStateWithLifecycle()
                 val library by vm.library.collectAsStateWithLifecycle()
                 val playback by vm.playback.collectAsStateWithLifecycle()
@@ -190,7 +194,7 @@ class MainActivity : ComponentActivity() {
                         text = {
                             Text(
                                 "“Keep the screen on” is enabled, so the display won't dim or " +
-                                    "lock while Spark Plug is open. Handy with an instrument in " +
+                                    "lock while Title Track is open. Handy with an instrument in " +
                                     "your hands, but it uses more battery.",
                             )
                         },
@@ -232,11 +236,81 @@ class MainActivity : ComponentActivity() {
                     screen = Screen.LIBRARY
                 }
 
-                // Back walks out of the player, then up the folder tree, then home.
-                BackHandler(enabled = screen == Screen.PLAYER) { leavePlayer() }
-                BackHandler(enabled = screen == Screen.LIBRARY && library.canGoUp) { vm.goUp() }
+                // Which library rows are picked, by document URI. Held here rather than in the
+                // library screen because the app bar becomes the selection's own toolbar, and the
+                // bar is this far up.
+                var selection by remember { mutableStateOf(emptySet<String>()) }
+                val selecting = screen == Screen.LIBRARY && selection.isNotEmpty()
+                var deletingSelection by remember { mutableStateOf(false) }
+
+                // Deleting a batch is the one thing this mode exists for, and the one thing in the
+                // app that cannot be undone — so it says how many and what kind before it goes.
+                if (deletingSelection) {
+                    val listing = library.listing
+                    val folders = listing?.folders.orEmpty()
+                        .count { it.uri.toString() in selection }
+                    val takes = selection.size - folders
+                    AlertDialog(
+                        onDismissRequest = { deletingSelection = false },
+                        title = { Text("Delete ${selection.size}?") },
+                        text = {
+                            Text(
+                                buildString {
+                                    append(
+                                        listOfNotNull(
+                                            takes.takeIf { it > 0 }
+                                                ?.let { if (it == 1) "1 take" else "$it takes" },
+                                            folders.takeIf { it > 0 }?.let {
+                                                if (it == 1) "1 folder" else "$it folders"
+                                            },
+                                        ).joinToString(" and "),
+                                    )
+                                    if (folders > 0) append(", with everything inside")
+                                    append(
+                                        " will be removed from your storage. " +
+                                            "This cannot be undone.",
+                                    )
+                                },
+                            )
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                deletingSelection = false
+                                selection.forEach { vm.deleteDocument(Uri.parse(it)) }
+                                selection = emptySet()
+                            }) { Text("Delete") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { deletingSelection = false }) { Text("Cancel") }
+                        },
+                    )
+                }
+
+                // A selection belongs to the folder it was made in: leave the library, walk into a
+                // sub-folder, or have a row deleted underneath it, and it is over. Intersecting
+                // rather than clearing keeps it across a bare refresh of the same listing.
+                LaunchedEffect(screen, library.listing) {
+                    val listing = library.listing
+                    selection = when {
+                        screen != Screen.LIBRARY || listing == null -> emptySet()
+                        else -> {
+                            val here = listing.folders.map { it.uri.toString() } +
+                                listing.takes.map { it.uri.toString() }
+                            selection.intersect(here.toSet())
+                        }
+                    }
+                }
+
+                // Back drops the selection before it goes anywhere: while picking, that is what
+                // the gesture is for, and walking up a folder mid-batch is never what was meant.
+                BackHandler(enabled = selecting) { selection = emptySet() }
+                // Then out of the player, then up the folder tree, then home.
+                BackHandler(enabled = !selecting && screen == Screen.PLAYER) { leavePlayer() }
                 BackHandler(
-                    enabled = screen != Screen.RECORD && screen != Screen.PLAYER &&
+                    enabled = !selecting && screen == Screen.LIBRARY && library.canGoUp,
+                ) { vm.goUp() }
+                BackHandler(
+                    enabled = !selecting && screen != Screen.RECORD && screen != Screen.PLAYER &&
                         !library.canGoUp,
                 ) { screen = Screen.RECORD }
 
@@ -247,7 +321,7 @@ class MainActivity : ComponentActivity() {
                         // over on the right is what you tap to close it again.
                         ModalDrawerSheet(Modifier.fillMaxWidth(0.8f)) {
                             Text(
-                                "Spark Plug",
+                                "Title Track",
                                 Modifier.padding(24.dp),
                             )
                             NavigationDrawerItem(
@@ -270,7 +344,30 @@ class MainActivity : ComponentActivity() {
                     Scaffold(
                         topBar = {
                             TopAppBar(
+                                // While rows are picked the bar becomes the selection's own: a
+                                // count, a way out, and the one action a batch is worth making.
+                                // Tinted rather than filled with the accent — `secondaryContainer`
+                                // is the accent in this app, and a full-width lime bar is the sort
+                                // of thing the palette was tuned away from.
+                                colors = if (selecting) {
+                                    TopAppBarDefaults.topAppBarColors(
+                                        containerColor =
+                                            MaterialTheme.colorScheme.primaryContainer,
+                                        titleContentColor =
+                                            MaterialTheme.colorScheme.onPrimaryContainer,
+                                        navigationIconContentColor =
+                                            MaterialTheme.colorScheme.onPrimaryContainer,
+                                        actionIconContentColor =
+                                            MaterialTheme.colorScheme.onPrimaryContainer,
+                                    )
+                                } else {
+                                    TopAppBarDefaults.topAppBarColors()
+                                },
                                 title = {
+                                    if (selecting) {
+                                        Text("${selection.size} selected", maxLines = 1)
+                                        return@TopAppBar
+                                    }
                                     // The player names the take itself, in the middle of the
                                     // screen; the bar names where the arrow goes instead of saying
                                     // the same long filename twice — the folder the take sits in,
@@ -289,7 +386,14 @@ class MainActivity : ComponentActivity() {
                                     )
                                 },
                                 navigationIcon = {
-                                    if (screen == Screen.PLAYER) {
+                                    if (selecting) {
+                                        IconButton(onClick = { selection = emptySet() }) {
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = "Cancel selection",
+                                            )
+                                        }
+                                    } else if (screen == Screen.PLAYER) {
                                         IconButton(onClick = { leavePlayer() }) {
                                             Icon(
                                                 Icons.AutoMirrored.Filled.ArrowBack,
@@ -305,6 +409,15 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 actions = {
+                                    if (selecting) {
+                                        IconButton(onClick = { deletingSelection = true }) {
+                                            Icon(
+                                                Icons.Default.Delete,
+                                                contentDescription = "Delete selected",
+                                            )
+                                        }
+                                        return@TopAppBar
+                                    }
                                     openTake?.takeIf { screen == Screen.PLAYER }?.let { open ->
                                         PlayerShareAction { share(open.take) }
                                     }
@@ -414,6 +527,14 @@ class MainActivity : ComponentActivity() {
                                     onRename = vm::renameDocument,
                                     onDelete = vm::deleteDocument,
                                     onShare = ::share,
+                                    selection = selection,
+                                    onToggleSelect = { uri ->
+                                        selection = if (uri in selection) {
+                                            selection - uri
+                                        } else {
+                                            selection + uri
+                                        }
+                                    },
                                     modifier = content,
                                 )
 
@@ -511,7 +632,7 @@ class MainActivity : ComponentActivity() {
             text = {
                 Text(
                     if (hadFolder) {
-                        "The folder Spark Plug was recording into is no longer reachable — it may " +
+                        "The folder Title Track was recording into is no longer reachable — it may " +
                             "have been removed, or the permission withdrawn. Choose it again, or " +
                             "pick another one."
                     } else {
