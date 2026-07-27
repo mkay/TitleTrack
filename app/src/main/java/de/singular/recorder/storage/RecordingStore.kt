@@ -18,7 +18,6 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
-import kotlin.math.roundToInt
 
 /** A sub-folder of the recordings root, for organising takes. */
 data class Folder(val uri: Uri, val name: String)
@@ -540,7 +539,9 @@ class RecordingStore(context: Context) {
                     channels = sink.channels,
                     gain = gain,
                     softClip = softClip,
-                    gainDb = Gain.linearToDb(gain).roundToInt(),
+                    // The gain the take was *recorded* with, carried across — not the boost being
+                    // applied here. See [TakeComment].
+                    gainDb = recordedGain(take.uri),
                     bpm = take.bpm,
                     title = base,
                 )
@@ -629,7 +630,7 @@ class RecordingStore(context: Context) {
                 } else {
                     // The PCM is inside the source rather than in a cache file, so the encoder is
                     // fed straight from it — the gain is applied on the way past either way.
-                    flacWriter(out, info.sampleRate, info.channels, gainDb.roundToInt(), take.bpm, base)
+                    flacWriter(out, info.sampleRate, info.channels, info.gainDb ?: 0, take.bpm, base)
                         .use { enc ->
                             resolver.openInputStream(take.uri)?.use { input ->
                                 input.skipExactly(info.dataStart)
@@ -677,6 +678,7 @@ class RecordingStore(context: Context) {
                     channels = channels,
                     bpm = bpm,
                     title = title,
+                    gainDb = gainDb,
                 ),
             )
             pcm.inputStream().use { applyGain(it, out, pcm.length(), gain, softClip) }
@@ -685,6 +687,18 @@ class RecordingStore(context: Context) {
         flacWriter(out, sampleRate, channels, gainDb, bpm, title).use { enc ->
             pcm.inputStream().use { applyGain(it, enc, pcm.length(), gain, softClip) }
         }
+    }
+
+    /**
+     * The input gain [uri] was recorded with, or 0 where the file does not say.
+     *
+     * An import from elsewhere has no such number, and a take this app recorded carries it in its
+     * comment — see [de.singular.recorder.audio.TakeComment]. Read here so that a copy keeps
+     * saying what its original said.
+     */
+    private fun recordedGain(uri: Uri): Int {
+        val head = readHead(uri) ?: return 0
+        return Wav.readInfo(head)?.gainDb ?: Flac.readInfo(head)?.gainDb ?: 0
     }
 
     /** A [Flac.Writer] onto [out], with the cache directory it buffers its frames in. */

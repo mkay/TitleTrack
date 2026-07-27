@@ -6,6 +6,22 @@ import java.io.File
 import java.io.OutputStream
 
 /**
+ * What an edit writes its result as. Both are lossless; the difference is size.
+ *
+ * [WAV] is what the app records, and the format its own takes stay in through an edit: a WAV is
+ * scaled or cut without a codec going anywhere near it. [FLAC] is the same audio at roughly half
+ * the bytes, which is what a take that arrived compressed wants back — a normalised copy of a FLAC
+ * written as WAV is nearly three times the file for nothing.
+ */
+enum class AudioFormat(val mime: String, val extension: String, val label: String) {
+    FLAC(Flac.MIME, "flac", "FLAC"),
+    WAV(RIFF_WAVE_MIME, "wav", "WAV"),
+}
+
+/** Providers are inconsistent about WAV, but this is the one to ask for. */
+const val RIFF_WAVE_MIME = "audio/x-wav"
+
+/**
  * Reading and writing the native FLAC container.
  *
  * The counterpart to [Wav], and here for the same reason: an edit has to write a file, and for a
@@ -27,22 +43,6 @@ import java.io.OutputStream
  * The tempo travels as it does in a WAV: `bpm=` in a comment, plus a `BPM` field of its own, so a
  * desktop tool shows the same thing this app reads back.
  */
-/**
- * What an edit writes its result as. Both are lossless; the difference is size.
- *
- * [WAV] is what the app records, and the format its own takes stay in through an edit: a WAV is
- * scaled or cut without a codec going anywhere near it. [FLAC] is the same audio at roughly half
- * the bytes, which is what a take that arrived compressed wants back — a normalised copy of a FLAC
- * written as WAV is nearly three times the file for nothing.
- */
-enum class AudioFormat(val mime: String, val extension: String, val label: String) {
-    FLAC(Flac.MIME, "flac", "FLAC"),
-    WAV(RIFF_WAVE_MIME, "wav", "WAV"),
-}
-
-/** Providers are inconsistent about WAV, but this is the one to ask for. */
-const val RIFF_WAVE_MIME = "audio/x-wav"
-
 object Flac {
 
     const val MIME = "audio/flac"
@@ -58,9 +58,6 @@ object Flac {
 
     /** Middling: the encoder's own default, and the last levels buy little on 16-bit mono. */
     private const val COMPRESSION_LEVEL = 5
-
-    private const val BPM_KEY = "bpm="
-    private const val GAIN_KEY = "gain="
 
     /**
      * A sink that takes little-endian 16-bit PCM and leaves a complete `.flac` on [out].
@@ -245,16 +242,10 @@ object Flac {
         private fun vorbisComment(): ByteArray {
             val fields = buildList {
                 if (!title.isNullOrBlank()) add("TITLE=$title")
-                if (bpm != null) add("BPM=${trimZeros(bpm)}")
-                val comment = buildString {
-                    if (bpm != null) append(BPM_KEY + trimZeros(bpm))
-                    if (gainDb != 0) {
-                        if (isNotEmpty()) append(' ')
-                        append(GAIN_KEY)
-                        append(if (gainDb > 0) "+" else "")
-                        append(gainDb)
-                    }
-                }
+                // BPM of its own as well as inside the comment: the field is the one a desktop
+                // tool will show in a tempo column, and the comment is what [Wav] writes.
+                if (bpm != null) add("BPM=${TakeComment.trimZeros(bpm)}")
+                val comment = TakeComment.format(bpm, gainDb)
                 if (comment.isNotEmpty()) add("COMMENT=$comment")
                 add("ENCODER=TitleTrack")
             }
@@ -280,6 +271,8 @@ object Flac {
         val bitsPerSample: Int,
         val totalSamples: Long,
         val bpm: Float?,
+        /** The input gain the take was captured with, if it says. */
+        val gainDb: Int? = null,
     ) {
         val durationMs: Long
             get() = if (sampleRate <= 0) 0 else totalSamples * 1_000 / sampleRate
@@ -301,6 +294,7 @@ object Flac {
         var bits = 0
         var samples = 0L
         var bpm: Float? = null
+        var gainDb: Int? = null
 
         var p = 4
         while (p + 4 <= bytes.size) {
@@ -323,25 +317,34 @@ object Flac {
                     samples = packed and TOTAL_SAMPLES_MASK
                 }
 
-                BLOCK_VORBIS_COMMENT -> bpm = findBpm(bytes, body, body + size)
+                BLOCK_VORBIS_COMMENT -> tags(bytes, body, body + size).let { (b, g) ->
+                    bpm = b
+                    gainDb = g
+                }
             }
             if (last) break
             p = body + size
         }
         if (sampleRate <= 0 || channels <= 0) return null
-        return Info(sampleRate, channels, bits, samples, bpm)
+        return Info(sampleRate, channels, bits, samples, bpm, gainDb)
     }
 
-    /** `BPM`, or the `bpm=` this app also writes into `COMMENT`, whichever turns up first. */
-    private fun findBpm(bytes: ByteArray, from: Int, end: Int): Float? {
+    /**
+     * Tempo and recorded gain out of a Vorbis comment block.
+     *
+     * Tempo may be in a `BPM` field of its own or in the `COMMENT` this app writes; the gain is
+     * only ever in the comment, which is where [TakeComment] puts it.
+     */
+    private fun tags(bytes: ByteArray, from: Int, end: Int): Pair<Float?, Int?> {
         var p = from
-        if (p + 4 > end) return null
+        if (p + 4 > end) return null to null
         val vendor = u32le(bytes, p)
         p += 4 + vendor.toInt()
-        if (p + 4 > end) return null
+        if (p + 4 > end) return null to null
         val count = u32le(bytes, p).toInt()
         p += 4
-        var fromComment: Float? = null
+        var bpm: Float? = null
+        var gainDb: Int? = null
         for (i in 0 until count) {
             if (p + 4 > end) break
             val size = u32le(bytes, p).toInt()
@@ -351,14 +354,15 @@ object Flac {
             p += size
             val key = field.substringBefore('=').uppercase()
             val value = field.substringAfter('=', "")
-            if (key == "BPM") value.trim().toFloatOrNull()?.let { return it }
-            if (key == "COMMENT") {
-                fromComment = value.substringAfter(BPM_KEY, "")
-                    .takeWhile { it.isDigit() || it == '.' }
-                    .toFloatOrNull() ?: fromComment
+            when (key) {
+                "BPM" -> bpm = value.trim().toFloatOrNull() ?: bpm
+                "COMMENT" -> {
+                    bpm = bpm ?: TakeComment.bpm(value)
+                    gainDb = TakeComment.gainDb(value)
+                }
             }
         }
-        return fromComment
+        return bpm to gainDb
     }
 
     /**
@@ -394,10 +398,6 @@ object Flac {
         System.arraycopy(body, 0, out, 4, body.size)
         return out
     }
-
-    /** "96" rather than "96.0" — as [Wav] writes it, so the two files read alike. */
-    private fun trimZeros(bpm: Float): String =
-        if (bpm == bpm.toInt().toFloat()) bpm.toInt().toString() else bpm.toString()
 
     private fun u32le(b: ByteArray, at: Int): Long =
         (b[at].toLong() and 0xFF) or

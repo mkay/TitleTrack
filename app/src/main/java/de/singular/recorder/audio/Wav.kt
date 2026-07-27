@@ -1,6 +1,44 @@
 package de.singular.recorder.audio
 
 /**
+ * The one comment a take carries, in whatever container it is in: `bpm=96 gain=+12`.
+ *
+ * Written the same either way — a WAV's `LIST/INFO` `ICMT`, a FLAC's Vorbis `COMMENT` — so a take
+ * says the same thing about itself after an edit as before one, and a desktop tool shows the same
+ * text in both. Both fields mean what they meant when the take was recorded: the tempo it was
+ * played to, and the input gain it was captured with. Neither is a record of what has been done to
+ * it since; a normalise carries them across rather than overwriting them with its own boost.
+ */
+object TakeComment {
+
+    private const val BPM_KEY = "bpm="
+    private const val GAIN_KEY = "gain="
+
+    /** The comment text, or empty when the take has nothing to say. */
+    fun format(bpm: Float?, gainDb: Int): String = buildString {
+        if (bpm != null) append(BPM_KEY + trimZeros(bpm))
+        if (gainDb != 0) {
+            if (isNotEmpty()) append(' ')
+            append(GAIN_KEY)
+            append(if (gainDb > 0) "+" else "")
+            append(gainDb)
+        }
+    }
+
+    fun bpm(text: String): Float? =
+        text.substringAfter(BPM_KEY, "").takeWhile { it.isDigit() || it == '.' }.toFloatOrNull()
+
+    fun gainDb(text: String): Int? = text.substringAfter(GAIN_KEY, "")
+        .takeWhile { it.isDigit() || it == '+' || it == '-' }
+        .removePrefix("+")
+        .toIntOrNull()
+
+    /** "96" rather than "96.0", but "96.5" kept — tempo is usually whole and reads better so. */
+    fun trimZeros(bpm: Float): String =
+        if (bpm == bpm.toInt().toFloat()) bpm.toInt().toString() else bpm.toString()
+}
+
+/**
  * Reading and writing the RIFF/WAVE container.
  *
  * Takes are captured as raw PCM and only wrapped in a header on save, so this never has to seek
@@ -19,10 +57,6 @@ object Wav {
     const val CHANNELS = 1
     const val BITS_PER_SAMPLE = 16
     const val BYTES_PER_FRAME = CHANNELS * BITS_PER_SAMPLE / 8
-
-    /** Keys used inside the INFO comment, e.g. `bpm=96 gain=+12`. */
-    private const val BPM_KEY = "bpm="
-    private const val GAIN_KEY = "gain="
 
     /**
      * The complete header preceding [dataBytes] bytes of PCM: `RIFF … fmt … [LIST] … data`.
@@ -71,6 +105,8 @@ object Wav {
         val bitsPerSample: Int,
         val dataBytes: Long,
         val bpm: Float?,
+        /** The input gain the take was captured with, if it says. */
+        val gainDb: Int? = null,
         /** Offset of the first PCM byte — where the header ends and the audio begins. */
         val dataStart: Long = -1,
     ) {
@@ -99,6 +135,7 @@ object Wav {
         var dataBytes = -1L
         var dataStart = -1L
         var bpm: Float? = null
+        var gainDb: Int? = null
 
         var p = 12
         while (p + 8 <= bytes.size) {
@@ -112,7 +149,11 @@ object Wav {
                     bits = u16(bytes, body + 14)
                 }
                 "LIST" -> if (body + 4 <= bytes.size && ascii(bytes, body, 4) == "INFO") {
-                    bpm = findBpm(bytes, body + 4, minOf(bytes.size.toLong(), body + size).toInt())
+                    val end = minOf(bytes.size.toLong(), body + size).toInt()
+                    comment(bytes, body + 4, end)?.let {
+                        bpm = TakeComment.bpm(it)
+                        gainDb = TakeComment.gainDb(it)
+                    }
                 }
                 "data" -> {
                     dataBytes = size
@@ -130,7 +171,7 @@ object Wav {
         val trueData = if (fileBytes > 0 && dataStart >= 0 &&
             (dataBytes <= 0 || dataBytes > fileBytes - dataStart)
         ) fileBytes - dataStart else dataBytes
-        return Info(sampleRate, channels, bits, trueData.coerceAtLeast(0), bpm, dataStart)
+        return Info(sampleRate, channels, bits, trueData.coerceAtLeast(0), bpm, gainDb, dataStart)
     }
 
     /** The `LIST/INFO` chunk carrying tempo and title, or empty when there is nothing to say. */
@@ -139,17 +180,7 @@ object Wav {
         val body = ByteArrayBuilder(64)
         body.ascii("INFO")
         if (!title.isNullOrBlank()) body.infoField("INAM", title)
-        // One comment, space separated: the tempo the take was played to, and the gain it was
-        // recorded with — so a file that sounds lifted can say by how much, on any desktop.
-        val comment = buildString {
-            if (bpm != null) append(BPM_KEY + trimZeros(bpm))
-            if (gainDb != 0) {
-                if (isNotEmpty()) append(' ')
-                append(GAIN_KEY)
-                append(if (gainDb > 0) "+" else "")
-                append(gainDb)
-            }
-        }
+        val comment = TakeComment.format(bpm, gainDb)
         if (comment.isNotEmpty()) body.infoField("ICMT", comment)
         body.infoField("ISFT", "TitleTrack")
         val bodyBytes = body.toByteArray()
@@ -161,8 +192,8 @@ object Wav {
         return out.toByteArray()
     }
 
-    /** Walk the INFO fields between [from] and [end] looking for our `bpm=` comment. */
-    private fun findBpm(bytes: ByteArray, from: Int, end: Int): Float? {
+    /** The `ICMT` text among the INFO fields between [from] and [end] — see [TakeComment]. */
+    private fun comment(bytes: ByteArray, from: Int, end: Int): String? {
         var p = from
         while (p + 8 <= end) {
             val id = ascii(bytes, p, 4)
@@ -170,18 +201,12 @@ object Wav {
             val body = p + 8
             if (size < 0 || body + size > end) return null
             if (id == "ICMT") {
-                val text = String(bytes, body, size, Charsets.US_ASCII).trimEnd('\u0000')
-                val value = text.substringAfter(BPM_KEY, "").takeWhile { it.isDigit() || it == '.' }
-                value.toFloatOrNull()?.let { return it }
+                return String(bytes, body, size, Charsets.US_ASCII).trimEnd('\u0000')
             }
             p = body + size + (size and 1)
         }
         return null
     }
-
-    /** "96" rather than "96.0", but "96.5" kept — tempo is usually whole and reads better so. */
-    private fun trimZeros(bpm: Float): String =
-        if (bpm == bpm.toInt().toFloat()) bpm.toInt().toString() else bpm.toString()
 
     private fun ascii(b: ByteArray, at: Int, len: Int): String =
         if (at + len > b.size) "" else String(b, at, len, Charsets.US_ASCII)
