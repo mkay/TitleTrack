@@ -77,16 +77,11 @@ First cut: recording and take management.
   copied across and the original removed where it cannot; stars follow the take either way.
 - Starring a take fills its star at once but leaves the row where it is for a moment before the list
   re-sorts. A row that rises to the top under your thumb reads as having starred the wrong take.
-- A take this device cannot decode is refused rather than pretended at: the transport says "Nothing
-  on this device can decode that file" instead of running a clock over silence, and the player's
-  Play button is disabled for a take whose waveform could not be read. Apple Lossless is refused
-  outright, before any codec starts — the vendor decoder on this phone rejects valid ALAC and can
-  take the app down with it. Convert such a file to FLAC: lossless, no larger, and a format every
-  Android device decodes.
-- Editing into a copy asks what to write — FLAC or WAV, FLAC first — for both normalise and trim.
-  Both are lossless, so it is a question of size: a copy of a compressed take used to be a WAV
-  nearly three times the original.
-  Cutting a WAV to a WAV is still a byte copy that never starts a codec; cutting to FLAC encodes,
-  losslessly. The container is written here rather than by a muxer, and the tempo travels with
-  the take, out of a WAV's `LIST/INFO` and into a FLAC's Vorbis comment. Overwriting is unchanged
-  and still WAV-only: a file called `.wav` should not quietly become something else.
+- A take this device cannot decode now says so instead of appearing to play. Play is refused with a
+  message, and the player's button is disabled for a take whose waveform could not be read. Apple
+  Lossless is turned away outright: the decoder here claims the file and then delivers silence.
+  Convert those to FLAC — lossless, no larger, and readable on any Android device.
+- Normalise and trim can save a copy as **FLAC or WAV**, FLAC first. Both are lossless, so the
+  choice is only size — a copy of a compressed take used to come out around three times bigger as
+  a WAV. The take's tempo travels into either format, so an edit never costs a take the thing the
+  planned drum and bass tracks lock to. Overwriting is unchanged and still WAV to WAV.

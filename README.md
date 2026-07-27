@@ -127,9 +127,10 @@ a time. First how loud:
   actually calls quiet. It has to push some peaks past full scale, where a tanh knee above 0.8
   saturates them smoothly rather than shattering them into hard-clipped edges.
 
-Then where it goes: **overwrite this take**, which has no undo and says so, or **save a normalised
-copy** beside it, which leaves the original alone. Either way the player switches to whatever now
-holds the normalised audio, so you hear what you asked for rather than having to go and find it.
+Then where it goes: **overwrite this take**, which has no undo and says so, or **save a copy**
+beside it as **FLAC or WAV**. Both are lossless, so that choice is only about size — FLAC is about
+half of WAV — and FLAC is offered first. Either way the player switches to whatever now holds the
+normalised audio, so you hear what you asked for rather than having to go and find it.
 
 A take Title Track recorded is 16-bit PCM WAV, and is scaled sample for sample: two passes over the
 file, measuring and then scaling, with the header copied through byte for byte so the tempo and
@@ -138,13 +139,10 @@ complete, so a failure part-way leaves the take as it was; a copy needs none of 
 original is never opened for writing at all.
 
 Imports get the same treatment by a different route. **An m4a, mp3, ogg or flac is decoded** —
-whatever the device can play — and **saved as a new WAV**, which the dialog says before it does it.
-Never back over the original: putting the level into a lossy file means encoding it again, and a
-second generation of artefacts is a poor price for a volume change. The decode happens once, with
-the samples going to a cache file and being measured on the way past, so the gain is known by the
-time there is anything to scale — and the length of that file is what the WAV header needs, which
-is not knowable in advance. Expect the result to be roughly ten times the size of the m4a it came
-from, and lossless.
+whatever the device can play — and saved as a new file beside it, never back over the original:
+putting the level into a lossy file means encoding it again, and a second generation of artefacts
+is a poor price for a volume change. This is why FLAC leads the choice. A compressed take saved
+back as WAV comes out around three times the size for no gain in quality.
 
 A take that is already at level is left alone and says so, rather than being rewritten for a
 fraction of a decibel.
@@ -176,9 +174,18 @@ All of it is one gesture detector, because these compete for the same finger: ta
 handle drags, one finger pans when zoomed and scrubs at 1x, two fingers zoom. At 1x with a selection
 open a stray drag does nothing at all — seeking out from under an edit is never what it meant.
 
-A WAV is cut on frame boundaries with no decode at all — the header is rebuilt for the new length
-and the selected bytes copied straight through, so what survives is exactly what was recorded.
-Anything else is decoded and written out as a WAV, for the same reason normalising is.
+A WAV cut to a WAV never decodes — the header is rebuilt for the new length and the selected bytes
+copied straight through, so what survives is exactly what was recorded. A trim offers the same
+FLAC-or-WAV choice as normalising, and overwriting stays WAV to WAV: a file called `.wav` should
+not quietly become something else.
+
+Whichever format a copy comes out as, the take's **tempo goes with it**, so an edit never costs a
+take the thing the planned drum and bass tracks lock to.
+
+A take this phone cannot decode is **refused, with a message** — a buffer is decoded before
+playback starts, so a file that will not play says so instead of running a clock over silence.
+Apple Lossless is turned away outright: the decoder on this device reports success and delivers
+nothing. Convert those to FLAC, which every Android device can read.
 
 **Double-tapping Play** starts the take from its first sample. Every tap still acts immediately —
 the second one is what means "from the top" — rather than holding the first back for a fifth of a
@@ -193,7 +200,6 @@ take playing with nothing anywhere to stop it.
 ## Planned
 
 - Foreground service, so a take survives the app going to the background.
-- Trimming a take, now that there is a waveform to trim against.
 - Auto drum and bass tracks under playback, in the spirit of the late Apple Music Memos — the tempo
   is already stored, and chord detection can come from CrystalBall's chromagram and template
   matching.
@@ -239,7 +245,7 @@ app/src/main/java/de/singular/recorder/
     AudioRecorder.kt     microphone -> PCM cache file; finish / restart / save; level monitoring
     Metronome.kt         count-in clicks (adapted from RubberRing)
     Wav.kt               RIFF header, with tempo in a LIST/INFO chunk
-    Flac.kt              the FLAC container, written by hand: MediaMuxer has no .flac
+    Flac.kt              the FLAC container, with the same tempo comment as Wav.kt
     Gain.kt              measuring a take's level, and the maths of lifting it
     Waveform.kt          WAV -> peak envelope, and the bucketing both paths share
     AudioDecoder.kt      everything else -> PCM, via MediaCodec: peaks, or an edited copy
