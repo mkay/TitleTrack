@@ -45,6 +45,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.clip
@@ -620,10 +621,9 @@ private fun LevelTestDialog(
  * dot-matrix face with its own spacing, and the launcher icon's waveform stands between the two
  * words, neither of which survives being typed out.
  *
- * A themed pair, generated from the one source by the converter's `--map`. The exported ramp is
- * built for a dark ground, where the lettering reads 6.2:1; on the near-white page the same green
- * would sit at 3.0:1, so the light drawable shifts the ramp down and the lettering lands at 8.6:1.
- * The waveform stays a step brighter than the letters in both, because it is the lit part.
+ * One drawable, as exported for the dark page, flattened to a single colour on the light one — see
+ * [wordmarkTint] for why the ramp does not survive the trip and why this is a tint rather than a
+ * second file.
  *
  * Sized by width and left to find its own height, so it keeps its proportions on any screen while
  * its centre line stays on the canvas's zero line.
@@ -634,6 +634,7 @@ private fun TitleWordmark(modifier: Modifier = Modifier) {
         painter = painterResource(R.drawable.title_wordmark),
         contentDescription = null, // the app bar already names the screen; this is decoration
         contentScale = ContentScale.Fit,
+        colorFilter = MaterialTheme.colorScheme.wordmarkTint?.let { ColorFilter.tint(it) },
         modifier = modifier.aspectRatio(WordmarkAspect),
     )
 }

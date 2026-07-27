@@ -104,6 +104,24 @@ private val RecordRedOnDark = Color(0xFFA01A1F)
 private val OnRecord = Color(0xFFFFFFFF)
 
 /**
+ * What to paint the wordmark with, or `null` to leave it as drawn.
+ *
+ * The mark is exported for a dark ground, where its three greens are a ramp of light: the letters
+ * sit back and the waveform between them is the lit part. The light page has no such light to give
+ * — the same three land between 3.0:1 and 1.5:1 on it — and the ramp stops reading as depth and
+ * starts reading as three washed-out greens next to each other. So light mode flattens the whole
+ * mark to lime-900, 6.9:1: drawn rather than lit.
+ *
+ * A tint rather than a second drawable, because `-night` resources follow the *system's* night
+ * setting while this app's theme is its own preference. Anyone running the app light on a dark
+ * phone got the dark mark on the light page, which is exactly the pairing this is meant to avoid.
+ */
+val ColorScheme.wordmarkTint: Color? get() =
+    if (surface.luminance() < 0.5f) null else WordmarkOnLight
+
+private val WordmarkOnLight = Color(0xFF3F6212) // lime-900
+
+/**
  * The ground the accent stands on, and the reason it stops reading as neon.
  *
  * Material's own neutrals are not neutral — they carry a faint violet, and a green on a violet-grey
