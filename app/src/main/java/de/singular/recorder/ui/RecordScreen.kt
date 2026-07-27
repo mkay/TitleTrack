@@ -616,14 +616,14 @@ private fun LevelTestDialog(
 }
 
 /**
- * The app's name, drawn from `title.svg` as a vector rather than set as text: the lettering is a
- * dot-matrix face with its own spacing, and the launcher icon's swirl stands between the two words,
- * neither of which survives being typed out.
+ * The app's name, drawn from `wordmark.svg` as a vector rather than set as text: the lettering is a
+ * dot-matrix face with its own spacing, and the launcher icon's waveform stands between the two
+ * words, neither of which survives being typed out.
  *
- * One drawable for both themes, where there used to be a recoloured pair. The mark now contains the
- * swirl itself — three gradients and five greens — and there is no honest way to restate that per
- * theme; a wordmark is a fixed thing, not a themed one. The lettering reads 6.1:1 on the dark page
- * and 3.0:1 on the light one, the same trade the accent already makes.
+ * A themed pair, generated from the one source by the converter's `--map`. The exported ramp is
+ * built for a dark ground, where the lettering reads 6.2:1; on the near-white page the same green
+ * would sit at 3.0:1, so the light drawable shifts the ramp down and the lettering lands at 8.6:1.
+ * The waveform stays a step brighter than the letters in both, because it is the lit part.
  *
  * Sized by width and left to find its own height, so it keeps its proportions on any screen while
  * its centre line stays on the canvas's zero line.
