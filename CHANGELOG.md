@@ -83,8 +83,10 @@ First cut: recording and take management.
   outright, before any codec starts — the vendor decoder on this phone rejects valid ALAC and can
   take the app down with it. Convert such a file to FLAC: lossless, no larger, and a format every
   Android device decodes.
-- Normalising into a copy asks what to write: FLAC or WAV, FLAC first. Both are lossless, so it is
-  a question of size — a normalised copy of a compressed take used to be a WAV nearly three times
-  the original. The container is written here rather than by a muxer, and the tempo travels with
+- Editing into a copy asks what to write — FLAC or WAV, FLAC first — for both normalise and trim.
+  Both are lossless, so it is a question of size: a copy of a compressed take used to be a WAV
+  nearly three times the original.
+  Cutting a WAV to a WAV is still a byte copy that never starts a codec; cutting to FLAC encodes,
+  losslessly. The container is written here rather than by a muxer, and the tempo travels with
   the take, out of a WAV's `LIST/INFO` and into a FLAC's Vorbis comment. Overwriting is unchanged
   and still WAV-only: a file called `.wav` should not quietly become something else.

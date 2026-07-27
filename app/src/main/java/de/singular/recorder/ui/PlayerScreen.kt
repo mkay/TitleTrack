@@ -108,7 +108,7 @@ fun PlayerScreen(
     onSeek: (Long) -> Unit,
     onRename: (String) -> Unit,
     onNormalize: (NormalizeMode, Boolean, AudioFormat) -> Unit,
-    onTrim: (Float, Float, Boolean) -> Unit,
+    onTrim: (Float, Float, Boolean, AudioFormat) -> Unit,
     onRestart: (Take) -> Unit,
     looping: Boolean,
     onToggleLoop: () -> Unit,
@@ -232,9 +232,9 @@ fun PlayerScreen(
                     }
                 },
                 onCancel = { trimming = false },
-                onTrim = { asCopy ->
+                onTrim = { asCopy, format ->
                     trimming = false
-                    onTrim(startFrac, endFrac, asCopy)
+                    onTrim(startFrac, endFrac, asCopy, format)
                 },
             )
         } else {
@@ -1023,7 +1023,7 @@ private fun TrimTools(
     durationMs: Long,
     onNudge: (TrimEdge, Long) -> Unit,
     onCancel: () -> Unit,
-    onTrim: (Boolean) -> Unit,
+    onTrim: (Boolean, AudioFormat) -> Unit,
 ) {
     var asking by remember { mutableStateOf(false) }
 
@@ -1076,28 +1076,33 @@ private fun TrimTools(
                         }
                     } else {
                         buildAnnotatedString {
-                            append("$cut is removed. This one isn't a WAV, so the trim is decoded ")
-                            append("and saved as a new WAV file. The original is left alone.")
+                            append("$cut is removed. This one is decoded and saved as a new file; ")
+                            append("the original is left alone.")
                         }
                     },
                     style = DialogBody,
                 )
             },
+            // As normalising: both copies are lossless, so the choice is size, and FLAC leads.
+            // Cutting to WAV is a byte copy where cutting to FLAC re-encodes — still lossless,
+            // and not slow enough at these lengths to be worth a word in the dialog.
             options = buildList {
                 if (isWav) {
                     add(
                         "Overwrite this take" to {
                             asking = false
-                            onTrim(false)
+                            onTrim(false, AudioFormat.WAV)
                         },
                     )
                 }
-                add(
-                    (if (isWav) "Save a trimmed copy" else "Save a trimmed WAV") to {
-                        asking = false
-                        onTrim(true)
-                    },
-                )
+                for (format in listOf(AudioFormat.FLAC, AudioFormat.WAV)) {
+                    add(
+                        "Save a trimmed ${format.label}" to {
+                            asking = false
+                            onTrim(true, format)
+                        },
+                    )
+                }
             },
             onDismiss = { asking = false },
         )

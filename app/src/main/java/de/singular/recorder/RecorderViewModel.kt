@@ -778,12 +778,12 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
 
     /**
      * Keep the selected part of the open take and throw the rest away — over the take, or into a
-     * copy beside it.
+     * copy beside it in [copyAs].
      *
      * The player switches to whatever now holds the audio and reloads it: the waveform is a picture
      * of samples that have just been cut, and the playhead is somewhere that may no longer exist.
      */
-    fun trimOpenTake(startFrac: Float, endFrac: Float, asCopy: Boolean) {
+    fun trimOpenTake(startFrac: Float, endFrac: Float, asCopy: Boolean, copyAs: AudioFormat) {
         val take = _openTake.value?.take ?: return
         val folder = _library.value.current
         if (_busy.value) return
@@ -794,7 +794,13 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             _busy.value = true
             if (_playback.value.uri == take.uri) stopPlayback()
-            store.trim(take, startFrac, endFrac, copyInto = if (asCopy) folder?.uri else null)
+            store.trim(
+                take,
+                startFrac,
+                endFrac,
+                copyInto = if (asCopy) folder?.uri else null,
+                copyAs = copyAs,
+            )
                 .onSuccess { trimmed ->
                     _message.value = if (asCopy) "Saved ${trimmed.name}." else "Trimmed."
                     openTake(trimmed)

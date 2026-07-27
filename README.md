@@ -239,9 +239,10 @@ app/src/main/java/de/singular/recorder/
     AudioRecorder.kt     microphone -> PCM cache file; finish / restart / save; level monitoring
     Metronome.kt         count-in clicks (adapted from RubberRing)
     Wav.kt               RIFF header, with tempo in a LIST/INFO chunk
+    Flac.kt              the FLAC container, written by hand: MediaMuxer has no .flac
     Gain.kt              measuring a take's level, and the maths of lifting it
     Waveform.kt          WAV -> peak envelope, and the bucketing both paths share
-    AudioDecoder.kt      everything else -> PCM, via MediaCodec: peaks, or a normalised WAV
+    AudioDecoder.kt      everything else -> PCM, via MediaCodec: peaks, or an edited copy
   storage/
     RecordingStore.kt    the granted folder: list, create, rename, delete, write, normalise
   ui/

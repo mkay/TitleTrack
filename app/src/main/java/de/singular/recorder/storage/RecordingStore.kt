@@ -741,11 +741,15 @@ class RecordingStore(context: Context) {
      * Keep the part of [take] between [startFrac] and [endFrac] and throw the rest away — over the
      * take itself, or into a copy beside it when [copyInto] is a folder.
      *
-     * A WAV is cut on frame boundaries with no decode at all: the header is rebuilt for the new
-     * length and the selected bytes are copied straight through, so the samples that survive are
-     * the exact samples that were recorded. Anything else is decoded and the cut written out as a
-     * WAV, for the same reason normalising is — re-encoding a lossy file to shorten it would cost
-     * a generation of quality on top of the audio being removed on purpose.
+     * A WAV cut to a WAV never decodes: the header is rebuilt for the new length and the selected
+     * bytes are copied straight through, so the samples that survive are the exact samples that
+     * were recorded. Anything else is decoded first, and either way [copyAs] decides what the copy
+     * is written as — see [normalize], which offers the same choice for the same reasons. Overwrite
+     * remains WAV to WAV.
+     *
+     * Cutting to FLAC does cost an encode, unlike cutting to WAV. It is still lossless, so this is
+     * time rather than quality, and it is what keeps a take that arrived compressed from tripling
+     * in size on its way through a trim.
      *
      * The tempo travels with the take, though a trim that does not land on a bar line makes it a
      * claim about the music rather than about the first sample.
@@ -755,6 +759,7 @@ class RecordingStore(context: Context) {
         startFrac: Float,
         endFrac: Float,
         copyInto: Uri? = null,
+        copyAs: AudioFormat = AudioFormat.FLAC,
     ): Result<Take> = withContext(Dispatchers.IO) {
         if (endFrac <= startFrac) {
             return@withContext Result.failure(IllegalStateException("Nothing selected to keep."))
@@ -763,25 +768,33 @@ class RecordingStore(context: Context) {
         val wav = readHeader(take.uri, take.sizeBytes)
             ?.takeIf { it.bitsPerSample == 16 && it.dataStart >= 0 && it.dataBytes > 0 }
 
+        val title = take.name.substringBeforeLast('.')
+
         if (wav != null) {
             val frameBytes = (wav.channels * wav.bitsPerSample / 8).coerceAtLeast(1)
             val cut = cut(wav.dataBytes, frameBytes, startFrac, endFrac)
                 ?: return@withContext Result.failure(
                     IllegalStateException("That selection is too short to keep."),
                 )
-            val header = Wav.header(
-                dataBytes = cut.bytes,
-                sampleRate = wav.sampleRate,
-                channels = wav.channels,
-                bitsPerSample = wav.bitsPerSample,
-                bpm = take.bpm,
-                title = take.name.substringBeforeLast('.'),
-            )
-            return@withContext writeTrimmed(take, copyInto, header) { out ->
-                resolver.openInputStream(take.uri)?.use { input ->
-                    input.skipExactly(wav.dataStart + cut.offset)
-                    copyExactly(input, out, cut.bytes)
-                } ?: throw IllegalStateException("That file could not be read.")
+            // Overwriting stays in the format it is overwriting, whatever a copy would have been.
+            val format = if (copyInto == null) AudioFormat.WAV else copyAs
+            return@withContext writeTrimmed(take, copyInto, format) { out ->
+                writeCut(
+                    out = out,
+                    format = format,
+                    sampleRate = wav.sampleRate,
+                    channels = wav.channels,
+                    bitsPerSample = wav.bitsPerSample,
+                    dataBytes = cut.bytes,
+                    bpm = take.bpm,
+                    title = title,
+                    gainDb = wav.gainDb ?: 0,
+                ) { pcm ->
+                    resolver.openInputStream(take.uri)?.use { input ->
+                        input.skipExactly(wav.dataStart + cut.offset)
+                        copyExactly(input, pcm, cut.bytes)
+                    } ?: throw IllegalStateException("That file could not be read.")
+                }
             }
         }
 
@@ -813,17 +826,22 @@ class RecordingStore(context: Context) {
                 IllegalStateException("That selection is too short to keep."),
             )
         }
-        val header = Wav.header(
-            dataBytes = cut.bytes,
-            sampleRate = sink.sampleRate,
-            channels = sink.channels,
-            bpm = take.bpm,
-            title = take.name.substringBeforeLast('.'),
-        )
-        val result = writeTrimmed(take, copyInto, header) { out ->
-            scratch.inputStream().use { pcm ->
-                pcm.skipExactly(cut.offset)
-                copyExactly(pcm, out, cut.bytes)
+        val result = writeTrimmed(take, copyInto, copyAs) { out ->
+            writeCut(
+                out = out,
+                format = copyAs,
+                sampleRate = sink.sampleRate,
+                channels = sink.channels,
+                bitsPerSample = 16,
+                dataBytes = cut.bytes,
+                bpm = take.bpm,
+                title = title,
+                gainDb = recordedGain(take.uri),
+            ) { out16 ->
+                scratch.inputStream().use { pcm ->
+                    pcm.skipExactly(cut.offset)
+                    copyExactly(pcm, out16, cut.bytes)
+                }
             }
         }
         scratch.delete()
@@ -844,8 +862,42 @@ class RecordingStore(context: Context) {
     private data class Cut(val offset: Long, val bytes: Long)
 
     /**
-     * Write [header] and whatever [payload] streams after it, either over [take] or into a new
-     * document in [copyInto].
+     * The cut, as [format]: a WAV header and then the bytes, or the same bytes through a FLAC
+     * encoder. [payload] writes plain 16-bit PCM either way and does not know which it is feeding.
+     */
+    private fun writeCut(
+        out: OutputStream,
+        format: AudioFormat,
+        sampleRate: Int,
+        channels: Int,
+        bitsPerSample: Int,
+        dataBytes: Long,
+        bpm: Float?,
+        title: String,
+        gainDb: Int,
+        payload: (OutputStream) -> Unit,
+    ) {
+        if (format == AudioFormat.WAV) {
+            out.write(
+                Wav.header(
+                    dataBytes = dataBytes,
+                    sampleRate = sampleRate,
+                    channels = channels,
+                    bitsPerSample = bitsPerSample,
+                    bpm = bpm,
+                    title = title,
+                    gainDb = gainDb,
+                ),
+            )
+            payload(out)
+            return
+        }
+        flacWriter(out, sampleRate, channels, gainDb, bpm, title).use { payload(it) }
+    }
+
+    /**
+     * Write whatever [write] streams, either over [take] or into a new document in [copyInto]
+     * named for [format].
      *
      * Overwriting builds the whole file in the cache first, because a trim shortens the original:
      * a failure half way through a direct write would leave a take with the header of one length
@@ -854,21 +906,19 @@ class RecordingStore(context: Context) {
     private fun writeTrimmed(
         take: Take,
         copyInto: Uri?,
-        header: ByteArray,
-        payload: (OutputStream) -> Unit,
+        format: AudioFormat,
+        write: (OutputStream) -> Unit,
     ): Result<Take> {
         if (copyInto != null) {
-            val name = take.name.substringBeforeLast('.') + " trimmed.wav"
+            val name = "${take.name.substringBeforeLast('.')} trimmed.${format.extension}"
             val uri = runCatching {
-                DocumentsContract.createDocument(resolver, copyInto, MIME_WAV, name)
+                DocumentsContract.createDocument(resolver, copyInto, format.mime, name)
             }.getOrNull()
                 ?: return Result.failure(IllegalStateException("The copy could not be created."))
 
             val written = runCatching {
-                resolver.openOutputStream(uri, "w")?.use { out ->
-                    out.write(header)
-                    payload(out)
-                } ?: throw IllegalStateException("The copy could not be written.")
+                resolver.openOutputStream(uri, "w")?.use { out -> write(out) }
+                    ?: throw IllegalStateException("The copy could not be written.")
             }
             if (written.isFailure) {
                 runCatching { DocumentsContract.deleteDocument(resolver, uri) }
@@ -883,10 +933,7 @@ class RecordingStore(context: Context) {
 
         val scratch = File(appContext.cacheDir, "trim.wav")
         val written = runCatching {
-            scratch.outputStream().buffered(BLOCK).use { out ->
-                out.write(header)
-                payload(out)
-            }
+            scratch.outputStream().buffered(BLOCK).use { out -> write(out) }
             scratch.inputStream().use { src ->
                 openTruncating(take.uri).use { dest -> src.copyTo(dest) }
             }
