@@ -83,6 +83,7 @@ import androidx.compose.ui.unit.dp
 import de.singular.recorder.OpenTake
 import de.singular.recorder.PlaybackState
 import de.singular.recorder.R
+import de.singular.recorder.audio.AudioFormat
 import de.singular.recorder.audio.NormalizeMode
 import de.singular.recorder.storage.Take
 import kotlinx.coroutines.withTimeoutOrNull
@@ -106,7 +107,7 @@ fun PlayerScreen(
     onPlayPause: (Take, Long) -> Unit,
     onSeek: (Long) -> Unit,
     onRename: (String) -> Unit,
-    onNormalize: (NormalizeMode, Boolean) -> Unit,
+    onNormalize: (NormalizeMode, Boolean, AudioFormat) -> Unit,
     onTrim: (Float, Float, Boolean) -> Unit,
     onRestart: (Take) -> Unit,
     looping: Boolean,
@@ -258,8 +259,13 @@ fun PlayerScreen(
         // one is coming, which is a fifth of a second of nothing happening on the one button that
         // must never feel slow.
         var lastTapAt by remember { mutableLongStateOf(0L) }
+        // A take whose waveform could not be read is a take this device cannot decode, and the
+        // transport says so by not being a transport. The panel above has already given the reason,
+        // so the button does not repeat it — it just stops inviting a press that ends in silence.
+        val playable = open.loadingWaveform || open.peaks != null
         BigButton(
             text = if (playing) "Stop" else "Play",
+            enabled = playable,
             // In loop mode the lemniscate takes the transport's place rather than sitting next to
             // it: the label already says what a press will do, so the icon is free to say what
             // kind of playback this is.
@@ -354,7 +360,7 @@ private fun PlayerTools(
     take: Take,
     busy: Boolean,
     onRename: (String) -> Unit,
-    onNormalize: (NormalizeMode, Boolean) -> Unit,
+    onNormalize: (NormalizeMode, Boolean, AudioFormat) -> Unit,
     onTrim: () -> Unit,
 ) {
     var renaming by remember { mutableStateOf(false) }
@@ -438,9 +444,9 @@ private fun PlayerTools(
     }
 
     mode?.let { chosen ->
-        // An imported m4a or mp3 has to be decoded to be lifted, and re-encoding it would cost a
-        // second generation of lossy audio — so those only ever come out as a new WAV, and the
-        // dialog offers what is actually possible rather than a button that would fail.
+        // Only a WAV can be lifted in place: anything else has to be decoded to be scaled, and
+        // putting it back where it came from would mean encoding it again. The dialog offers what
+        // is actually possible rather than a button that would fail.
         val isWav = take.name.endsWith(".wav", ignoreCase = true)
         ChoiceDialog(
             title = "Normalise",
@@ -454,28 +460,33 @@ private fun PlayerTools(
                         }
                     } else {
                         buildAnnotatedString {
-                            append("This one isn't a WAV, so it is decoded and saved as a new ")
-                            append("WAV file — bigger, and lossless. The original is left alone.")
+                            append("This one is decoded and saved as a new file; the original is ")
+                            append("left alone.")
                         }
                     },
                     style = DialogBody,
                 )
             },
+            // Both copies are lossless, so the choice is size: FLAC is about half of WAV, and
+            // leads for that reason. WAV stays on offer because it is what this app records, and a
+            // take that arrived as one has no reason to leave as anything else.
             options = buildList {
                 if (isWav) {
                     add(
                         "Overwrite this take" to {
                             mode = null
-                            onNormalize(chosen, false)
+                            onNormalize(chosen, false, AudioFormat.WAV)
                         },
                     )
                 }
-                add(
-                    (if (isWav) "Save a normalised copy" else "Save a normalised WAV") to {
-                        mode = null
-                        onNormalize(chosen, true)
-                    },
-                )
+                for (format in listOf(AudioFormat.FLAC, AudioFormat.WAV)) {
+                    add(
+                        "Save a normalised ${format.label}" to {
+                            mode = null
+                            onNormalize(chosen, true, format)
+                        },
+                    )
+                }
             },
             onDismiss = { mode = null },
         )

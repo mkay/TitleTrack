@@ -47,8 +47,33 @@ interface PcmSink {
  * The PCM is never kept here. It arrives a buffer at a time, goes to a [PcmSink], and is dropped —
  * a five-minute take is 26 MB of samples. Decoding stops the moment the sink has had enough, so a
  * waveform that is already drawn costs nothing more.
+ *
+ * One format is refused outright — see [MIME_ALAC].
  */
 object AudioDecoder {
+
+    /**
+     * Apple Lossless, which this app will not decode.
+     *
+     * Not a policy about the format: it is that asking whether *this* device can decode it is not
+     * safe to ask. ALAC is not one of Android's required formats and AOSP ships no decoder for it,
+     * so where it exists at all it is a vendor extra — on Qualcomm devices `c2.qti.alac.sw.decoder`.
+     * That decoder is registered, claims `audio/alac`, and then rejects the codec-specific data that
+     * `MediaExtractor` hands it (`checkAlacCSDParameters: Found an invalid ALAC CSD param`). The
+     * DSP offload path reads the same cookie as `bit_depth:0` and fails every write while
+     * [android.media.MediaPlayer] reports itself playing — silence that looks like playback.
+     *
+     * Worse than the failure is how it fails: the codec tears down its input buffers while
+     * `MediaExtractor.readSampleData` is still copying a packet into one, and the app dies with a
+     * SIGSEGV inside `memcpy` — the waveform read as readily as anything else. A crash cannot be
+     * caught, so the only defence is not to start the codec.
+     *
+     * The cost is a device whose ALAC decoder works being refused along with the rest. Taking that
+     * on knowingly: ALAC arrives here only by way of an Apple export, and the answer for such a file
+     * is to convert it once — to FLAC, which is lossless, no larger, and a format Android requires
+     * every device to decode.
+     */
+    const val MIME_ALAC = "audio/alac"
 
     /**
      * How long [uri] runs, in milliseconds, or 0 if it has no audio track or will not open.
@@ -107,6 +132,34 @@ object AudioDecoder {
     }
 
     /**
+     * Whether this device can really decode [uri], established by decoding the first buffer of it.
+     *
+     * Not the same question as "is there a decoder for this type", and the codec list cannot answer
+     * it: a device may register a decoder that fails on the first packet it is given, as this one
+     * does for [MIME_ALAC]. Running the thing is what settles it.
+     *
+     * Stops at the first buffer of PCM, so it costs a codec start rather than a decode. Call it off
+     * the main thread with the rest of this class.
+     */
+    fun canDecode(context: Context, uri: Uri): Boolean {
+        var got = false
+        val sink = object : PcmSink {
+            override fun onPcm16(pcm: ByteArray, count: Int, channels: Int) {
+                got = got || count > 0
+            }
+
+            override fun onPcmFloat(pcm: FloatArray, count: Int, channels: Int) {
+                got = got || count > 0
+            }
+
+            override val wantsMore: Boolean get() = !got
+        }
+        // Both halves matter: decode reports the codec throwing, `got` reports it running without
+        // ever producing a sample.
+        return decode(context, uri, sink) && got
+    }
+
+    /**
      * Decode [uri] into [sink]. Returns false if it has no audio track this device can decode.
      *
      * Runs the codec synchronously, so call it off the main thread. [stillWanted] is polled between
@@ -130,6 +183,8 @@ object AudioDecoder {
 
             val input = extractor.getTrackFormat(track)
             val mime = input.getString(MediaFormat.KEY_MIME) ?: return false
+            // Before any codec is created, because for this one, creating it is the danger.
+            if (mime == MIME_ALAC) return false
             val sampleRate = input.integer(MediaFormat.KEY_SAMPLE_RATE) ?: return false
             val durationUs = input.long(MediaFormat.KEY_DURATION) ?: return false
             if (sampleRate <= 0 || durationUs <= 0) return false

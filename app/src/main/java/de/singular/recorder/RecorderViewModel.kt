@@ -11,6 +11,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import de.singular.recorder.audio.AudioDecoder
+import de.singular.recorder.audio.AudioFormat
 import de.singular.recorder.audio.AudioRecorder
 import de.singular.recorder.audio.MAX_BPM
 import de.singular.recorder.audio.MIN_BPM
@@ -21,6 +23,7 @@ import de.singular.recorder.storage.Listing
 import de.singular.recorder.storage.RecordingStore
 import de.singular.recorder.storage.Stars
 import de.singular.recorder.storage.Take
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,7 +33,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -342,6 +347,9 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
 
     private var player: MediaPlayer? = null
     private var progressJob: Job? = null
+
+    /** Opening a take for playback — the decode check and the prepare. See [play]. */
+    private var playJob: Job? = null
 
     init {
         recorder.setInputGain(_settings.value.inputGainDb)
@@ -730,13 +738,14 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * Normalise the open take — over itself, or into a copy beside it when [asCopy] is set.
+     * Normalise the open take — over itself, or into a copy beside it when [asCopy] is set, in
+     * [copyAs].
      *
      * Either way the player switches to whichever file now holds the normalised audio and reloads
      * it: the waveform on screen is drawn from samples that have just changed, and with a copy the
      * take you want to hear is the new one.
      */
-    fun normalizeOpenTake(mode: NormalizeMode, asCopy: Boolean) {
+    fun normalizeOpenTake(mode: NormalizeMode, asCopy: Boolean, copyAs: AudioFormat) {
         val take = _openTake.value?.take ?: return
         val folder = _library.value.current
         if (_busy.value) return
@@ -747,7 +756,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             _busy.value = true
             if (_playback.value.uri == take.uri) stopPlayback()
-            store.normalize(take, mode, copyInto = if (asCopy) folder?.uri else null)
+            store.normalize(take, mode, copyInto = if (asCopy) folder?.uri else null, copyAs = copyAs)
                 .onSuccess { result ->
                     val db = String.format(Locale.US, "%+.1f", result.gainDb)
                     _message.value = when {
@@ -829,6 +838,9 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
 
     /** Give up the audio device but keep the take and where we were in it. */
     private fun pausePlayback() {
+        // A take that is still opening counts as playing to the user, so stop has to reach it too.
+        playJob?.cancel()
+        playJob = null
         progressJob?.cancel()
         progressJob = null
         player?.let {
@@ -839,23 +851,62 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         _playback.value = _playback.value.copy(playing = false)
     }
 
+    /**
+     * Start [take] at [fromMs] — or say plainly that it cannot be played.
+     *
+     * **Why a decode comes first.** [MediaPlayer] is willing to prepare and start a file whose audio
+     * never reaches the speaker: on this phone an ALAC take does exactly that, because the system
+     * hands the compressed stream to a DSP offload path that fails on every write while the
+     * transport reports itself playing and the position runs past the take's own duration. Silence
+     * that looks like playback is the worst answer available, so a buffer is decoded first and the
+     * press is refused if that fails. See [AudioDecoder.canDecode] for why the codec list is no
+     * substitute.
+     *
+     * The check goes here rather than only on the player screen because a take is started from the
+     * library list and the mini player too, neither of which has read a waveform.
+     *
+     * All of it off the main thread, which is where [MediaPlayer.prepare] belonged anyway.
+     */
     private fun play(take: Take, fromMs: Long) {
         pausePlayback()
-        val mp = MediaPlayer()
-        mp.isLooping = _looping.value
-        val started = runCatching {
-            mp.setDataSource(getApplication<Application>(), take.uri)
-            mp.prepare()
-            // Seek before starting, so a take opened at a mark does not blurt out its first
-            // half-second before jumping.
-            if (fromMs > 0) mp.seekTo(fromMs.toInt())
-            mp.start()
-        }.isSuccess
-        if (!started) {
-            runCatching { mp.release() }
-            _message.value = "That file could not be played."
-            return
+        playJob?.cancel()
+        playJob = viewModelScope.launch {
+            val app = getApplication<Application>()
+            val decodable = withContext(Dispatchers.IO) { AudioDecoder.canDecode(app, take.uri) }
+            if (!decodable) {
+                _message.value = "Nothing on this device can decode that file."
+                return@launch
+            }
+            val mp = MediaPlayer()
+            mp.isLooping = _looping.value
+            val started = withContext(Dispatchers.IO) {
+                runCatching {
+                    mp.setDataSource(app, take.uri)
+                    mp.prepare()
+                    // Seek before starting, so a take opened at a mark does not blurt out its first
+                    // half-second before jumping.
+                    if (fromMs > 0) mp.seekTo(fromMs.toInt())
+                    mp.start()
+                }.isSuccess
+            }
+            if (!started) {
+                runCatching { mp.release() }
+                _message.value = "That file could not be played."
+                return@launch
+            }
+            // A second press while the first was still opening: that press owns the transport now,
+            // and this one has a started player to put down.
+            if (!isActive) {
+                runCatching { mp.stop() }
+                runCatching { mp.release() }
+                return@launch
+            }
+            start(take, mp, fromMs)
         }
+    }
+
+    /** The bookkeeping around a [MediaPlayer] that is already playing — see [play]. */
+    private fun start(take: Take, mp: MediaPlayer, fromMs: Long) {
         // Reaching the end leaves the take loaded at its start, ready to go again — but marked as
         // done with, so nothing has to keep reporting on it. Playing it again clears the mark,
         // since [play] builds the state fresh.

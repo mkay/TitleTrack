@@ -5,6 +5,8 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
 import de.singular.recorder.audio.AudioDecoder
+import de.singular.recorder.audio.AudioFormat
+import de.singular.recorder.audio.Flac
 import de.singular.recorder.audio.Gain
 import de.singular.recorder.audio.NormalizeMode
 import de.singular.recorder.audio.PcmSink
@@ -16,6 +18,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
+import kotlin.math.roundToInt
 
 /** A sub-folder of the recordings root, for organising takes. */
 data class Folder(val uri: Uri, val name: String)
@@ -409,8 +412,12 @@ class RecordingStore(context: Context) {
      *
      * 16-bit PCM WAV — what this app records — is scaled sample for sample, header and all, and can
      * be overwritten in place. Anything else the device can decode goes through
-     * [normalizeDecoded] and comes out as a new WAV; see there for why it is never written back
-     * over the original.
+     * [normalizeDecoded]; see there for why it is never written back over the original.
+     *
+     * [copyAs] picks what a copy is written as. Both are lossless, so it is a question of size
+     * rather than of quality: FLAC is around half of WAV and is what a take that arrived compressed
+     * should go back out as, rather than being tripled on the way through an edit. Overwriting
+     * ignores it — a file called `.wav` that is suddenly FLAC is not what "overwrite" promises.
      *
      * Overwriting goes through a cache file and replaces the original only once the whole rewrite
      * is on disk, so a read that fails or a process that dies part-way leaves the take as it was.
@@ -420,10 +427,11 @@ class RecordingStore(context: Context) {
         take: Take,
         mode: NormalizeMode,
         copyInto: Uri? = null,
+        copyAs: AudioFormat = AudioFormat.FLAC,
     ): Result<Normalized> = withContext(Dispatchers.IO) {
         val info = readHeader(take.uri, take.sizeBytes)
             ?.takeIf { it.bitsPerSample == 16 && it.dataStart >= 0 && it.dataBytes > 0 }
-            ?: return@withContext normalizeDecoded(take, mode, copyInto)
+            ?: return@withContext normalizeDecoded(take, mode, copyInto, copyAs)
 
         val meter = Gain.Meter()
         val measured = runCatching {
@@ -444,7 +452,7 @@ class RecordingStore(context: Context) {
         val softClip = Gain.needsSoftClip(gain, meter.peak)
 
         if (copyInto != null) {
-            return@withContext normalizeIntoCopy(take, copyInto, info, gain, softClip, gainDb)
+            return@withContext normalizeIntoCopy(take, copyInto, copyAs, info, gain, softClip, gainDb)
         }
 
         val scratch = File(appContext.cacheDir, "normalize.wav")
@@ -476,6 +484,7 @@ class RecordingStore(context: Context) {
         take: Take,
         mode: NormalizeMode,
         copyInto: Uri?,
+        copyAs: AudioFormat,
     ): Result<Normalized> {
         if (copyInto == null) {
             return Result.failure(
@@ -513,8 +522,9 @@ class RecordingStore(context: Context) {
         val softClip = Gain.needsSoftClip(gain, sink.meter.peak)
 
         val base = take.name.substringBeforeLast('.')
+        val name = "$base normalised.${copyAs.extension}"
         val uri = runCatching {
-            DocumentsContract.createDocument(resolver, copyInto, MIME_WAV, "$base normalised.wav")
+            DocumentsContract.createDocument(resolver, copyInto, copyAs.mime, name)
         }.getOrNull() ?: run {
             scratch.delete()
             return Result.failure(IllegalStateException("The copy could not be created."))
@@ -522,16 +532,18 @@ class RecordingStore(context: Context) {
 
         val written = runCatching {
             resolver.openOutputStream(uri, "w")?.use { out ->
-                out.write(
-                    Wav.header(
-                        dataBytes = scratch.length(),
-                        sampleRate = sink.sampleRate,
-                        channels = sink.channels,
-                        bpm = take.bpm,
-                        title = base,
-                    ),
+                writeGained(
+                    pcm = scratch,
+                    out = out,
+                    format = copyAs,
+                    sampleRate = sink.sampleRate,
+                    channels = sink.channels,
+                    gain = gain,
+                    softClip = softClip,
+                    gainDb = Gain.linearToDb(gain).roundToInt(),
+                    bpm = take.bpm,
+                    title = base,
                 )
-                scratch.inputStream().use { pcm -> applyGain(pcm, out, scratch.length(), gain, softClip) }
             } ?: throw IllegalStateException("The copy could not be written.")
         }
         scratch.delete()
@@ -598,19 +610,33 @@ class RecordingStore(context: Context) {
     private fun normalizeIntoCopy(
         take: Take,
         folder: Uri,
+        copyAs: AudioFormat,
         info: Wav.Info,
         gain: Float,
         softClip: Boolean,
         gainDb: Float,
     ): Result<Normalized> {
-        val name = take.name.substringBeforeLast('.') + " normalised.wav"
-        val uri = runCatching { DocumentsContract.createDocument(resolver, folder, MIME_WAV, name) }
+        val base = take.name.substringBeforeLast('.')
+        val name = "$base normalised.${copyAs.extension}"
+        val uri = runCatching { DocumentsContract.createDocument(resolver, folder, copyAs.mime, name) }
             .getOrNull()
             ?: return Result.failure(IllegalStateException("The copy could not be created."))
 
         val written = runCatching {
             resolver.openOutputStream(uri, "w")?.use { out ->
-                writeNormalized(take.uri, out, info, gain, softClip)
+                if (copyAs == AudioFormat.WAV) {
+                    writeNormalized(take.uri, out, info, gain, softClip)
+                } else {
+                    // The PCM is inside the source rather than in a cache file, so the encoder is
+                    // fed straight from it — the gain is applied on the way past either way.
+                    flacWriter(out, info.sampleRate, info.channels, gainDb.roundToInt(), take.bpm, base)
+                        .use { enc ->
+                            resolver.openInputStream(take.uri)?.use { input ->
+                                input.skipExactly(info.dataStart)
+                                applyGain(input, enc, info.dataBytes, gain, softClip)
+                            } ?: throw IllegalStateException("That file could not be read.")
+                        }
+                }
             } ?: throw IllegalStateException("The copy could not be written.")
         }
         if (written.isFailure) {
@@ -623,6 +649,61 @@ class RecordingStore(context: Context) {
         )
         return Result.success(Normalized(copy, gainDb))
     }
+
+    /**
+     * Write [pcm] — a cache file of 16-bit PCM — out as [format], scaled by [gain] on the way.
+     *
+     * The two formats want the length at opposite ends: a WAV header states it up front, which the
+     * file on disk already knows, while FLAC's goes in after the encode and [Flac.Writer] handles
+     * that itself. Which is the whole difference between them here.
+     */
+    private fun writeGained(
+        pcm: File,
+        out: OutputStream,
+        format: AudioFormat,
+        sampleRate: Int,
+        channels: Int,
+        gain: Float,
+        softClip: Boolean,
+        gainDb: Int,
+        bpm: Float?,
+        title: String,
+    ) {
+        if (format == AudioFormat.WAV) {
+            out.write(
+                Wav.header(
+                    dataBytes = pcm.length(),
+                    sampleRate = sampleRate,
+                    channels = channels,
+                    bpm = bpm,
+                    title = title,
+                ),
+            )
+            pcm.inputStream().use { applyGain(it, out, pcm.length(), gain, softClip) }
+            return
+        }
+        flacWriter(out, sampleRate, channels, gainDb, bpm, title).use { enc ->
+            pcm.inputStream().use { applyGain(it, enc, pcm.length(), gain, softClip) }
+        }
+    }
+
+    /** A [Flac.Writer] onto [out], with the cache directory it buffers its frames in. */
+    private fun flacWriter(
+        out: OutputStream,
+        sampleRate: Int,
+        channels: Int,
+        gainDb: Int,
+        bpm: Float?,
+        title: String,
+    ) = Flac.Writer(
+        out = out,
+        sampleRate = sampleRate,
+        channels = channels,
+        cacheDir = appContext.cacheDir,
+        bpm = bpm,
+        title = title,
+        gainDb = gainDb,
+    )
 
     /** Read [source] and write it out scaled by [gain] — header first, then the audio. */
     private fun writeNormalized(
@@ -805,7 +886,11 @@ class RecordingStore(context: Context) {
     suspend fun take(uri: Uri): Take? = withContext(Dispatchers.IO) { describe(uri) }
 
     /** The WAV header of [uri], or null if it is not a WAVE at all. */
-    private fun readHeader(uri: Uri, sizeBytes: Long): Wav.Info? = runCatching {
+    private fun readHeader(uri: Uri, sizeBytes: Long): Wav.Info? =
+        readHead(uri)?.let { Wav.readInfo(it, fileBytes = sizeBytes) }
+
+    /** The first few KB of [uri] — enough for any header this app reads. */
+    private fun readHead(uri: Uri): ByteArray? = runCatching {
         resolver.openInputStream(uri)?.use { input ->
             val buf = ByteArray(HEADER_BYTES)
             var got = 0
@@ -814,7 +899,7 @@ class RecordingStore(context: Context) {
                 if (n <= 0) break
                 got += n
             }
-            Wav.readInfo(buf.copyOf(got), fileBytes = sizeBytes)
+            buf.copyOf(got)
         }
     }.getOrNull()
 
@@ -929,17 +1014,23 @@ class RecordingStore(context: Context) {
     /**
      * Duration and tempo, read from the first bytes of the file and then remembered.
      *
-     * The WAV header is where the tempo lives, and reading it is a few KB. Anything else — an m4a
-     * from the stock recorder, an mp3 dropped in from a desktop — has its duration parsed out of
-     * the container instead, so those do not sit in the list claiming to be 0:00. That is a second
-     * open per file, which is why the answer is cached against size and mtime.
+     * A WAV header is where the tempo lives, and reading it is a few KB. A FLAC written by this app
+     * carries the same tempo in its Vorbis comment, and is read for it here — an edit must not cost
+     * a take the thing the drum and bass tracks will lock to. Anything else — an m4a from the stock
+     * recorder, an mp3 dropped in from a desktop — has its duration parsed out of the container
+     * instead, so those do not sit in the list claiming to be 0:00. That is a second open per file,
+     * which is why the answer is cached against size and mtime.
      */
     private fun header(uri: Uri, size: Long, modified: Long): Pair<Long, Float?> {
         val key = "$uri|$size|$modified"
         headerCache[key]?.let { return it }
-        val info = readHeader(uri, size)
-        val durationMs = info?.durationMs ?: AudioDecoder.durationMs(appContext, uri)
-        val value = durationMs to info?.bpm
+        val head = readHead(uri)
+        val wav = head?.let { Wav.readInfo(it, fileBytes = size) }
+        val flac = if (wav == null) head?.let { Flac.readInfo(it) } else null
+        val durationMs = wav?.durationMs
+            ?: flac?.durationMs?.takeIf { it > 0 }
+            ?: AudioDecoder.durationMs(appContext, uri)
+        val value = durationMs to (wav?.bpm ?: flac?.bpm)
         if (headerCache.size > CACHE_LIMIT) headerCache.clear()
         headerCache[key] = value
         return value
