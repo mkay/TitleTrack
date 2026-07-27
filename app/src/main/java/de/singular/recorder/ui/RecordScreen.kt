@@ -638,5 +638,5 @@ private fun TitleWordmark(modifier: Modifier = Modifier) {
     )
 }
 
-/** The wordmark's own proportions, from the source SVG's 1386x217 viewBox. */
-private const val WordmarkAspect = 1386f / 217f
+/** The wordmark's own proportions, from the source SVG's 7036x1102 viewBox. */
+private const val WordmarkAspect = 7036f / 1102f

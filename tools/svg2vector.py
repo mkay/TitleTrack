@@ -15,16 +15,27 @@ asserts on anything else rather than quietly dropping it. The four things worth 
     directly — no transform to unpick — as long as they have two stops.
   * `--square` pads a non-square source out to a square viewport, which is what an adaptive icon's
     foreground has to be. It centres the artwork rather than stretching it.
+  * `--map` swaps colours as they are written, so a second theme's drawable stays generated from the
+    one source rather than being a hand-recoloured copy of the first. Every colour in the source
+    must be listed, so a re-export that adds one fails here instead of half-recolouring.
 
-Usage: svg2vector.py SRC.svg OUT.xml WIDTH_DP [SCALE] [--square]
+Usage: svg2vector.py SRC.svg OUT.xml WIDTH_DP [SCALE] [--square] [--map OLD=NEW,...]
 """
 import re, sys
 import xml.etree.ElementTree as ET
 
 SVG = '{http://www.w3.org/2000/svg}'
 
-args = [a for a in sys.argv[1:] if a != '--square']
-square = '--square' in sys.argv
+argv = sys.argv[1:]
+square = '--square' in argv
+cmap = {}
+if '--map' in argv:
+    i = argv.index('--map')
+    for pair in argv[i + 1].split(','):
+        old, new = pair.split('=')
+        cmap[old.upper()] = new.upper()
+    del argv[i:i + 2]
+args = [a for a in argv if a != '--square']
 src, out, width_dp = args[0], args[1], float(args[2])
 scale = float(args[3]) if len(args) > 3 else None
 
@@ -82,7 +93,11 @@ def hexof(c):
     if c == 'white':  return '#FFFFFFFF'
     if c == 'black':  return '#FF000000'
     assert c.startswith('#') and len(c) == 7, f'unexpected colour {c!r}'
-    return '#FF' + c[1:].upper()
+    c = c.upper()
+    if cmap:
+        assert c in cmap, f'{c} is not in --map; the source has a colour the mapping does not'
+        c = cmap[c]
+    return '#FF' + c[1:]
 
 
 defs = root.find(f'{SVG}defs')
