@@ -602,7 +602,7 @@ private fun WaveformView(
     val unplayed = MaterialTheme.colorScheme.onSurface.copy(alpha = WaveformMuted)
     // The same panel and zero line the record screen draws on, so a take looks the same played
     // back as it did being made.
-    val panel = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.045f)
+    val panel = MaterialTheme.colorScheme.waveformPanel
     val zeroLine = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
     val handleColor = MaterialTheme.colorScheme.onSurface
     val tabFill = MaterialTheme.colorScheme.primary
@@ -1159,7 +1159,7 @@ private fun EdgeNudge(
     Row(
         modifier
             .clip(ControlShape)
-            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.045f))
+            .background(MaterialTheme.colorScheme.waveformPanel)
             .padding(start = 10.dp, end = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

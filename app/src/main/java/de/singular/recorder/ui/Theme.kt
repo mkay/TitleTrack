@@ -154,6 +154,23 @@ private val RecordBandOnDark = Color(0x33FFFFFF) // white at 20%
 private val RecordBandOnLight = Color(0x14FFFFFF) // white at 8%
 
 /**
+ * The ground a waveform is drawn on — the record screen's panel, the player's, and the trim rows
+ * that belong to them.
+ *
+ * The top of the surface ramp, which is the step the tab bar takes, so the two largest tinted areas
+ * on a screen agree rather than each being their own shade of nearly-the-page.
+ *
+ * It was ink over the page for a while — `onSurface` at 4.5% — on the argument that mixing toward the
+ * text colour desaturates as it darkens, and that the largest area on the screen wants *less* of the
+ * theme's hue than everything else does. That argument was made against a lime accent, where the page
+ * carried a hue the panel had to be protected from. On the warm ramp it costs more than it buys: the
+ * ink panel lands within a hundredth of `surfaceContainer` in lightness and differs from it only by
+ * being greyer, which is a distinction nobody reads as anything but a slightly dead patch. This is
+ * 1.33:1 against the page on dark and 1.15:1 on light, and the waveform still reads on it at 12:1.
+ */
+val ColorScheme.waveformPanel: Color get() = surfaceContainerHighest
+
+/**
  * What to paint the wordmark with, or `null` to leave it as drawn.
  *
  * The mark is exported for a dark ground, where its three ambers are a ramp of light: the letters

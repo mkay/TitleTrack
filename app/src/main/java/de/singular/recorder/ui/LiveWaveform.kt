@@ -98,12 +98,9 @@ fun LiveWaveform(
         MaterialTheme.colorScheme.onSurface.copy(alpha = WaveformInk)
     }
     val clipped = MaterialTheme.colorScheme.record
-    // Ink over the page rather than a surface container, and deliberately so: mixing toward
-    // `onSurface` darkens *and* desaturates, so the panel comes out greyer than the tinted page
-    // around it. That is what this one wants. It is the largest single area on the screen, and the
-    // theme's tint at full strength over that much of it would stop being a tint and start being
-    // the subject. A container token would hold the hue and is the wrong choice here.
-    val panel = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.045f)
+    // The tab bar's own step, so the two tinted areas on this screen are the same shade — see
+    // [waveformPanel].
+    val panel = MaterialTheme.colorScheme.waveformPanel
     val zeroLine = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
     // At rest the wordmark is centred on this canvas, and the wordmark is built around its own
     // centre line — so the zero line would run straight through the lettering. The line has a job
