@@ -14,7 +14,7 @@ import de.singular.recorder.R
 import de.singular.recorder.ThemeMode
 
 /**
- * The app's accent, from the Tailwind amber scale: amber-500 on dark, amber-700 on light.
+ * The app's accent, from the Tailwind amber scale: amber-500 on dark, amber-600 on light.
  *
  * The scale before this was lime, and it was replaced for reading as poisonous rather than for any
  * number — a chartreuse mid-tone is the one part of the green family that suggests something you
@@ -28,38 +28,48 @@ import de.singular.recorder.ThemeMode
  * again — what dominated was the chartreuse, not the luminance. Amber at this level reads as lit
  * rather than as loud, and the ground being tinted onto its own hue (below) does the rest.
  *
- * On light, amber-700, and this is where the palette differs from every version of the lime one. The
- * accent is not only a button fill — it is the *text* colour of the selected tab, the setting values,
- * the played part of a waveform — and a mid-scale accent on a near-white page cannot clear 4.5:1 in
- * these families: amber-500 measures **2.1:1** there, lime-500 measured 1.9:1, and the page colour
- * does not move it. Three palettes shipped that washed-out state as a known cost. Amber is the first
- * family where the fix is close enough to take: **amber-700 reads 4.8:1** on this page, two rungs
- * down rather than the four the greens needed, and it stays recognisably the same colour as the mark
- * it comes from. Setting values and tab labels are legible on the light theme for the first time.
+ * On light, amber-600 — and the number is worse than the step above it, deliberately. This was
+ * amber-700 at **4.8:1**, chosen because the accent is not only a button fill but the *text* colour
+ * of the selected tab, the setting values and the played part of a waveform, and 4.5:1 is the bar
+ * for type. **amber-600 reads 3.0:1** on this page and does not clear it.
  *
- * The cost is that the two themes no longer share one step, and that the light accent lands 1.5:1
- * from the record red. That was the objection to amber-700 while the record button was a red slab —
- * two filled controls of nearly one luminance, told apart by hue alone. It no longer applies: the
- * record button is the accent with stripes over it now (see [recordBand]) and red has been narrowed to
- * the running state and to clipping, so nothing on the light theme puts a red fill beside an accent
- * one.
+ * It was taken anyway, on 2026-07-28, as a look: amber-700 on a warm page reads brown rather than
+ * gold, which is not the colour the mark is. The contrast floor was a floor for a reason and there
+ * is no arguing it away — the accent is small text and 3.0:1 is a real cost to someone reading it in
+ * sunlight. What makes it survivable is that nothing is *only* this colour: a selected tab also has
+ * its indicator, a setting value also has its label, and the record button also has its stripes.
+ * If it proves hard to read, the fix is amber-700 again, not a lighter page — the page is already
+ * within 1.05:1 of white and has nowhere to go.
+ *
+ * Do not "correct" this back to 4.5:1 as a tidy-up. It is a decision, not a slip.
+ *
+ * For the record: amber-500 measures **2.1:1** here and lime-500 measured 1.9:1, so the family is
+ * still the first one where a legible light accent was even in reach. And the light accent now lands
+ * nearer the record red than amber-700 did, which was once the objection to going dark — no longer
+ * live, since the record button is the accent with stripes over it (see [recordBand]) and red has
+ * been narrowed to the running state and to clipping.
  *
  * Filled controls set their own content colour, and the two themes need different ones here — see
  * [OnBrandDark].
  */
 private val BrandOnDark = Color(0xFFF59E0B) // amber-500
-private val BrandOnLight = Color(0xFFB45309) // amber-700
+private val BrandOnLight = Color(0xFFD97706) // amber-600
 
 /**
  * Content sitting *on* the accent, which the two themes have to answer differently because their
  * accents are four rungs apart.
  *
  * On amber-500 the scale's darkest step reads 7.0:1 and white only 2.2:1, so dark content is not a
- * stylistic choice but the only legible one. On amber-700 it inverts: white is 5.0:1 and amber-950
- * falls to 3.0:1. Each theme takes whichever its accent can carry.
+ * stylistic choice but the only legible one. On amber-700 that inverted — white 5.0:1, amber-950
+ * 3.0:1 — and white is what the light theme used while it sat there.
+ *
+ * **amber-600 crosses back over**: white falls to 3.2:1 and amber-950 rises to 4.7:1, so the light
+ * theme takes dark content too and the themes agree here for the first time. This is the one place
+ * the lighter accent *gains* contrast rather than spending it, the fill having moved out from under
+ * its own label. Each theme still takes whichever its accent can carry; the accent simply moved.
  */
 private val OnBrandDark = Color(0xFF451A03) // amber-950
-private val OnBrandLight = Color(0xFFFFFFFF) // white
+private val OnBrandLight = Color(0xFF451A03) // amber-950
 
 /**
  * The scale's ends, which is what a tinted surface wants: amber-100 is too light to be an accent on
@@ -167,7 +177,8 @@ private val RecordBandOnLight = Color(0x14FFFFFF) // white at 8%
  * carried a hue the panel had to be protected from. On the warm ramp it costs more than it buys: the
  * ink panel lands within a hundredth of `surfaceContainer` in lightness and differs from it only by
  * being greyer, which is a distinction nobody reads as anything but a slightly dead patch. This is
- * 1.33:1 against the page on dark and 1.15:1 on light, and the waveform still reads on it at 12:1.
+ * 1.33:1 against the page on dark and 1.06:1 on light, and the waveform still reads on it at 12:1.
+ * The light figure was 1.15:1 until the ramp was compressed — see [TrackLightColors].
  */
 val ColorScheme.waveformPanel: Color get() = surfaceContainerHighest
 
@@ -248,6 +259,12 @@ private val TrackDarkColors = darkColorScheme(
  * containers deepen without turning into a colour either. Body text holds at 14.7:1, secondary at
  * 7.1:1 — both a shade better than the lime ramp they were rehued from, warm neutrals of a given
  * saturation coming out slightly darker than cool ones.
+ *
+ * **The ramp was compressed on 2026-07-28** so that its top step is a tint rather than a shade: the
+ * panel it grounds is the largest thing on the record screen, and at 1.15:1 it read as a slab laid
+ * on the page rather than as the page with a warmth to it. The whole ramp moved, not just the top —
+ * the steps have to keep ascending, and lightening the end alone would have folded it into the two
+ * below. The other four are barely used, so the visible change is the panel and the tab bar.
  */
 private val TrackLightColors = lightColorScheme(
     primary = BrandOnLight,
@@ -263,10 +280,10 @@ private val TrackLightColors = lightColorScheme(
     surfaceVariant = Color(0xFFEEDEC4),
     onSurfaceVariant = Color(0xFF68522C),
     surfaceContainerLowest = Color(0xFFFFFEFB),
-    surfaceContainerLow = Color(0xFFFDF5E8),
-    surfaceContainer = Color(0xFFFCF2E0),
-    surfaceContainerHigh = Color(0xFFF9EDD8),
-    surfaceContainerHighest = Color(0xFFF6E8CF),
+    surfaceContainerLow = Color(0xFFFEF8EE),
+    surfaceContainer = Color(0xFFFDF6E9),
+    surfaceContainerHigh = Color(0xFFFCF4E6),
+    surfaceContainerHighest = Color(0xFFFBF2E3),
     outline = Color(0xFF978059),
     outlineVariant = Color(0xFFDDCCAF),
 )
