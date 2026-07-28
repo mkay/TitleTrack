@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarOutline
@@ -83,6 +84,7 @@ import androidx.compose.ui.unit.dp
 import de.singular.recorder.OpenTake
 import de.singular.recorder.PlaybackState
 import de.singular.recorder.R
+import de.singular.recorder.BandState
 import de.singular.recorder.audio.AudioFormat
 import de.singular.recorder.audio.NormalizeMode
 import de.singular.recorder.storage.Take
@@ -112,6 +114,8 @@ fun PlayerScreen(
     onRestart: (Take) -> Unit,
     looping: Boolean,
     onToggleLoop: () -> Unit,
+    band: BandState,
+    onBand: BandControls,
     beatsPerBar: Int = 4,
     modifier: Modifier = Modifier,
 ) {
@@ -125,6 +129,9 @@ fun PlayerScreen(
     var scrubMs by remember(take.uri) { mutableLongStateOf(0L) }
     // The trim selection, as fractions of the take. Reset whenever the take changes underneath.
     var trimming by remember(take.uri) { mutableStateOf(false) }
+    // The band's panel. Not reset per take on purpose: opening one take after another to try the
+    // same pattern under each is exactly what someone does with this.
+    var banding by remember { mutableStateOf(false) }
     var startFrac by remember(take.uri) { mutableFloatStateOf(0f) }
     var endFrac by remember(take.uri) { mutableFloatStateOf(1f) }
     val positionMs = if (loaded) playback.positionMs else scrubMs
@@ -215,7 +222,19 @@ fun PlayerScreen(
         }
 
         Spacer(Modifier.height(16.dp))
-        if (trimming) {
+        if (banding) {
+            BandPanel(
+                state = band,
+                onToggle = onBand.toggle,
+                onPattern = onBand.pattern,
+                onTakeLevel = onBand.takeLevel,
+                onDrumsLevel = onBand.drumsLevel,
+                onOffset = onBand.offset,
+                onBpm = onBand.bpm,
+                onBeatsPerBar = onBand.beatsPerBar,
+                onDone = { banding = false },
+            )
+        } else if (trimming) {
             TrimTools(
                 take = take,
                 busy = busy,
@@ -251,6 +270,26 @@ fun PlayerScreen(
                     trimming = true
                 },
             )
+        }
+
+        // The band belongs with the transport rather than among the edits: it changes what you
+        // hear, not what is in the file, and it is the only control here that leaves the take
+        // exactly as it found it. Hidden while trimming, which owns the screen while it runs.
+        if (!trimming && !banding) {
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = { banding = true },
+                Modifier.fillMaxWidth().height(44.dp),
+                shape = ControlShape,
+                contentPadding = ToolPadding,
+            ) {
+                Icon(Icons.Default.MusicNote, contentDescription = null, Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    if (band.on) "Band · ${band.pattern.label}" else "Band",
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
         }
 
         Spacer(Modifier.height(12.dp))
@@ -1005,7 +1044,7 @@ const val MIN_TRIM_MS = 200L
 /** How far a nudge moves an edge. Small enough to land on an attack, big enough to be one tap. */
 private const val NUDGE_MS = 10L
 
-private val ToolPadding = PaddingValues(horizontal = 6.dp)
+internal val ToolPadding = PaddingValues(horizontal = 6.dp)
 
 /**
  * The trim bar: where the two edges are, buttons to move them by a hair, and the way out.

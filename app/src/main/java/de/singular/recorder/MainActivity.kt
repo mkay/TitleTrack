@@ -69,6 +69,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import de.singular.recorder.audio.RecordPhase
 import de.singular.recorder.storage.Take
 import de.singular.recorder.ui.AboutScreen
+import de.singular.recorder.ui.BandControls
 import de.singular.recorder.ui.ControlShape
 import de.singular.recorder.ui.CompactTab
 import de.singular.recorder.ui.CompactTabBar
@@ -130,6 +131,19 @@ class MainActivity : ComponentActivity() {
                 val starred by vm.starred.collectAsStateWithLifecycle()
                 val starredTakes by vm.starredTakes.collectAsStateWithLifecycle()
                 val movePicker by vm.movePicker.collectAsStateWithLifecycle()
+                val band by vm.bandState.collectAsStateWithLifecycle()
+                // Bundled once rather than rebuilt per recomposition — see [BandControls].
+                val bandControls = remember(vm) {
+                    BandControls(
+                        toggle = vm::toggleBand,
+                        pattern = vm::setPattern,
+                        takeLevel = vm::setTakeLevel,
+                        drumsLevel = vm::setDrumsLevel,
+                        offset = vm::setBandOffsetMs,
+                        bpm = vm::setBandBpm,
+                        beatsPerBar = vm::setBandBeatsPerBar,
+                    )
+                }
 
                 var screen by rememberSaveable { mutableStateOf(Screen.RECORD) }
                 // Where leaving the player goes back to. The player is reached from three places —
@@ -669,6 +683,8 @@ class MainActivity : ComponentActivity() {
                                         onRestart = vm::restartPlayback,
                                         looping = looping,
                                         onToggleLoop = vm::toggleLoop,
+                                        band = band,
+                                        onBand = bandControls,
                                         beatsPerBar = settings.beatsPerBar,
                                         modifier = content,
                                     )
