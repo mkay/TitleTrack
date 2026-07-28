@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What travels to a new phone, for Android 11 and below.
+
+  Everything app-private except the granted folder's uri, which is the one thing here that is a fact
+  about *this* device. Restoring it would leave a fresh install holding a tree it has no permission
+  to read and reporting the folder as missing, when what is true is that no folder has been picked
+  yet. The takes themselves are not app-private and are no part of any of this.
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="storage.xml" />
+</full-backup-content>
