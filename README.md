@@ -133,9 +133,12 @@ can be done to a take.
 
 The app bar names **the folder the take came from** rather than repeating the take's name the screen
 already shows in full — "Library" for a take at the top level, the sub-folder's name below that. It
-is where the arrow goes, not what you are looking at. **Share** sits beside it, because that is
-something you do with the take rather than to it, and the two edits — **rename** and **normalise** —
-are buttons above the transport where they can be seen rather than remembered.
+is where the arrow goes, not what you are looking at. The **star** sits beside it, being a thing you
+change your mind about often, and everything else the take can be put through — rename, move, share,
+delete — is one menu behind it, in the order a library row uses so the list is not learned twice.
+
+The two edits, **trim** and **level**, are buttons above the transport instead: they are what you
+came to the player to do, and they need the room.
 
 Normalising lifts a quiet take, and does it **in the file**. Takes are played straight off storage
 by the system player, so there is no signal path to hang a fader on; and a level that existed only

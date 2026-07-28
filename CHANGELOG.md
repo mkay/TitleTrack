@@ -83,7 +83,8 @@ First cut: recording and take management.
   markers), the discarded parts greyed over, 10 ms nudge buttons for either edge, and a faint beat
   grid that magnets handles within an eighth of a beat without ever forcing them onto it. WAVs are
   cut on frame boundaries without decoding; other formats come out as a trimmed WAV copy.
-- Edits in the player's overflow: rename, and normalise. Normalising asks for a mode (peak or
+- Trim and Level are buttons above the transport; rename, move, share and delete are in the
+  player's overflow, in the order a library row's menu uses. Normalising asks for a mode (peak or
   loudness) and then a destination — overwrite the take, or save a normalised copy beside it. The
   header, tempo and title are carried through. Imported m4a, mp3, ogg and flac takes are decoded
   and saved as a normalised WAV beside the original, which is never re-encoded.

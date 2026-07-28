@@ -280,8 +280,9 @@ class MainActivity : ComponentActivity() {
                 var deletingOpenTake by remember { mutableStateOf(false) }
                 var renamingOpenTake by remember { mutableStateOf(false) }
 
-                // Renaming from the menu, which is the app bar's business rather than the player's
-                // — the tools row's own Rename button keeps its own dialog, a level down.
+                // Renaming from the menu, which is the app bar's business rather than the player's.
+                // The only rename on this screen now — the tools row's button and its own copy of
+                // this dialog are gone.
                 openTake?.takeIf { renamingOpenTake }?.let { open ->
                     NameDialog(
                         title = "Rename",
@@ -714,7 +715,6 @@ class MainActivity : ComponentActivity() {
                                         busy = busy,
                                         onPlayPause = vm::togglePlayback,
                                         onSeek = vm::seekTo,
-                                        onRename = vm::renameOpenTake,
                                         onNormalize = vm::normalizeOpenTake,
                                         onTrim = vm::trimOpenTake,
                                         onRestart = vm::restartPlayback,

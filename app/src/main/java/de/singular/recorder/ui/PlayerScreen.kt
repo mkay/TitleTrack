@@ -104,7 +104,6 @@ fun PlayerScreen(
     busy: Boolean,
     onPlayPause: (Take, Long) -> Unit,
     onSeek: (Long) -> Unit,
-    onRename: (String) -> Unit,
     onNormalize: (NormalizeMode, Boolean, AudioFormat) -> Unit,
     onTrim: (Float, Float, Boolean, AudioFormat) -> Unit,
     onRestart: (Take) -> Unit,
@@ -241,7 +240,6 @@ fun PlayerScreen(
             PlayerTools(
                 take = take,
                 busy = busy,
-                onRename = onRename,
                 onNormalize = onNormalize,
                 onTrim = {
                     startFrac = 0f
@@ -295,10 +293,12 @@ fun PlayerScreen(
  * accident, so neither earns a permanent button — a delete beside a play button is an invitation to
  * a mistake.
  *
- * **Rename is here as well as on the tools row.** Duplication on purpose, for two reasons: every
- * library row keeps Rename in exactly this menu, so this is the first place anyone looks; and the
- * tools row is given up to the band's panel and to trim while either is open, which used to leave
- * renaming unreachable without closing them.
+ * **Rename is only here.** It was on the tools row as well for a while, which was the right way
+ * round when the row was where renaming lived and this menu was new. Once both existed the row's
+ * copy was the redundant one: every library row keeps Rename in exactly this menu, so this is where
+ * anyone looks first, and the row is given up to trim while that is open — a permanent button that
+ * disappears under another tool is worse than no button. The row is left to the two edits that
+ * actually need the room.
  *
  * Share was its own icon in the bar until the other two arrived. One lone icon is a shortcut; three
  * is a row of guesswork, and the odd one out reads as more important than it is.
@@ -360,27 +360,14 @@ fun PlayerOverflowAction(
 private fun PlayerTools(
     take: Take,
     busy: Boolean,
-    onRename: (String) -> Unit,
     onNormalize: (NormalizeMode, Boolean, AudioFormat) -> Unit,
     onTrim: () -> Unit,
 ) {
-    var renaming by remember { mutableStateOf(false) }
     // Null until a mode is picked, then holds it while the second question is answered.
     var normalizing by remember { mutableStateOf(false) }
     var mode by remember { mutableStateOf<NormalizeMode?>(null) }
 
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(
-            onClick = { renaming = true },
-            Modifier.weight(1f).height(48.dp),
-            enabled = !busy,
-            shape = ControlShape,
-            contentPadding = ToolPadding,
-        ) {
-            Icon(Icons.Default.DriveFileRenameOutline, contentDescription = null, Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
-            Text("Rename", style = MaterialTheme.typography.labelLarge)
-        }
         OutlinedButton(
             onClick = onTrim,
             Modifier.weight(1f).height(48.dp),
@@ -409,19 +396,6 @@ private fun PlayerTools(
                 Text("Level", style = MaterialTheme.typography.labelLarge)
             }
         }
-    }
-
-    if (renaming) {
-        NameDialog(
-            title = "Rename",
-            initial = take.name.substringBeforeLast('.'),
-            confirm = "Rename",
-            onConfirm = {
-                renaming = false
-                onRename(it)
-            },
-            onDismiss = { renaming = false },
-        )
     }
 
     // Two questions, one at a time: how loud, then what to do with the result. Four buttons in one
