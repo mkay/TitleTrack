@@ -683,9 +683,8 @@ private fun LevelTestDialog(
  * dot-matrix face with its own spacing, and the launcher icon's waveform stands between the two
  * words, neither of which survives being typed out.
  *
- * One drawable, as exported for the dark page, flattened to a single colour on the light one — see
- * [wordmarkTint] for why the ramp does not survive the trip and why this is a tint rather than a
- * second file.
+ * A drawn pair, one per theme — see [wordmarkForTheme] for why the light page needs its own export
+ * rather than a tint of the dark one.
  *
  * Sized by width and left to find its own height, so it keeps its proportions on any screen while
  * its centre line stays on the canvas's zero line.
@@ -693,13 +692,12 @@ private fun LevelTestDialog(
 @Composable
 private fun TitleWordmark(modifier: Modifier = Modifier) {
     Image(
-        painter = painterResource(R.drawable.title_wordmark),
+        painter = painterResource(MaterialTheme.colorScheme.wordmarkForTheme),
         contentDescription = null, // the app bar already names the screen; this is decoration
         contentScale = ContentScale.Fit,
-        colorFilter = MaterialTheme.colorScheme.wordmarkTint?.let { ColorFilter.tint(it) },
         modifier = modifier.aspectRatio(WordmarkAspect),
     )
 }
 
-/** The wordmark's own proportions, from the source SVG's 7036x1102 viewBox. */
-private const val WordmarkAspect = 7036f / 1102f
+/** The wordmark's own proportions, from the source SVG's 5791x985 viewBox. */
+private const val WordmarkAspect = 5791f / 985f

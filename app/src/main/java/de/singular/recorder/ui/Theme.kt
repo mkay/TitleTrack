@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
+import de.singular.recorder.R
 import de.singular.recorder.ThemeMode
 
 /**
@@ -171,23 +172,26 @@ private val RecordBandOnLight = Color(0x14FFFFFF) // white at 8%
 val ColorScheme.waveformPanel: Color get() = surfaceContainerHighest
 
 /**
- * What to paint the wordmark with, or `null` to leave it as drawn.
+ * Which wordmark to draw: there is one per theme, and they are exports rather than tints.
  *
- * The mark is exported for a dark ground, where its three ambers are a ramp of light: the letters
- * sit back and the waveform between them is the lit part. The light page has no such light to give
- * — the same three land between 3.0:1 and 1.6:1 on it — and the ramp stops reading as depth and
- * starts reading as three washed-out golds next to each other. So light mode flattens the whole
- * mark to amber-900, 8.7:1: drawn rather than lit. A dark brown at that depth is what the amber
- * family has in place of lime-900's dark green, and it reads better than the green did.
+ * The mark is a ramp of three tones, and a ramp is a statement about the ground it sits on. On the
+ * dark page it is a ramp of *light* — the letters sit back and the waveform between them is the lit
+ * part. On a cream page the same three land between 3.0:1 and 1.6:1, where the depth stops reading
+ * and what is left is three washed-out golds beside each other.
  *
- * A tint rather than a second drawable, because `-night` resources follow the *system's* night
- * setting while this app's theme is its own preference. Anyone running the app light on a dark
- * phone got the dark mark on the light page, which is exactly the pairing this is meant to avoid.
+ * A single tint was the answer for a while, and flattening the mark to one dark colour did work; it
+ * cost the ramp entirely, which is most of what the mark is. Now that both are drawn, the light one
+ * is the same artwork with every tone moved a step down the amber ramp, so it keeps its depth
+ * against a page that has none to give.
+ *
+ * Chosen here rather than by a `-night` resource folder, and that is not a detail: those follow the
+ * *system's* night setting, while this app's theme is its own preference. Anyone running the app
+ * light on a dark phone would get the dark mark on the cream page — the exact pairing this exists to
+ * avoid.
  */
-val ColorScheme.wordmarkTint: Color? get() =
-    if (surface.luminance() < 0.5f) null else WordmarkOnLight
+val ColorScheme.wordmarkForTheme: Int get() =
+    if (surface.luminance() < 0.5f) R.drawable.title_wordmark else R.drawable.title_wordmark_light
 
-private val WordmarkOnLight = Color(0xFF78350F) // amber-900
 
 /**
  * The ground the accent stands on, and the reason it stops reading as neon.
