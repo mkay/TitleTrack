@@ -83,7 +83,12 @@ First cut: recording and take management.
   markers), the discarded parts greyed over, 10 ms nudge buttons for either edge, and a faint beat
   grid that magnets handles within an eighth of a beat without ever forcing them onto it. WAVs are
   cut on frame boundaries without decoding; other formats come out as a trimmed WAV copy.
-- Trim and Level are buttons above the transport; rename, move, share and delete are in the
+- A note per take: chords, words, whatever the idea was. Written from the player, shown under the
+  take's title, and marked in the list so a folder says which takes have one. Kept by the app, as
+  the stars are, so it works for imported m4a and mp3 takes as well as for recorded WAVs — and it
+  follows a take through a rename or a move, folders included. Emptying a note removes it; nothing
+  else does, short of deleting the take.
+- Trim, Level and Note are buttons above the transport; rename, move, share and delete are in the
   player's overflow, in the order a library row's menu uses. Normalising asks for a mode (peak or
   loudness) and then a destination — overwrite the take, or save a normalised copy beside it. The
   header, tempo and title are carried through. Imported m4a, mp3, ogg and flac takes are decoded

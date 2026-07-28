@@ -20,6 +20,7 @@ import de.singular.recorder.audio.NormalizeMode
 import de.singular.recorder.audio.RecordPhase
 import de.singular.recorder.storage.Folder
 import de.singular.recorder.storage.Listing
+import de.singular.recorder.storage.Notes
 import de.singular.recorder.storage.RecordingStore
 import de.singular.recorder.storage.Stars
 import de.singular.recorder.storage.Take
@@ -189,6 +190,23 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
 
     private val prefs = application.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val stars = Stars(application)
+    private val noteStore = Notes(application)
+
+    /**
+     * What each take has written against it, by key — see [Notes]. A flow for the same reason the
+     * stars are one: the library's glyph and the player's text both have to change the moment a
+     * note is saved, without waiting on the provider.
+     */
+    private val _notes = MutableStateFlow(noteStore.all())
+    val notes: StateFlow<Map<String, String>> = _notes.asStateFlow()
+
+    /** What is written against [uri], or empty for nothing — the same key a star uses. */
+    fun noteFor(uri: Uri): String = starKey(uri)?.let { _notes.value[it] }.orEmpty()
+
+    fun setNote(uri: Uri, text: String) {
+        val key = starKey(uri) ?: return
+        _notes.value = noteStore.set(key, text)
+    }
 
     /**
      * The starred takes, as keys — see [Stars]. Held as a flow so the list can reorder itself and
@@ -449,6 +467,8 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
                 val after = starKey(renamed)
                 if (before != null && after != null && before != after) {
                     _starred.value = stars.rename(before, after)
+                    // A note is kept against the same key and has to follow the same move.
+                    _notes.value = noteStore.rename(before, after)
                 }
             }
             refresh()
@@ -524,6 +544,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
                         val after = starKey(newUri)
                         if (before != null && after != null && before != after) {
                             _starred.value = stars.rename(before, after)
+                            _notes.value = noteStore.rename(before, after)
                         }
                         if (_playback.value.uri == uri) stopPlayback()
                         if (_openTake.value?.take?.uri == uri) {
@@ -555,7 +576,12 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
                 // Deleting a folder takes the stars inside it with it, which is what [Stars.remove]
                 // does with a prefix — otherwise they would sit in the index forever, pointing at
                 // nothing and costing a failed lookup every time the set is read.
-                starKey(uri)?.let { _starred.value = stars.remove(it) }
+                starKey(uri)?.let {
+                    _starred.value = stars.remove(it)
+                    // The one time a note is dropped. Deleting the take through the app is the only
+                    // evidence that the idea is meant to go — see [Notes] on why nothing else is.
+                    _notes.value = noteStore.remove(it)
+                }
             }
             refresh()
         }

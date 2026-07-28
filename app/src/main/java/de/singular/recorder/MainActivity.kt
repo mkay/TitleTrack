@@ -81,6 +81,7 @@ import de.singular.recorder.ui.LibraryTab
 import de.singular.recorder.ui.MiniPlayer
 import de.singular.recorder.ui.MoveDialog
 import de.singular.recorder.ui.NameDialog
+import de.singular.recorder.ui.NoteDialog
 import de.singular.recorder.ui.PlayerScreen
 import de.singular.recorder.ui.PlayerOverflowAction
 import de.singular.recorder.ui.RecordScreen
@@ -131,6 +132,7 @@ class MainActivity : ComponentActivity() {
                 val message by vm.message.collectAsStateWithLifecycle()
                 val busy by vm.busy.collectAsStateWithLifecycle()
                 val looping by vm.looping.collectAsStateWithLifecycle()
+                val notes by vm.notes.collectAsStateWithLifecycle()
                 val levelTest by vm.levelTest.collectAsStateWithLifecycle()
                 val starred by vm.starred.collectAsStateWithLifecycle()
                 val starredTakes by vm.starredTakes.collectAsStateWithLifecycle()
@@ -279,6 +281,21 @@ class MainActivity : ComponentActivity() {
                 var deletingSelection by remember { mutableStateOf(false) }
                 var deletingOpenTake by remember { mutableStateOf(false) }
                 var renamingOpenTake by remember { mutableStateOf(false) }
+                var notingOpenTake by remember { mutableStateOf(false) }
+
+                // The note editor, opened from the menu or from tapping the note itself. Up here
+                // with the rename dialog rather than inside the player, for the same reason: the
+                // menu that opens it belongs to the app bar.
+                openTake?.takeIf { notingOpenTake }?.let { open ->
+                    NoteDialog(
+                        initial = vm.noteFor(open.take.uri),
+                        onConfirm = {
+                            notingOpenTake = false
+                            vm.setNote(open.take.uri, it)
+                        },
+                        onDismiss = { notingOpenTake = false },
+                    )
+                }
 
                 // Renaming from the menu, which is the app bar's business rather than the player's.
                 // The only rename on this screen now — the tools row's button and its own copy of
@@ -675,6 +692,7 @@ class MainActivity : ComponentActivity() {
                                     starredKeys = starred,
                                     starKeyOf = vm::starKey,
                                     onToggleStar = { vm.toggleStar(it.uri) },
+                                    notedKeys = notes.keys,
                                     starredTakes = starredTakes,
                                     onLoadStarred = vm::loadStarred,
                                     tab = libraryTab,
@@ -720,6 +738,8 @@ class MainActivity : ComponentActivity() {
                                         onRestart = vm::restartPlayback,
                                         looping = looping,
                                         onToggleLoop = vm::toggleLoop,
+                                        note = notes[vm.starKey(open.take.uri)].orEmpty(),
+                                        onEditNote = { notingOpenTake = true },
                                         beatsPerBar = settings.beatsPerBar,
                                         modifier = content,
                                     )

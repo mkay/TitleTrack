@@ -122,6 +122,40 @@ fun NameDialog(
 }
 
 /**
+ * The note editor: the same shape as [NameDialog], with the three differences a note needs.
+ *
+ * It runs to several lines, because what goes here is chords, or words, or what the idea was — and
+ * a single-line field would say "give this a short label", which is what the filename is already
+ * for. It takes an empty answer, blanking being how a note is removed; [NameDialog] refuses one
+ * because a file with no name is not a thing. And it opens with the text selected only when there
+ * is none to lose, so returning to a note lands the cursor rather than poised to wipe it.
+ */
+@Composable
+fun NoteDialog(
+    initial: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var text by rememberSaveable(initial) { mutableStateOf(initial) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (initial.isEmpty()) "Add a note" else "Note") },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                placeholder = { Text("Chords, words, what the idea was…") },
+                minLines = 3,
+                maxLines = 8,
+                shape = ControlShape,
+            )
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(text) }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/**
  * Where the beat is, as a continuous count since the take began — 2.5 means halfway between the
  * third and fourth beat.
  *

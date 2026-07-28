@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCut
@@ -76,6 +77,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import de.singular.recorder.OpenTake
@@ -109,6 +111,9 @@ fun PlayerScreen(
     onRestart: (Take) -> Unit,
     looping: Boolean,
     onToggleLoop: () -> Unit,
+    /** What is written against this take, empty for nothing — see `Notes`. */
+    note: String = "",
+    onEditNote: () -> Unit = {},
     beatsPerBar: Int = 4,
     modifier: Modifier = Modifier,
 ) {
@@ -161,6 +166,22 @@ fun PlayerScreen(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
         )
+
+        // What was written against this take, if anything. Tapping it opens the same editor the
+        // menu does: text on a screen that can be changed should be reachable where it is read.
+        // Capped, because the waveform below is the subject and a page of lyrics must not push it
+        // off the screen — the editor shows the whole of it.
+        if (note.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                note,
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onEditNote),
+            )
+        }
 
         // The waveform takes whatever is left, as on the record screen: this is the screen's
         // subject, and a 180dp strip in the middle of an empty half-page read as a placeholder.
@@ -240,6 +261,8 @@ fun PlayerScreen(
             PlayerTools(
                 take = take,
                 busy = busy,
+                hasNote = note.isNotEmpty(),
+                onNote = onEditNote,
                 onNormalize = onNormalize,
                 onTrim = {
                     startFrac = 0f
@@ -353,13 +376,21 @@ fun PlayerOverflowAction(
 }
 
 /**
- * What can be done *to* the open take, rather than with it — the two edits, side by side above the
- * transport, where they can be seen rather than remembered.
+ * What can be done *to* the open take, rather than with it — side by side above the transport,
+ * where they can be seen rather than remembered.
+ *
+ * **Note is here and not in the menu**, which is the opposite of where Rename ended up, and the
+ * difference is what the two are. Rename is an action on a file, and the menu is where every
+ * library row keeps it. A note is *content* — the only thing on this screen a person writes rather
+ * than does — and content nobody can find is content nobody writes. It sits where the eye already
+ * goes for the edits, and the note itself is tappable above once there is one.
  */
 @Composable
 private fun PlayerTools(
     take: Take,
     busy: Boolean,
+    hasNote: Boolean,
+    onNote: () -> Unit,
     onNormalize: (NormalizeMode, Boolean, AudioFormat) -> Unit,
     onTrim: () -> Unit,
 ) {
@@ -395,6 +426,37 @@ private fun PlayerTools(
                 Spacer(Modifier.width(6.dp))
                 Text("Level", style = MaterialTheme.typography.labelLarge)
             }
+        }
+        OutlinedButton(
+            onClick = onNote,
+            Modifier.weight(1f).height(48.dp),
+            // Deliberately not disabled while busy, unlike the two edits. They rewrite the file and
+            // must not be started twice; writing a line about the take touches nothing a normalise
+            // is in the middle of, and waiting for one is no reason to lose the thought.
+            shape = ControlShape,
+            contentPadding = ToolPadding,
+        ) {
+            // A bubble with writing in it against an empty one with a plus: the icon carries the
+            // state, so the label does not have to change length under the thumb as a note is
+            // saved — and a button whose width moves when you use it reads as a different button.
+            Icon(
+                ImageVector.vectorResource(
+                    if (hasNote) R.drawable.ic_comment else R.drawable.ic_add_comment,
+                ),
+                contentDescription = null,
+                Modifier.size(18.dp),
+                // The accent is the button's own content colour, so saying it explicitly would
+                // change nothing on its own — what makes it read as a *state* is the empty bubble
+                // stepping back to the secondary ink. Full strength then means "there is something
+                // in here", rather than being what the row looks like all the time.
+                tint = if (hasNote) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+            Spacer(Modifier.width(6.dp))
+            Text("Note", style = MaterialTheme.typography.labelLarge)
         }
     }
 

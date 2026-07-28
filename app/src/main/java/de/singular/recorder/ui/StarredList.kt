@@ -44,6 +44,8 @@ fun StarredList(
     onDelete: (Take) -> Unit,
     onShare: (Take) -> Unit,
     onMove: (Take) -> Unit,
+    /** Which takes have a note — matched on the key each row already carries. */
+    notedKeys: Set<String> = emptySet(),
     modifier: Modifier = Modifier,
 ) {
     when {
@@ -80,6 +82,7 @@ fun StarredList(
                     // is, and that is already one tap on the row.
                     selecting = false,
                     starred = true,
+                    hasNote = starred.key in notedKeys,
                     onToggleStar = { onToggleStar(starred.take) },
                     onPlay = { onPlay(starred.take) },
                     onOpen = { onOpen(starred.take) },

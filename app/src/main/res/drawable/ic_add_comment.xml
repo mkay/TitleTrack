@@ -1,0 +1,18 @@
+<!--
+  Material Symbols "add_comment" — a speech bubble with a plus in it, for the player's Note button
+  when there is nothing written yet. Ships as a drawable rather than coming from
+  material-icons-extended, which is generated from the older classic set; same y-up-to-y-down group
+  translate as ic_all_inclusive.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <!-- Left white: Compose's Icon tints the whole vector to the colour the caller asks for. -->
+    <group android:translateY="960">
+        <path
+            android:fillColor="@android:color/white"
+            android:pathData="M440,-400h80v-120h120v-80H520v-120h-80v120H320v80h120v120ZM80,-80v-720q0,-33 23.5,-56.5T160,-880h640q33,0 56.5,23.5T880,-800v480q0,33 -23.5,56.5T800,-240H240L80,-80Zm126,-240h594v-480H160v525l46,-45Zm-46,0v-480 480Z" />
+    </group>
+</vector>

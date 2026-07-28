@@ -138,7 +138,16 @@ change your mind about often, and everything else the take can be put through �
 delete — is one menu behind it, in the order a library row uses so the list is not learned twice.
 
 The two edits, **trim** and **level**, are buttons above the transport instead: they are what you
-came to the player to do, and they need the room.
+came to the player to do, and they need the room. **Note** sits beside them rather than in the menu,
+being the one thing on the screen you write rather than do — and a place to write that nobody can
+find is a place nobody writes.
+
+A note is whatever the take needs saying about it: the chords, the words, what the idea was. It
+shows under the title, and tapping it opens the editor. Emptying it removes it. Notes are kept by
+the app rather than written into the takes — the same trade the stars make, and for a stronger
+reason: a WAV's comment chunk sits before the audio, so changing it means rewriting the file on
+every edit, and it would leave the imported m4a and mp3 takes with nowhere to put one. The cost is
+that a note is invisible from a desktop. Takes with one are marked in the list.
 
 Normalising lifts a quiet take, and does it **in the file**. Takes are played straight off storage
 by the system player, so there is no signal path to hang a fader on; and a level that existed only

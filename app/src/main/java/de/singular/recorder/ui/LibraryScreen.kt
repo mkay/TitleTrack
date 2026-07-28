@@ -56,12 +56,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.composed
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.singular.recorder.LibraryState
+import de.singular.recorder.R
 import de.singular.recorder.PlaybackState
 import de.singular.recorder.StarredTake
 import de.singular.recorder.storage.Folder
@@ -94,6 +97,9 @@ fun LibraryScreen(
     starredKeys: Set<String>,
     starKeyOf: (Uri) -> String?,
     onToggleStar: (Take) -> Unit,
+    /** Which takes have something written against them. Keys, not text — the row only shows that
+     *  there is one. */
+    notedKeys: Set<String>,
     starredTakes: List<StarredTake>?,
     onLoadStarred: () -> Unit,
     // Hoisted, because back has to be able to leave the starred tab, and the whole back chain
@@ -145,6 +151,7 @@ fun LibraryScreen(
                     deleting = take.uri.toString()
                     deletingName = take.name
                 },
+                notedKeys = notedKeys,
                 onShare = onShare,
                 onMove = { take -> onMove(listOf(take.uri)) },
                 modifier = Modifier.weight(1f),
@@ -198,6 +205,7 @@ fun LibraryScreen(
                         selected = take.uri.toString() in selection,
                         selecting = selecting,
                         starred = starKeyOf(take.uri) in starredKeys,
+                        hasNote = starKeyOf(take.uri) in notedKeys,
                         onToggleStar = { onToggleStar(take) },
                         onPlay = { onPlay(take) },
                         onOpen = { onOpen(take) },
@@ -335,6 +343,8 @@ internal fun TakeRow(
     selected: Boolean,
     selecting: Boolean,
     starred: Boolean,
+    /** Whether anything is written against this take — the glyph only says *that*, never what. */
+    hasNote: Boolean = false,
     onToggleStar: () -> Unit,
     onPlay: () -> Unit,
     onOpen: () -> Unit,
@@ -405,6 +415,28 @@ internal fun TakeRow(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 maxLines = 1,
             )
+        }
+        // A mark, not a control: it says there is something written here, and the player is where it
+        // is read. In a fixed slot beside the star rather than after the name, which is where it
+        // started — a name long enough to be clipped still measures the full width it was given, so
+        // the mark ended up stranded out at the row's edge on exactly the rows it mattered on, and
+        // hugging the name on the short ones. A status mark wants a column that can be scanned, not
+        // a position that moves with the text.
+        //
+        // It keeps its slot when absent, so the star does not shift left and right down the list.
+        if (!selecting) {
+            Box(Modifier.size(NoteSlot), contentAlignment = Alignment.Center) {
+                if (hasNote) {
+                    Icon(
+                        ImageVector.vectorResource(R.drawable.ic_comment),
+                        contentDescription = "Has a note",
+                        Modifier.size(16.dp),
+                        // The same amber the player's Note button wears once there is one, so the
+                        // two say the same thing in the same colour.
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
         }
         // Hidden while picking, as the play button is: one meaning per tap, and a row being added
         // to a batch is not the moment to be changing what it is.
@@ -494,6 +526,12 @@ private const val SelectedTint = 0.14f
  * over the 32dp a thumb needs when the targets either side of it are full size.
  */
 private val StarSlot = 40.dp
+
+/**
+ * The note mark's slot. Narrower than the star's, being a mark rather than a target — nothing here
+ * takes a tap, so it needs room for the glyph and no more, and the name keeps the rest.
+ */
+private val NoteSlot = 24.dp
 private const val UnstarredTint = 0.30f
 
 @Composable
