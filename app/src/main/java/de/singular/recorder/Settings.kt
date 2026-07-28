@@ -10,11 +10,20 @@ data class Settings(
     val beatsPerBar: Int = 4,
     /** Bars of clicks before capture begins; 0 turns the count-in off. */
     val countInBars: Int = 1,
-    /**
-     * Keep a beat on screen while recording. Silent by design — an audible click on a phone
-     * speaker is picked up by the very microphone that is recording you.
-     */
+    /** Keep a beat on screen while recording. Always safe: nothing the microphone can hear. */
     val visualMetronome: Boolean = true,
+    /**
+     * Click out loud while recording, not only during the count-in.
+     *
+     * **Off by default, and it has to be.** On a phone speaker the click goes into the very
+     * microphone that is recording you, and it is not a faint artefact — it is a metronome mixed
+     * into the take at whatever level the speaker manages, un-removable afterwards. This exists for
+     * headphones, where there is nothing for the microphone to pick up, and the setting says so.
+     *
+     * The visual metronome remains the answer for anyone recording on the speaker, which is why it
+     * is not replaced by this and stays on by default.
+     */
+    val audioMetronome: Boolean = false,
     /**
      * Show what the microphone hears on the record screen before a take starts.
      *

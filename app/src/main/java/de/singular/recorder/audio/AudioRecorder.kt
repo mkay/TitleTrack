@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.ensureActive
@@ -25,6 +26,7 @@ import java.io.OutputStream
 import java.io.RandomAccessFile
 import kotlin.coroutines.coroutineContext
 import kotlin.math.abs
+import kotlin.math.ceil
 
 /** Where a take is in its life. */
 enum class RecordPhase {
@@ -180,7 +182,7 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
      * rather than [AudioRecord]'s cold-start silence.
      */
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    fun start(bpm: Float, beatsPerBar: Int, countInBars: Int) {
+    fun start(bpm: Float, beatsPerBar: Int, countInBars: Int, audioMetronome: Boolean = false) {
         scope.launch {
             // Free the input before the take asks for it.
             monitorJob?.cancelAndJoin()
@@ -190,7 +192,9 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
             restartRequested = false
             framesWritten = 0L
             _state.value = RecorderState(phase = RecordPhase.COUNT_IN)
-            job = scope.launch(Dispatchers.Default) { capture(bpm, beatsPerBar, countInBars) }
+            job = scope.launch(Dispatchers.Default) {
+                capture(bpm, beatsPerBar, countInBars, audioMetronome)
+            }
         }
     }
 
@@ -257,7 +261,12 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
 
     /** The capture loop. Ends on cancellation, or on a microphone that will not open. */
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    private suspend fun capture(bpm: Float, beatsPerBar: Int, countInBars: Int) {
+    private suspend fun capture(
+        bpm: Float,
+        beatsPerBar: Int,
+        countInBars: Int,
+        audioMetronome: Boolean,
+    ) {
         val input = openRecorder() ?: run {
             _state.value = RecorderState(error = "The microphone could not be opened.")
             return
@@ -273,24 +282,60 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
             val bytes = ByteArray(BLOCK_FRAMES * Wav.BYTES_PER_FRAME)
 
             var countingIn = countInBars > 0
+            var wasPaused = false
             var countInEndsAt = 0L
             val beatMs = (60_000f / bpm.coerceIn(MIN_BPM, MAX_BPM)).toLong().coerceAtLeast(1)
             // The clicks themselves, without the metronome's silent lead-in: the lead is latency
             // cover, not a beat, and the dots on screen must not count it as one.
             val countInMusicalMs = (beatsPerBar * countInBars).coerceAtLeast(1) * beatMs
 
+            // With the audible metronome on, one stream plays the count-in *and* the take: handed
+            // the count-in's own lead-in, its beat 0 is the first click of the count-in and the
+            // take's downbeat falls on the click after the last of them. Two tracks left a gap at
+            // exactly that join — see [Metronome.startTakeClicks].
+            fun beginTakeClicks() {
+                if (audioMetronome) {
+                    metronome.startTakeClicks(
+                        bpm = bpm,
+                        beatsPerBar = beatsPerBar,
+                        delayMs = if (countInBars > 0) Metronome.LEAD_MS else 0,
+                    )
+                }
+            }
+
+            // Coming back from a pause, the clicks rejoin the take's grid rather than staying gone.
+            // The grid is frames written, not wall clock — dropped blocks are not in the take — so
+            // the next beat is worked out from the length so far, and the accent lands where the bar
+            // says rather than on whichever beat happens to be next.
+            fun resumeTakeClicks() {
+                if (!audioMetronome) return
+                val framesPerBeat = Wav.SAMPLE_RATE * 60.0 / bpm.coerceIn(MIN_BPM, MAX_BPM)
+                val next = ceil(framesWritten / framesPerBeat).toLong()
+                val untilFrames = (next * framesPerBeat - framesWritten).toLong()
+                metronome.startTakeClicks(
+                    bpm = bpm,
+                    beatsPerBar = beatsPerBar,
+                    delayMs = framesToMs(untilFrames),
+                    fromBeat = next,
+                )
+            }
+
             fun beginCountIn() {
                 countingIn = true
                 countInEndsAt = SystemClock.elapsedRealtime() +
                     metronome.countInMs(bpm, beatsPerBar, countInBars)
                 countIn = scope.launch(Dispatchers.Default) {
-                    metronome.countIn(bpm, beatsPerBar, countInBars)
+                    // The clicks come from the through-take stream when that is running, so this is
+                    // only the wait: sounding the count-in here as well would double every click.
+                    if (audioMetronome) delay(metronome.countInMs(bpm, beatsPerBar, countInBars))
+                    else metronome.countIn(bpm, beatsPerBar, countInBars)
                     countingIn = false
                 }
             }
 
             if (countingIn) beginCountIn() else _state.value =
                 _state.value.copy(phase = RecordPhase.RECORDING)
+            beginTakeClicks()
 
             while (true) {
                 coroutineContext.ensureActive()
@@ -302,7 +347,7 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
                 if (restartRequested) {
                     restartRequested = false
                     countIn?.cancel()
-                    metronome.stop()
+                    metronome.stopAll()
                     file.setLength(0)
                     file.seek(0)
                     framesWritten = 0L
@@ -319,6 +364,7 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
                             countInRemainingMs = 0,
                         )
                     }
+                    beginTakeClicks()
                     continue
                 }
 
@@ -337,9 +383,17 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
                 }
 
                 if (paused) {
-                    // Read and drop: the microphone stays warm so Continue is immediate.
+                    // Read and drop: the microphone stays warm so Continue is immediate. The clicks
+                    // go with it — a pause is silence that never reaches the take, so a metronome
+                    // running through one would come back describing a grid the take does not have.
+                    metronome.stopTakeClicks()
+                    wasPaused = true
                     _state.value = _state.value.copy(phase = RecordPhase.PAUSED, level = peak)
                     continue
+                }
+                if (wasPaused) {
+                    wasPaused = false
+                    resumeTakeClicks()
                 }
 
                 for (i in 0 until read) {
@@ -360,7 +414,7 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
             }
         } finally {
             countIn?.cancel()
-            metronome.stop()
+            metronome.stopAll()
             runCatching { file.close() }
             // stop() throws if the recorder never initialised; release() is what must always run.
             runCatching { record.stop() }

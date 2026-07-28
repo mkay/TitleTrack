@@ -307,6 +307,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
             beatsPerBar = prefs.getInt(KEY_BEATS_PER_BAR, 4).coerceIn(2, 12),
             countInBars = prefs.getInt(KEY_COUNT_IN_BARS, 1).coerceIn(0, 4),
             visualMetronome = prefs.getBoolean(KEY_VISUAL_METRONOME, true),
+            audioMetronome = prefs.getBoolean(KEY_AUDIO_METRONOME, false),
             listenBeforeRecording = prefs.getBoolean(KEY_LISTEN_BEFORE_RECORDING, false),
             keepScreenOn = prefs.getBoolean(KEY_KEEP_SCREEN_ON, true),
             starredFirst = prefs.getBoolean(KEY_STARRED_FIRST, true),
@@ -618,6 +619,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
             bpm = s.bpm.toFloat(),
             beatsPerBar = s.beatsPerBar,
             countInBars = s.countInBars,
+            audioMetronome = s.audioMetronome,
         )
     }
 
@@ -1268,6 +1270,16 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         prefs.edit { putBoolean(KEY_VISUAL_METRONOME, on) }
     }
 
+    /**
+     * Takes effect on the next take rather than the one running, which is deliberate: the clicks
+     * are aligned to the take's own first sample when capture begins (see [AudioRecorder.capture]),
+     * and there is no honest way to join that grid halfway through.
+     */
+    fun setAudioMetronome(on: Boolean) {
+        _settings.value = _settings.value.copy(audioMetronome = on)
+        prefs.edit { putBoolean(KEY_AUDIO_METRONOME, on) }
+    }
+
     fun setListenBeforeRecording(on: Boolean) {
         _settings.value = _settings.value.copy(listenBeforeRecording = on)
         prefs.edit { putBoolean(KEY_LISTEN_BEFORE_RECORDING, on) }
@@ -1320,6 +1332,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         const val KEY_BEATS_PER_BAR = "beats_per_bar"
         const val KEY_COUNT_IN_BARS = "count_in_bars"
         const val KEY_VISUAL_METRONOME = "visual_metronome"
+        const val KEY_AUDIO_METRONOME = "audio_metronome"
         const val KEY_LISTEN_BEFORE_RECORDING = "listen_before_recording"
         const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
         const val KEY_STARRED_FIRST = "starred_first"

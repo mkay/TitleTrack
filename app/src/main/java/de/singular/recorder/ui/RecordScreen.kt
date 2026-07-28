@@ -2,6 +2,7 @@ package de.singular.recorder.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
@@ -33,6 +34,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
@@ -90,6 +92,7 @@ fun RecordScreen(
     onSetBpm: (Int) -> Unit,
     onSetCountInBars: (Int) -> Unit,
     onSetVisualMetronome: (Boolean) -> Unit,
+    onSetAudioMetronome: (Boolean) -> Unit,
     levelTest: LevelTest?,
     onStartLevelTest: () -> Unit,
     onRestartLevelTest: () -> Unit,
@@ -179,7 +182,8 @@ fun RecordScreen(
         when (state.phase) {
             RecordPhase.IDLE -> {
                 TakeSettings(
-                    settings, onSetBpm, onSetCountInBars, onSetVisualMetronome, onStartLevelTest,
+                    settings, onSetBpm, onSetCountInBars, onSetVisualMetronome,
+                    onSetAudioMetronome, onStartLevelTest,
                 )
                 Spacer(Modifier.height(16.dp))
                 BigButton(
@@ -299,10 +303,12 @@ private fun TakeSettings(
     onSetBpm: (Int) -> Unit,
     onSetCountInBars: (Int) -> Unit,
     onSetVisualMetronome: (Boolean) -> Unit,
+    onSetAudioMetronome: (Boolean) -> Unit,
     onLevelTest: () -> Unit,
 ) {
     var tempoOpen by rememberSaveable { mutableStateOf(false) }
     var countInOpen by remember { mutableStateOf(false) }
+    var clickOpen by rememberSaveable { mutableStateOf(false) }
 
     Row(
         Modifier.fillMaxWidth().height(IntrinsicSize.Min),
@@ -334,12 +340,20 @@ private fun TakeSettings(
             }
         }
         CellDivider()
-        // A boolean does not need a menu to choose between its two values.
+        // A boolean does not need a menu to choose between its two values. The audible click is
+        // the exception behind the hold: it is a decision about the room you are in rather than
+        // about the take, and it does damage if switched on by accident on a speaker.
         SettingCell(
             label = "Metronome",
-            value = if (settings.visualMetronome) "On" else "Off",
+            value = when {
+                settings.visualMetronome && settings.audioMetronome -> "On + click"
+                settings.visualMetronome -> "On"
+                settings.audioMetronome -> "Click"
+                else -> "Off"
+            },
             onClick = { onSetVisualMetronome(!settings.visualMetronome) },
-            dimValue = !settings.visualMetronome,
+            onLongClick = { clickOpen = true },
+            dimValue = !settings.visualMetronome && !settings.audioMetronome,
             modifier = Modifier.weight(1f),
         )
         CellDivider()
@@ -351,6 +365,14 @@ private fun TakeSettings(
             onClick = onLevelTest,
             dimValue = settings.inputGainDb == 0,
             modifier = Modifier.weight(1f),
+        )
+    }
+
+    if (clickOpen) {
+        AudioMetronomeDialog(
+            on = settings.audioMetronome,
+            onSet = onSetAudioMetronome,
+            onDismiss = { clickOpen = false },
         )
     }
 
@@ -377,12 +399,13 @@ private fun SettingCell(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     dimValue: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
 ) {
     Column(
         modifier
             .fillMaxWidth()
             .clip(ControlShape)
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -408,6 +431,44 @@ private fun CellDivider() {
     VerticalDivider(
         Modifier.height(28.dp),
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+    )
+}
+
+/**
+ * The audible metronome, behind a hold on the Metronome cell.
+ *
+ * Behind a hold rather than on the row, because the row is for what you check before every take and
+ * this is decided once per set-up: headphones on, click on; and switched on by mistake while
+ * recording on the speaker it does real damage — the clicks are in the take, at whatever level the
+ * speaker managed, with no way to take them out afterwards. So the warning is the dialog's whole
+ * text, and the switch sits under it rather than the other way round.
+ */
+@Composable
+private fun AudioMetronomeDialog(on: Boolean, onSet: (Boolean) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Click while recording") },
+        text = {
+            Column {
+                Text(
+                    "For headphones. On a speaker the microphone hears the click too, and it " +
+                        "lands in the take for good.",
+                )
+                Spacer(Modifier.height(16.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        if (on) "Clicking through the take" else "Count-in only",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Switch(checked = on, onCheckedChange = onSet)
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
     )
 }
 
