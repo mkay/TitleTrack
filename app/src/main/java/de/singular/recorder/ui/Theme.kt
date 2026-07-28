@@ -191,9 +191,15 @@ val ColorScheme.waveformPanel: Color get() = surfaceContainerHighest
  * and what is left is three washed-out golds beside each other.
  *
  * A single tint was the answer for a while, and flattening the mark to one dark colour did work; it
- * cost the ramp entirely, which is most of what the mark is. Now that both are drawn, the light one
- * is the same artwork with every tone moved a step down the amber ramp, so it keeps its depth
- * against a page that has none to give.
+ * cost the ramp entirely, which is most of what the mark is. Both are drawn now, and each is simply
+ * **its own Figma export, converted as it comes** — the light one already leaves the source a step
+ * darker than the dark one, which is the whole of the adjustment it needs.
+ *
+ * It was darkened twice over for a while: two further steps on top of that, applied by `--map` in
+ * `tools/svg2vector.py`, to put the mark near an amber-700 accent. That went on 2026-07-28 with the
+ * accent's own move to amber-600 — the mark had become the brownest thing on a gold screen, which is
+ * backwards for the one element everything else is named after. Ungoverned by contrast rules either
+ * way: a wordmark is a logo, not type.
  *
  * Chosen here rather than by a `-night` resource folder, and that is not a detail: those follow the
  * *system's* night setting, while this app's theme is its own preference. Anyone running the app
