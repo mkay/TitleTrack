@@ -25,10 +25,19 @@ Early-stage — the recording and take-management half is built; the accompanime
 - **Silent visual metronome** — one dot per beat under the buttons, the lit one walking the bar,
   driven from the sample count actually on disk. Position in the bar, not just the pulse: a glance
   tells you where you are, which is what you need to come back in after counting yourself out of a
-  phrase. Silent by design — an audible click on a phone speaker ends up inside the take. **It
-  starts with the count-in**, running on negative time up to the downbeat and handing over to the
-  take's own clock without breaking step, so the bar is already familiar by the time you play into
-  it.
+  phrase. Silent, and on by default for that reason — an audible click on a phone speaker ends up
+  inside the take. **It starts with the count-in**, running on negative time up to the downbeat and
+  handing over to the take's own clock without breaking step, so the bar is already familiar by the
+  time you play into it.
+- **A click through the take** *(optional, off)* — for headphones, where there is nothing for the
+  microphone to pick up. Off by default and warned about wherever it is offered, because on a
+  speaker it is not a faint artefact: it is a metronome mixed into the take at whatever level the
+  speaker managed, and it cannot be taken out afterwards. Long-press **Metronome** on the record row
+  to reach it. One stream plays the count-in and the take together rather than handing over between
+  two — separate `AudioTrack`s each start on their own latency, which put a gap exactly at the
+  downbeat, the one moment a metronome is judged on. Beat positions are computed from the beat index
+  rather than accumulated, so the grid cannot drift from itself over a long take. What you hear is
+  still behind the take's own grid by the device's output latency, which no app can remove.
 - **Listen before recording** *(optional, off)* — draws what the microphone hears before you press
   Record, so clipping and mic distance are settled while it still costs nothing. Nothing is
   written and the microphone is released the moment you leave the screen or start a take.
@@ -45,7 +54,11 @@ Early-stage — the recording and take-management half is built; the accompanime
   delete, share, play back.
 - **Settings that stay out of the way** — tempo, count-in and the metronome sit on one row of the
   record screen as values you read rather than controls you wade through, since the usual case is
-  checking them. Tempo opens to a slider, arrows, and a field you can type a number straight into.
+  checking them. Tempo opens to a slider, arrows, and a field you can type a number straight into,
+  and a long press reaches what a row of values has no room for. The settings screen itself is two
+  tabs, split by when you come to them rather than by what they are: **Recording** is everything
+  that shapes the next take, **System** is the app's own set-up — where takes go, how the
+  library sorts, what the screen does. One is visited often and the other twice.
 - **Takes remember their tempo** — the bpm you played to is written into the WAV itself as a
   `LIST/INFO` comment, so it survives being copied to a computer. This is what the planned drum and
   bass tracks will lock to.
@@ -251,7 +264,7 @@ app/src/main/java/de/singular/recorder/
   Settings.kt            persisted preferences
   audio/
     AudioRecorder.kt     microphone -> PCM cache file; finish / restart / save; level monitoring
-    Metronome.kt         count-in clicks (adapted from RubberRing)
+    Metronome.kt         the clicks: count-in, and the optional one through a take
     Wav.kt               RIFF header, with tempo in a LIST/INFO chunk
     Flac.kt              the FLAC container, with the same tempo comment as Wav.kt
     Gain.kt              measuring a take's level, and the maths of lifting it

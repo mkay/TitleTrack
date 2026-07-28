@@ -41,8 +41,15 @@ First cut: recording and take management.
   the phone.
 - Record and Library as bottom-bar tabs; Settings and About in the drawer.
 - The recordings folder is asked for on first launch, and again if it stops being reachable.
-- Settings: time signature, listen-before-recording, prompt-for-filename, keep-screen-on,
-  System/Light/Dark theme.
+- Settings in two tabs, split by when you come to them: Recording (microphone, time signature,
+  metronome, saving) and System (recordings folder, library, screen and theme). Saving is under
+  Recording, since naming a take happens at the end of one with the instrument still in hand.
+- An audible metronome through the take, off by default and meant for headphones — on a speaker the
+  click lands in the take at whatever level the speaker managed and cannot be taken out afterwards.
+  Behind a long press on the record screen's Metronome cell as well as in Settings; the cell reads
+  On, Click, On + click or Off, so the row says whether the click is live without being opened. The
+  count-in and the take are played by one stream, because two AudioTracks each start on their own
+  latency and left an audible gap exactly at the downbeat.
 - The Record button is an accent button with oblique light stripes over it, rather than a red slab.
   The button and the running clock were one colour on the argument that they are one thing, but they
   never appear at once — the button before a take, the clock during one — so the button takes the same
@@ -60,6 +67,8 @@ First cut: recording and take management.
 - While keep-screen-on is active an indicator sits in the app bar; tapping it explains the battery
   cost and offers a way to turn it off (as in RubberRing).
 - Compact bottom tabs, and a library list of even rows with dividers and accented folder icons.
+- The waveform panel takes the same step of the surface ramp as the tab bar, so the two large tinted
+  areas on a screen agree rather than each being its own shade of nearly-the-page.
 - The player's app bar names where the back arrow goes — the take's folder, or "Library" at the top
   level — instead of repeating the take name shown on the screen below it. Share moved up beside it.
 - The player's waveform fills the height that is left, on the record screen's panel and zero line.

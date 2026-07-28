@@ -37,8 +37,8 @@ import de.singular.recorder.ThemeMode
  *
  * The split is by *when you come here*, not by what the settings technically are. **Recording** is
  * everything that shapes the next take — the things a musician changes between sets, or while
- * working out how to record a room. **System** is the app's own arrangements: where takes go, how
- * the library sorts, what the screen does. One is visited often and the other is visited twice.
+ * working out how to record a room. **System** is the app's own set-up: where takes go, how the
+ * library sorts, what the screen does. One is visited often and the other is visited twice.
  *
  * Saving is under Recording rather than System, which is the one placement worth arguing: naming a
  * take happens at the end of a take, with the instrument still in hand, and it is part of that loop
