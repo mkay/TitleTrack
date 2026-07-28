@@ -2,6 +2,7 @@ package de.singular.recorder.audio
 
 import android.media.AudioAttributes
 import android.media.AudioFormat
+import android.media.AudioTimestamp
 import android.media.AudioTrack
 import kotlinx.coroutines.delay
 import kotlin.math.PI
@@ -39,6 +40,7 @@ class Metronome(private val sampleRate: Int = Wav.SAMPLE_RATE) {
     @Volatile private var clicking = false
     private var clickTrack: AudioTrack? = null
     private var clickFeeder: Thread? = null
+    private var clickStartNanos = 0L
 
     companion object {
         /**
@@ -46,13 +48,29 @@ class Metronome(private val sampleRate: Int = Wav.SAMPLE_RATE) {
          * because a caller running the clicks through a take has to line its own grid up with it.
          */
         const val LEAD_MS = 80L
+
+        /** How long to wait for the device to report a timestamp before giving up on it. */
+        private const val LATENCY_BUDGET_MS = 300L
+        private const val LATENCY_POLL_MS = 10L
+
+        /** No device's output is a quarter of a second behind; past this, the reading is wrong. */
+        private const val MAX_LATENCY_MS = 400L
     }
 
     /**
-     * Sound the count-in and suspend until the downbeat that follows the last click. Returns
-     * normally only if it ran to completion; cancelling the coroutine stops the clicks.
+     * Sound the count-in and suspend until the downbeat that follows the last click — *as heard*,
+     * not as queued. Returns normally only if it ran to completion; cancelling stops the clicks.
+     *
+     * [onLatency] is called with the output latency once it is known, a few tens of milliseconds in,
+     * because the caller's own countdown was started on the nominal length and has to be moved by
+     * the same amount. Returns that latency as well, for callers that only need it at the end.
      */
-    suspend fun countIn(bpm: Float, beatsPerBar: Int, bars: Int) {
+    suspend fun countIn(
+        bpm: Float,
+        beatsPerBar: Int,
+        bars: Int,
+        onLatency: (Long) -> Unit = {},
+    ): Long {
         val beats = (beatsPerBar * bars).coerceAtLeast(1)
         val safeBpm = bpm.coerceIn(MIN_BPM, MAX_BPM)
         val intervalFrames = (sampleRate * 60.0 / safeBpm).toInt().coerceAtLeast(1)
@@ -86,13 +104,61 @@ class Metronome(private val sampleRate: Int = Wav.SAMPLE_RATE) {
         track = t
         try {
             t.write(buffer, 0, buffer.size)
+            val startNanos = System.nanoTime()
             t.play()
-            // Suspend for the whole buffer: its length is lead + one full beat per click, so it
-            // ends exactly on the downbeat after the last one. Cancellation → finally.
-            delay((buffer.size.toLong() * 1_000 / sampleRate).coerceAtLeast(1))
+            // The buffer's length is lead + one full beat per click, so it ends exactly on the
+            // downbeat after the last one — in the track's own time. On the wall clock it ends a
+            // whole output latency later, and it is the wall clock the recorder starts on.
+            val nominalMs = (buffer.size.toLong() * 1_000 / sampleRate).coerceAtLeast(1)
+            val late = awaitLatency(t, startNanos, budgetMs = minOf(LATENCY_BUDGET_MS, nominalMs / 3))
+            if (late > 0) onLatency(late)
+            val waited = (System.nanoTime() - startNanos) / 1_000_000
+            delay((nominalMs + late - waited).coerceAtLeast(1))
+            return late
         } finally {
             stop()
         }
+    }
+
+    /**
+     * How far behind the wall clock the through-take clicks actually are, once the audio device has
+     * told us — zero if it never does, which leaves the old behaviour rather than a guess.
+     *
+     * This is the whole of the fix for a take recorded to the click landing off its own grid. What a
+     * player follows is what they *hear*, and that is one output latency behind the frames we queued:
+     * measured at 222 ms on the Fairphone's speaker, 41% of a beat at 110 bpm, which is why the drums
+     * sounded unrelated to the take. The recorder holds the take's first sample back by this much so
+     * that the beat the player came in on is the beat the file starts with — see [AudioRecorder].
+     */
+    suspend fun awaitTakeClickLatency(budgetMs: Long = LATENCY_BUDGET_MS): Long {
+        val t = clickTrack ?: return 0
+        return awaitLatency(t, clickStartNanos, budgetMs)
+    }
+
+    /**
+     * Poll [AudioTrack.getTimestamp] until it will say when a frame was presented, then compare that
+     * with when the frame was due. Gives up at [budgetMs] and answers zero.
+     *
+     * The timestamp is the only sanctioned way to ask: `AudioManager`'s output latency is a hidden
+     * API, and counting the frames still queued misses the device's own pipeline, which is most of it.
+     */
+    private suspend fun awaitLatency(t: AudioTrack, startNanos: Long, budgetMs: Long): Long {
+        val deadline = System.nanoTime() + budgetMs.coerceAtLeast(0) * 1_000_000
+        while (true) {
+            latencyMsOf(t, startNanos)?.let { return it }
+            if (System.nanoTime() >= deadline) return 0
+            delay(LATENCY_POLL_MS)
+        }
+    }
+
+    /** One reading, or null while the device has nothing to report yet. */
+    private fun latencyMsOf(t: AudioTrack, startNanos: Long): Long? {
+        val ts = AudioTimestamp()
+        if (!runCatching { t.getTimestamp(ts) }.getOrDefault(false)) return null
+        if (ts.framePosition <= 0) return null
+        val dueNanos = startNanos + ts.framePosition * 1_000_000_000L / sampleRate
+        // Clamped rather than trusted: a bogus reading must not hold a take back by a bar.
+        return ((ts.nanoTime - dueNanos) / 1_000_000).coerceIn(0, MAX_LATENCY_MS)
     }
 
     /** How long [countIn] will take, for the countdown the screen shows while it runs. */
@@ -155,10 +221,17 @@ class Metronome(private val sampleRate: Int = Wav.SAMPLE_RATE) {
                     .build(),
             )
             .setTransferMode(AudioTrack.MODE_STREAM)
-            .setBufferSizeInBytes(minBytes * 2)
+            // The buffer *is* latency: the feeder fills it before its blocking write starts pacing
+            // it, so everything queued ahead is time between a click being written and being heard.
+            // One minimum buffer, not two, and the low-latency path where the device offers it —
+            // together they cut what has to be compensated for below, and steady 20 ms chunks keep
+            // up with the smaller buffer easily.
+            .setBufferSizeInBytes(minBytes)
+            .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
             .build()
         clickTrack = t
         clicking = true
+        clickStartNanos = System.nanoTime()
         t.play()
         clickFeeder = Thread(
             { feedClicks(t, framesPerBeat, bar, firstFrame, fromBeat.coerceAtLeast(0)) },

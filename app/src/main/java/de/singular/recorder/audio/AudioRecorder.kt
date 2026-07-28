@@ -320,22 +320,71 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
                 )
             }
 
+            /**
+             * Wait out the count-in, then let the take begin.
+             *
+             * **The wait is the clicks' own length plus the output latency**, and that correction is
+             * the difference between a take the band can play under and one it cannot. What a player
+             * comes in on is the click they *heard*; the device presents it a whole output latency
+             * after we queued it — 222 ms measured on this phone's speaker, 41% of a beat at 110 bpm.
+             * Starting capture on the nominal end put the take's first sample that far ahead of the
+             * beat the player was following, so their downbeat landed a third of a beat into bar one
+             * and every grid built on "sample zero is beat one" was wrong by the same amount.
+             *
+             * Holding the take back instead keeps that promise literally true, which is what the
+             * whole accompaniment rests on. The countdown on screen is moved by the same amount as
+             * soon as the figure is known, so the dots still land with the clicks.
+             */
             fun beginCountIn() {
                 countingIn = true
-                countInEndsAt = SystemClock.elapsedRealtime() +
-                    metronome.countInMs(bpm, beatsPerBar, countInBars)
+                val nominal = metronome.countInMs(bpm, beatsPerBar, countInBars)
+                countInEndsAt = SystemClock.elapsedRealtime() + nominal
                 countIn = scope.launch(Dispatchers.Default) {
-                    // The clicks come from the through-take stream when that is running, so this is
-                    // only the wait: sounding the count-in here as well would double every click.
-                    if (audioMetronome) delay(metronome.countInMs(bpm, beatsPerBar, countInBars))
-                    else metronome.countIn(bpm, beatsPerBar, countInBars)
+                    if (audioMetronome) {
+                        // The clicks come from the through-take stream when that is running, so this
+                        // is only the wait: sounding the count-in here too would double every click.
+                        val startedAt = SystemClock.elapsedRealtime()
+                        val late = metronome.awaitTakeClickLatency()
+                        countInEndsAt += late
+                        val waited = SystemClock.elapsedRealtime() - startedAt
+                        delay((nominal + late - waited).coerceAtLeast(1))
+                    } else {
+                        // The static count-in measures its own latency and waits it out; this only
+                        // has to move the countdown to match.
+                        metronome.countIn(bpm, beatsPerBar, countInBars) { countInEndsAt += it }
+                    }
                     countingIn = false
                 }
             }
 
-            if (countingIn) beginCountIn() else _state.value =
-                _state.value.copy(phase = RecordPhase.RECORDING)
+            /**
+             * No count-in, but a click to play along with: hold the take for one output latency all
+             * the same, so bar one starts where the first click was heard rather than where it was
+             * queued. Without this the grid is off by the same 222 ms as above, for the same reason.
+             *
+             * Brief — a fifth of a second — and it borrows the count-in phase to do the waiting, so
+             * "Counting in…" flashes up. That is the honest description of what is happening.
+             */
+            fun beginLatencyHold() {
+                countingIn = true
+                countInEndsAt = SystemClock.elapsedRealtime() + Metronome.LEAD_MS
+                countIn = scope.launch(Dispatchers.Default) {
+                    val startedAt = SystemClock.elapsedRealtime()
+                    val late = metronome.awaitTakeClickLatency()
+                    countInEndsAt += late
+                    val waited = SystemClock.elapsedRealtime() - startedAt
+                    delay((Metronome.LEAD_MS + late - waited).coerceAtLeast(1))
+                    countingIn = false
+                }
+            }
+
+            // Clicks first: the wait below measures the track they are streaming from.
             beginTakeClicks()
+            when {
+                countingIn -> beginCountIn()
+                audioMetronome -> beginLatencyHold()
+                else -> _state.value = _state.value.copy(phase = RecordPhase.RECORDING)
+            }
 
             while (true) {
                 coroutineContext.ensureActive()
@@ -356,6 +405,7 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
                         _state.value = _state.value.copy(
                             phase = RecordPhase.COUNT_IN, elapsedMs = 0, level = 0f,
                         )
+                        beginTakeClicks()
                         beginCountIn()
                     } else {
                         _state.value = _state.value.copy(
@@ -363,8 +413,9 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
                             countInBeatsLeft = 0,
                             countInRemainingMs = 0,
                         )
+                        beginTakeClicks()
+                        if (audioMetronome) beginLatencyHold()
                     }
-                    beginTakeClicks()
                     continue
                 }
 
