@@ -1,14 +1,22 @@
 package de.singular.recorder.ui
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import de.singular.recorder.PlaybackState
 import de.singular.recorder.StarredTake
 import de.singular.recorder.storage.Take
+import kotlinx.coroutines.delay
 
 /**
  * Every starred take, wherever it lives.
@@ -41,7 +49,24 @@ fun StarredList(
     when {
         // Null rather than empty: not yet looked, as against looked and found nothing. Saying
         // "nothing starred yet" before the lookup returns would be a lie for as long as it took.
-        takes == null -> LinearProgressIndicator(modifier.fillMaxWidth())
+        // Two things went wrong here at once. The bar was handed this screen's own modifier, which
+        // carries a `weight` — so an indicator 4dp tall was stretched over the whole list area and
+        // read as an accent-coloured block with vertical stripes, its indeterminate segments blown
+        // up. And it appeared at all for a lookup usually over in a moment.
+        //
+        // So: the modifier goes on a box, the bar keeps its own height at the top of it, and it is
+        // held back long enough that a quick answer arrives to a still screen. A progress bar that
+        // flashes and vanishes reports nothing except that something happened.
+        takes == null -> Box(modifier.fillMaxWidth()) {
+            var waited by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) {
+                delay(ProgressAfterMs)
+                waited = true
+            }
+            if (waited) {
+                LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter))
+            }
+        }
         takes.isEmpty() -> Hint("Nothing starred yet. Tap the star on a take to keep it here.", modifier)
         else -> LazyColumn(modifier) {
             itemsIndexed(takes, key = { _, it -> it.key }) { i, starred ->
@@ -69,3 +94,11 @@ fun StarredList(
         }
     }
 }
+
+/**
+ * How long a lookup may take before it is worth saying so.
+ *
+ * Long enough that the usual case — a folder tree already in the file system's cache — never puts a
+ * bar on screen, short enough that a slow one does not look stuck.
+ */
+private const val ProgressAfterMs = 250L
