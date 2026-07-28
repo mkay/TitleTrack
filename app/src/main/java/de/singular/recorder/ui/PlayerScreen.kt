@@ -35,8 +35,6 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -328,21 +326,26 @@ fun PlayerScreen(
 }
 
 /**
- * Everything that can be done to the open take that is not an edit, folded into one menu.
+ * Everything that can be done to the open take, folded into one menu, in the order a library row's
+ * menu uses — the two are the same list of jobs and should not have to be learned twice.
  *
- * Rename, Trim and Level stay above the transport: they are what you came to the player to do, and
- * worth the space. These three are not. Starring is a verdict passed once, sharing leaves the app
- * entirely, and deleting is done rarely and never by accident — none of them earns a permanent
- * button, and a delete sitting beside a play button is an invitation to a mistake.
+ * Trim and Level live above the transport instead: they are what you came to the player to do, and
+ * they need the room. Sharing leaves the app entirely and deleting is done rarely and never by
+ * accident, so neither earns a permanent button — a delete beside a play button is an invitation to
+ * a mistake.
+ *
+ * **Rename is here as well as on the tools row.** Duplication on purpose, for two reasons: every
+ * library row keeps Rename in exactly this menu, so this is the first place anyone looks; and the
+ * tools row is given up to the band's panel and to trim while either is open, which used to leave
+ * renaming unreachable without closing them.
  *
  * Share was its own icon in the bar until the other two arrived. One lone icon is a shortcut; three
  * is a row of guesswork, and the odd one out reads as more important than it is.
  */
 @Composable
 fun PlayerOverflowAction(
-    starred: Boolean,
+    onRename: () -> Unit,
     onShare: () -> Unit,
-    onToggleStar: () -> Unit,
     onMove: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -353,21 +356,11 @@ fun PlayerOverflowAction(
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
-                text = { Text("Share") },
-                leadingIcon = { Icon(Icons.Default.Share, null) },
+                text = { Text("Rename") },
+                leadingIcon = { Icon(Icons.Default.DriveFileRenameOutline, null) },
                 onClick = {
                     open = false
-                    onShare()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(if (starred) "Unstar" else "Star") },
-                leadingIcon = {
-                    Icon(if (starred) Icons.Default.Star else Icons.Outlined.StarOutline, null)
-                },
-                onClick = {
-                    open = false
-                    onToggleStar()
+                    onRename()
                 },
             )
             DropdownMenuItem(
@@ -376,6 +369,14 @@ fun PlayerOverflowAction(
                 onClick = {
                     open = false
                     onMove()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("Share") },
+                leadingIcon = { Icon(Icons.Default.Share, null) },
+                onClick = {
+                    open = false
+                    onShare()
                 },
             )
             DropdownMenuItem(

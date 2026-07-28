@@ -25,12 +25,16 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.DriveFileRenameOutline
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -77,6 +81,7 @@ import de.singular.recorder.ui.LibraryScreen
 import de.singular.recorder.ui.LibraryTab
 import de.singular.recorder.ui.MiniPlayer
 import de.singular.recorder.ui.MoveDialog
+import de.singular.recorder.ui.NameDialog
 import de.singular.recorder.ui.PlayerScreen
 import de.singular.recorder.ui.PlayerOverflowAction
 import de.singular.recorder.ui.RecordScreen
@@ -287,6 +292,22 @@ class MainActivity : ComponentActivity() {
                 val selecting = screen == Screen.LIBRARY && selection.isNotEmpty()
                 var deletingSelection by remember { mutableStateOf(false) }
                 var deletingOpenTake by remember { mutableStateOf(false) }
+                var renamingOpenTake by remember { mutableStateOf(false) }
+
+                // Renaming from the menu, which is the app bar's business rather than the player's
+                // — the tools row's own Rename button keeps its own dialog, a level down.
+                openTake?.takeIf { renamingOpenTake }?.let { open ->
+                    NameDialog(
+                        title = "Rename",
+                        initial = open.take.name.substringBeforeLast('.'),
+                        confirm = "Rename",
+                        onConfirm = {
+                            renamingOpenTake = false
+                            vm.renameOpenTake(it)
+                        },
+                        onDismiss = { renamingOpenTake = false },
+                    )
+                }
 
                 // Deleting the take you are listening to also has to get you out of the screen
                 // showing it, or the player is left holding a file that is no longer there.
@@ -524,6 +545,35 @@ class MainActivity : ComponentActivity() {
                                         }
                                         return@TopAppBar
                                     }
+                                    // The star, left of the notice and of the menu: a verdict on
+                                    // the take you are listening to, and the one thing here worth
+                                    // pressing while it plays rather than after. It was in the menu,
+                                    // where a two-state control cannot show its state without being
+                                    // opened — as an icon it says whether the take is starred just
+                                    // by being on screen.
+                                    openTake?.takeIf { screen == Screen.PLAYER }?.let { open ->
+                                        val isStarred = vm.starKey(open.take.uri) in starred
+                                        IconButton(onClick = { vm.toggleStar(open.take.uri) }) {
+                                            Icon(
+                                                if (isStarred) {
+                                                    Icons.Default.Star
+                                                } else {
+                                                    Icons.Outlined.StarOutline
+                                                },
+                                                contentDescription =
+                                                    if (isStarred) "Unstar" else "Star",
+                                                // Tinted when given, plain when not: a star is the
+                                                // only thing in this bar that means anything by
+                                                // itself, and the accent is what makes it read as
+                                                // set rather than as another available action.
+                                                tint = if (isStarred) {
+                                                    MaterialTheme.colorScheme.primary
+                                                } else {
+                                                    LocalContentColor.current
+                                                },
+                                            )
+                                        }
+                                    }
                                     // A quiet notice that the display is being held awake (it
                                     // drains battery); tap for the explanation and a way out.
                                     if (settings.keepScreenOn) {
@@ -541,9 +591,8 @@ class MainActivity : ComponentActivity() {
                                     // to look for.
                                     openTake?.takeIf { screen == Screen.PLAYER }?.let { open ->
                                         PlayerOverflowAction(
-                                            starred = vm.starKey(open.take.uri) in starred,
+                                            onRename = { renamingOpenTake = true },
                                             onShare = { share(open.take) },
-                                            onToggleStar = { vm.toggleStar(open.take.uri) },
                                             onMove = { vm.startMove(listOf(open.take.uri)) },
                                             onDelete = { deletingOpenTake = true },
                                         )
