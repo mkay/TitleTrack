@@ -147,6 +147,7 @@ class MainActivity : ComponentActivity() {
                         offset = vm::setBandOffsetMs,
                         bpm = vm::setBandBpm,
                         beatsPerBar = vm::setBandBeatsPerBar,
+                        downbeat = vm::setBandDownbeatMs,
                     )
                 }
 

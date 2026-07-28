@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -88,6 +89,7 @@ import de.singular.recorder.audio.NormalizeMode
 import de.singular.recorder.storage.Take
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
@@ -130,6 +132,9 @@ fun PlayerScreen(
     // The band's panel. Not reset per take on purpose: opening one take after another to try the
     // same pattern under each is exactly what someone does with this.
     var banding by remember { mutableStateOf(false) }
+    // Pointing at beat one, which borrows the waveform's taps for as long as it lasts. Dropped when
+    // the take changes or the panel closes: it is a gesture in progress, not a setting.
+    var placingDownbeat by remember(take.uri) { mutableStateOf(false) }
     var startFrac by remember(take.uri) { mutableFloatStateOf(0f) }
     var endFrac by remember(take.uri) { mutableFloatStateOf(1f) }
     val positionMs = if (loaded) playback.positionMs else scrubMs
@@ -172,6 +177,12 @@ fun PlayerScreen(
 
         // The waveform takes whatever is left, as on the record screen: this is the screen's
         // subject, and a 180dp strip in the middle of an empty half-page read as a placeholder.
+        //
+        // "Whatever is left" can be nothing, though: the band's panel is nine rows tall and left the
+        // take a smudge a few pixels high — precisely when the waveform matters most, since that
+        // panel is where a grid gets lined up by eye. The floor is put under it by capping the panel
+        // and letting it scroll (see [BandPanelMax]) rather than by a minimum height here, which a
+        // weight would override: weight measures at exactly the space it is given.
         Box(
             Modifier.weight(1f).fillMaxWidth().padding(vertical = 16.dp),
             contentAlignment = Alignment.Center,
@@ -195,12 +206,24 @@ fun PlayerScreen(
                     selection = if (trimming) startFrac..endFrac else null,
                     // One beat as a fraction of the take, for the grid and the magnet. The take
                     // carries the tempo it was played to; an import usually carries nothing.
-                    beatFrac = take.bpm
-                        ?.takeIf { it > 0f }
+                    // With the band open the grid follows *its* tempo, which is the take's where
+                    // there is one and a figure the user typed where there is not — an import can
+                    // then be lined up by eye, which it never could while this read the file only.
+                    beatFrac = (if (banding) band.bpm else take.bpm ?: 0f)
+                        .takeIf { it > 0f }
                         ?.let { (60_000f / it) / durationMs }
                         ?.takeIf { it > 0.001f }
                         ?: 0f,
-                    beatsPerBar = beatsPerBar,
+                    beatsPerBar = if (banding) band.beatsPerBar else beatsPerBar,
+                    showGrid = banding,
+                    downbeatFrac = band.arrangement.downbeatMs
+                        .takeIf { it > 0 }
+                        ?.let { (it.toFloat() / durationMs).coerceIn(0f, 1f) },
+                    placingDownbeat = placingDownbeat,
+                    onPlaceDownbeat = { frac ->
+                        onBand.downbeat((frac * durationMs).roundToInt())
+                        placingDownbeat = false
+                    },
                     onHandleDrag = { edge, frac ->
                         val minGap = (MIN_TRIM_MS.toFloat() / durationMs).coerceAtMost(0.5f)
                         if (edge == TrimEdge.START) {
@@ -220,8 +243,25 @@ fun PlayerScreen(
         }
 
         Spacer(Modifier.height(16.dp))
-        if (banding) {
+        if (banding && placingDownbeat) {
+            // The panel stands aside while beat one is being pointed at. It is the tallest thing on
+            // this screen and the waveform is what the finger needs — with the panel up the take is
+            // a 170dp strip, which is a second per two millimetres on a minute-long import.
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Tap where beat one is — it lands on the nearest attack",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = { placingDownbeat = false }) { Text("Cancel") }
+            }
+        } else if (banding) {
             BandPanel(
+                modifier = Modifier.heightIn(max = BandPanelMax),
                 state = band,
                 onToggle = onBand.toggle,
                 onPattern = onBand.pattern,
@@ -230,7 +270,14 @@ fun PlayerScreen(
                 onOffset = onBand.offset,
                 onBpm = onBand.bpm,
                 onBeatsPerBar = onBand.beatsPerBar,
-                onDone = { banding = false },
+                onDownbeat = onBand.downbeat,
+                playheadMs = positionMs,
+                onPlaceDownbeat = { placingDownbeat = it },
+                takeKnowsTempo = (take.bpm ?: 0f) > 0f,
+                onDone = {
+                    banding = false
+                    placingDownbeat = false
+                },
             )
         } else if (trimming) {
             TrimTools(
@@ -595,6 +642,13 @@ private fun WaveformView(
     beatFrac: Float = 0f,
     beatsPerBar: Int = 4,
     onHandleDrag: (TrimEdge, Float) -> Unit = { _, _ -> },
+    /** Draw the grid outside a trim, for lining a take's bars up by eye. */
+    showGrid: Boolean = false,
+    /** Where beat one sits, as a fraction of the take; null when it is simply the start. */
+    downbeatFrac: Float? = null,
+    /** Waiting for a tap that says where beat one is. Suspends seeking while it lasts. */
+    placingDownbeat: Boolean = false,
+    onPlaceDownbeat: (Float) -> Unit = {},
 ) {
     // Neutral, matching the record screen: the played part is the waveform's own ink, the unplayed
     // part the same ink dimmed. Position is carried by the step in weight rather than by a change
@@ -614,6 +668,12 @@ private fun WaveformView(
     val scrollTrack = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
     val scrollThumb = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
     val haptic = LocalHapticFeedback.current
+
+    // Read through a holder because the gesture block below is keyed on [peaks] and is not restarted
+    // when a flag changes: captured directly, `placingDownbeat` would still be false inside it long
+    // after the panel had switched it on, and a tap meant for beat one would seek instead.
+    val placing by rememberUpdatedState(placingDownbeat)
+    val placeDownbeat by rememberUpdatedState(onPlaceDownbeat)
 
     // The viewport. Kept here rather than hoisted: it is how this take is being *looked at*, and it
     // starts again from the whole file whenever a different one is opened.
@@ -768,7 +828,11 @@ private fun WaveformView(
                             }
 
                             GestureMode.SCRUB -> {
-                                onScrub(xToFrac(x))
+                                if (placing) {
+                                    placeDownbeat(snapToAttack(peaks, xToFrac(x)))
+                                } else {
+                                    onScrub(xToFrac(x))
+                                }
                                 change.consume()
                             }
 
@@ -789,8 +853,13 @@ private fun WaveformView(
                         }
                     }
 
-                    // A touch that never became anything else is a tap: seek there.
-                    if (!moved && !multiTouch && mode == GestureMode.NONE) onScrub(xToFrac(downX))
+                    // A touch that never became anything else is a tap: seek there — or, while
+                    // beat one is being placed, put it there instead. Seeking is suspended for as
+                    // long as that lasts, because the two want the same finger in the same place.
+                    if (!moved && !multiTouch && mode == GestureMode.NONE) {
+                        val at = xToFrac(downX)
+                        if (placing) placeDownbeat(snapToAttack(peaks, at)) else onScrub(at)
+                    }
                 }
             },
     ) {
@@ -841,20 +910,24 @@ private fun WaveformView(
             )
         }
 
-        if (selection != null) {
-            // The beat grid, faintly, and only while trimming. It is derived from one tempo and the
-            // first sample, so it is exactly right at the start of the take and progressively more
-            // of a guess after that — a take played to a silent click drifts. Hence faint, and
-            // hence a magnet rather than a ruler: what it is for is finding the downbeat you are
-            // near.
+        if (selection != null || showGrid) {
+            // The beat grid, faintly. While trimming it is a magnet for the handles; with the band
+            // open it is the whole means of checking the grid — bar lines that sit on the attacks
+            // are a take the drums will lock to, and you can see that without playing a note.
+            //
+            // Laid from [downbeatFrac] rather than from the first sample, and it runs backwards
+            // from there as readily as forwards: the clearest downbeat to point at is rarely the
+            // first one. Derived from a single tempo either way, so it is exactly right where it is
+            // anchored and progressively more of a guess further off.
             if (beatFrac > 0f) {
-                val first = (offset / beatFrac).toInt().coerceAtLeast(0)
+                val anchor = downbeatFrac ?: 0f
+                val first = floor((offset - anchor) / beatFrac).toInt()
                 var beat = first
-                while (beat * beatFrac <= 1f && beat - first < MAX_GRID_LINES) {
-                    val x = fracToX(beat * beatFrac)
+                while (anchor + beat * beatFrac <= 1f && beat - first < MAX_GRID_LINES) {
+                    val x = fracToX(anchor + beat * beatFrac)
                     if (x > w) break
                     if (x >= 0f) {
-                        val bar = beatsPerBar > 0 && beat % beatsPerBar == 0
+                        val bar = beatsPerBar > 0 && Math.floorMod(beat, beatsPerBar) == 0
                         drawLine(
                             color = if (bar) barLine else beatLine,
                             start = Offset(x, 0f),
@@ -867,21 +940,43 @@ private fun WaveformView(
             }
 
             // What is being thrown away, greyed over: the lit part is what survives.
-            val startX = fracToX(selection.start).coerceIn(0f, w)
-            val endX = fracToX(selection.endInclusive).coerceIn(0f, w)
-            if (startX > 0f) drawRect(outside, size = Size(startX, size.height))
-            if (endX < w) {
-                drawRect(outside, topLeft = Offset(endX, 0f), size = Size(w - endX, size.height))
-            }
-            fracToX(selection.start).let {
-                if (it in 0f..w) {
-                    drawTrimHandle(it, size.height, true, handleColor, tabFill, gripColor)
+            if (selection != null) {
+                val startX = fracToX(selection.start).coerceIn(0f, w)
+                val endX = fracToX(selection.endInclusive).coerceIn(0f, w)
+                if (startX > 0f) drawRect(outside, size = Size(startX, size.height))
+                if (endX < w) {
+                    drawRect(outside, topLeft = Offset(endX, 0f), size = Size(w - endX, size.height))
+                }
+                fracToX(selection.start).let {
+                    if (it in 0f..w) {
+                        drawTrimHandle(it, size.height, true, handleColor, tabFill, gripColor)
+                    }
+                }
+                fracToX(selection.endInclusive).let {
+                    if (it in 0f..w) {
+                        drawTrimHandle(it, size.height, false, handleColor, tabFill, gripColor)
+                    }
                 }
             }
-            fracToX(selection.endInclusive).let {
-                if (it in 0f..w) {
-                    drawTrimHandle(it, size.height, false, handleColor, tabFill, gripColor)
-                }
+        }
+
+        // Beat one, once it has been put somewhere other than the start. In the accent, and solid
+        // where the grid it anchors is faint: the grid is a reading of the take, this is a decision
+        // about it. Shown while placing even at zero, so the first tap has something to move.
+        if (downbeatFrac != null || placingDownbeat) {
+            val x = fracToX(downbeatFrac ?: 0f)
+            if (x in 0f..w) {
+                drawLine(
+                    color = tabFill,
+                    start = Offset(x, 0f),
+                    end = Offset(x, size.height),
+                    strokeWidth = 2.dp.toPx(),
+                )
+                drawRect(
+                    color = tabFill,
+                    topLeft = Offset(x, 0f),
+                    size = Size(DownbeatFlag.toPx(), DownbeatFlag.toPx()),
+                )
             }
         }
 
@@ -974,6 +1069,55 @@ private const val MAX_GRID_LINES = 400
  * straight out of it. A take played to a visual click is not on the grid to the millisecond, so the
  * grid must never be the thing that decides where the cut goes.
  */
+/**
+ * Move a tapped position onto the nearest attack, within a short reach either side.
+ *
+ * A downbeat is a note starting, and the peak envelope already knows where notes start — the bucket
+ * where the level jumps most. A finger is worth about a tenth of a second on a whole take at 1x;
+ * the envelope is worth about seven milliseconds on the same take at 4096 buckets. So the tap says
+ * which beat is meant and this says exactly where it is, which is the difference between a grid that
+ * looks right and one that sounds right.
+ *
+ * The rise between neighbouring buckets is the measure rather than the level itself: the loudest
+ * bucket of a note is somewhere inside it, while the biggest jump is at its front edge.
+ */
+private fun snapToAttack(peaks: FloatArray, frac: Float): Float {
+    if (peaks.size < 3) return frac
+    val reach = (peaks.size * SNAP_REACH).toInt().coerceAtLeast(1)
+    val at = (frac * peaks.size).roundToInt().coerceIn(0, peaks.size - 1)
+    var bestAt = at
+    var bestRise = 0f
+    for (i in (at - reach).coerceAtLeast(1)..(at + reach).coerceAtMost(peaks.size - 1)) {
+        val rise = peaks[i] - peaks[i - 1]
+        if (rise > bestRise) {
+            bestRise = rise
+            bestAt = i
+        }
+    }
+    // Nothing worth calling an attack nearby: leave the tap where it was rather than dragging it
+    // to the largest ripple in a quiet passage.
+    return if (bestRise <= SNAP_FLOOR) frac else (bestAt.toFloat() / peaks.size).coerceIn(0f, 1f)
+}
+
+/**
+ * As much of the screen as the band's panel may take, scrolling inside it beyond that.
+ *
+ * The panel is the tallest thing in the app — nine rows of faders and steppers — and it shares a
+ * column with the waveform, which has no floor of its own because a weight measures at exactly the
+ * space it is handed. So the limit goes here: the take stays readable and the faders scroll, which
+ * is the right way round for a panel whose whole job is lining a grid up against that take.
+ */
+private val BandPanelMax = 340.dp
+
+/** The little square at the top of the beat-one marker, so it reads as a flag rather than a cursor. */
+private val DownbeatFlag = 8.dp
+
+/** How far either side of a tap to look for an attack, as a fraction of the take. */
+private const val SNAP_REACH = 0.012f
+
+/** A rise smaller than this is texture, not a note starting. */
+private const val SNAP_FLOOR = 0.02f
+
 private fun snapToBeat(frac: Float, beatFrac: Float): Float {
     if (beatFrac <= 0f) return frac
     val nearest = (frac / beatFrac).roundToInt() * beatFrac

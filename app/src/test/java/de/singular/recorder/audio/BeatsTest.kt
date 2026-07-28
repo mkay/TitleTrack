@@ -49,10 +49,31 @@ class BeatsTest {
     }
 
     @Test
-    fun `a negative nudge does not invent steps before the first`() {
+    fun `a negative nudge does not invent steps before the take`() {
         val early = beats.copy(offsetMs = -80)
         val steps = early.stepsIn(0, 882)
-        assertTrue(steps.all { it >= 0 })
+        // The rule is about frames, not indices: nothing may be triggered before the first sample.
+        assertTrue(steps.all { early.frameOfStep(it) >= 0.0 })
+    }
+
+    @Test
+    fun `a downbeat inside the take carries the grid backwards to the start`() {
+        // Beat one pointed at 4 s in — as it is for an import that opens with somebody tuning up.
+        val late = beats.copy(offsetMs = 4_000)
+        val steps = late.stepsIn(0, 44_100)
+        assertTrue("the first second is before beat one and must still be counted", steps.any())
+        assertTrue("every step still lands inside the take", steps.all { late.frameOfStep(it) >= 0 })
+        assertTrue("steps before the marker are negative", steps.first() < 0)
+        // 4 s at 120 bpm is 8 beats, so the take's first sample is exactly a downbeat itself.
+        assertEquals(0, late.stepInBar(steps.first()))
+    }
+
+    @Test
+    fun `a step before the marker knows its place in the bar`() {
+        // One step short of beat one is the last sixteenth of the bar before it, not the first.
+        assertEquals(15, beats.stepInBar(-1))
+        assertEquals(12, beats.stepInBar(-4))
+        assertEquals(-1, beats.barOfStep(-1))
     }
 
     @Test

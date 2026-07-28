@@ -61,6 +61,7 @@ class Arrangements(context: Context) {
             patternId = o.optString("pattern", fallback.patternId),
             beatsPerBar = o.optInt("beatsPerBar", fallback.beatsPerBar),
             bpm = o.optDouble("bpm", fallback.bpm.toDouble()).toFloat(),
+            downbeatMs = o.optInt("downbeatMs", fallback.downbeatMs),
             offsetMs = o.optInt("offsetMs", fallback.offsetMs),
             takeLevel = o.optDouble("takeLevel", fallback.takeLevel.toDouble()).toFloat(),
             drumsLevel = o.optDouble("drumsLevel", fallback.drumsLevel.toDouble()).toFloat(),
@@ -72,6 +73,7 @@ class Arrangements(context: Context) {
         put("pattern", a.patternId)
         put("beatsPerBar", a.beatsPerBar)
         put("bpm", a.bpm.toDouble())
+        put("downbeatMs", a.downbeatMs)
         put("offsetMs", a.offsetMs)
         put("takeLevel", a.takeLevel.toDouble())
         put("drumsLevel", a.drumsLevel.toDouble())
@@ -93,6 +95,21 @@ data class Arrangement(
     val beatsPerBar: Int = 0,
     /** 0 = follow the take's own tempo. */
     val bpm: Float = 0f,
+    /**
+     * Where beat one is, in milliseconds from the start of the take.
+     *
+     * 0 for anything this app recorded, and correctly so: capture begins on the downbeat, so the
+     * first sample *is* beat one. It exists for everything else — an import carries no downbeat any
+     * more than it carries a tempo, and a grid laid from sample zero on a file that happens to start
+     * with two seconds of somebody finding their pick is wrong by two seconds.
+     *
+     * Kept apart from [offsetMs] rather than folded into it, though the two are added before they
+     * reach the grid. They are different claims: this one is *where the music's bar one is*, and the
+     * nudge is a correction of feel within a beat. One is found once and then true; the other is
+     * moved by ear while listening, on a slider whose ±250 ms range would be useless if it also had
+     * to reach across a take.
+     */
+    val downbeatMs: Int = 0,
     val offsetMs: Int = 0,
     val takeLevel: Float = 1f,
     val drumsLevel: Float = BandPlayer.DEFAULT_DRUMS_LEVEL,

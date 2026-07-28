@@ -48,12 +48,19 @@ data class Beats(
      *
      * Half-open so that stepping chunk by chunk visits each step exactly once, and returns an empty
      * range rather than nonsense when a seek moves the playhead backwards.
+     *
+     * **Step indices may be negative, and that is the point.** The offset marks where a downbeat is,
+     * not where the music starts: point at the clearest downbeat in the take and it is as likely to
+     * be in bar three as in bar one, so the grid has to extend backwards from it. Nothing before the
+     * take can sound anyway — every step returned lands at or after [fromFrame], which is never
+     * negative — so no clamp is needed to enforce that, and [stepInBar] counts with `floorMod` so a
+     * step before the marker still knows its place in the bar.
      */
     fun stepsIn(fromFrame: Long, toFrame: Long): LongRange {
         if (toFrame <= fromFrame) return LongRange.EMPTY
         // Steps are the s where offset + s·framesPerStep lands in the window: ceil at the bottom,
-        // one below ceil at the top. Clamped at zero — a negative nudge has no bar before bar one.
-        val first = ceil((fromFrame - offsetFrames) / framesPerStep).toLong().coerceAtLeast(0)
+        // one below ceil at the top.
+        val first = ceil((fromFrame - offsetFrames) / framesPerStep).toLong()
         val last = ceil((toFrame - offsetFrames) / framesPerStep).toLong() - 1
         return if (last < first) LongRange.EMPTY else first..last
     }

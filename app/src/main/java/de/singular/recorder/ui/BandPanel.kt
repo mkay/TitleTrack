@@ -1,5 +1,7 @@
 package de.singular.recorder.ui
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,11 +19,20 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.Dp
+import de.singular.recorder.audio.BandPlayer
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import de.singular.recorder.BandState
 import de.singular.recorder.audio.MAX_BPM
@@ -51,10 +62,78 @@ fun BandPanel(
     onOffset: (Int) -> Unit,
     onBpm: (Float) -> Unit,
     onBeatsPerBar: (Int) -> Unit,
+    onDownbeat: (Int) -> Unit,
+    /** Where the playhead stands, so beat one can be taken from it rather than aimed at. */
+    playheadMs: Long,
+    onPlaceDownbeat: (Boolean) -> Unit,
+    /** The take's own tempo, if it carries one — what tells a fact from a fallback. */
+    takeKnowsTempo: Boolean,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    // Which value is being typed rather than dragged to, if any.
+    var editing by remember { mutableStateOf(Editing.NONE) }
+
+    when (editing) {
+        Editing.NONE -> Unit
+        Editing.BPM -> NumberDialog(
+            title = "Tempo",
+            initial = state.bpm.roundToInt().toString(),
+            unit = "bpm",
+            onConfirm = onBpm,
+            onDismiss = { editing = Editing.NONE },
+            defaultLabel = if (takeKnowsTempo) "From take" else null,
+            onDefault = if (takeKnowsTempo) ({ onBpm(0f) }) else null,
+        )
+
+        Editing.NUDGE -> NumberDialog(
+            title = "Nudge",
+            initial = state.arrangement.offsetMs.toString(),
+            unit = "ms",
+            onConfirm = { onOffset(it.roundToInt()) },
+            onDismiss = { editing = Editing.NONE },
+            defaultLabel = "None",
+            onDefault = { onOffset(0) },
+        )
+
+        Editing.TAKE -> NumberDialog(
+            title = "Take level",
+            initial = (state.arrangement.takeLevel * 100).roundToInt().toString(),
+            unit = "%",
+            onConfirm = { onTakeLevel((it / 100f).coerceIn(0f, 1.5f)) },
+            onDismiss = { editing = Editing.NONE },
+            defaultLabel = "Default",
+            onDefault = { onTakeLevel(1f) },
+        )
+
+        Editing.DRUMS -> NumberDialog(
+            title = "Drums level",
+            initial = (state.arrangement.drumsLevel * 100).roundToInt().toString(),
+            unit = "%",
+            onConfirm = { onDrumsLevel((it / 100f).coerceIn(0f, 1.5f)) },
+            onDismiss = { editing = Editing.NONE },
+            defaultLabel = "Default",
+            onDefault = { onDrumsLevel(BandPlayer.DEFAULT_DRUMS_LEVEL) },
+        )
+
+        Editing.DOWNBEAT -> NumberDialog(
+            title = "Beat one",
+            initial = state.arrangement.downbeatMs.toString(),
+            unit = "ms",
+            onConfirm = { onDownbeat(it.roundToInt()) },
+            onDismiss = { editing = Editing.NONE },
+        )
+    }
+
+    // Scrollable, because this panel is the tallest thing in the app and the waveform above it now
+    // keeps a floor of its own: on a short screen something has to give, and it should be the row of
+    // faders rather than the take they are being set against.
+    Column(
+        modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Band", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.width(12.dp))
@@ -75,6 +154,10 @@ fun BandPanel(
                 "${state.bpm.roundToInt()} bpm",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clip(ControlShape)
+                    .clickable { editing = Editing.BPM }
+                    .padding(vertical = 4.dp, horizontal = 2.dp),
             )
             Spacer(Modifier.width(8.dp))
             Text(
@@ -105,12 +188,61 @@ fun BandPanel(
             }
         }
 
-        Fader("Take", state.arrangement.takeLevel, onTakeLevel)
-        Fader("Drums", state.arrangement.drumsLevel, onDrumsLevel)
+        Fader("Take", state.arrangement.takeLevel, { editing = Editing.TAKE }, onTakeLevel)
+        Fader("Drums", state.arrangement.drumsLevel, { editing = Editing.DRUMS }, onDrumsLevel)
 
-        // Where beat one actually is. Capture starts within a block of the downbeat and the click
-        // left the speaker with a latency of its own, so "on the beat" is close but not exact —
-        // and a drummer a hair out is worse company than none.
+        // Where bar one starts, for takes that do not say. A take this app recorded begins on the
+        // downbeat, so the answer is zero and this row is a statement rather than a question; an
+        // import knows nothing about its own bars, and a grid laid from sample zero on a file that
+        // opens with somebody finding their pick is wrong by however long that took.
+        //
+        // Pointing at it beats typing it: the waveform is right there, the attacks are visible, and
+        // the tap lands on the nearest one. Beat one, not bar one of the music — the grid runs
+        // backwards from wherever it is put, so the clearest downbeat in the take will do.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Beat one",
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.width(72.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                when {
+                    state.arrangement.downbeatMs > 0 -> "set"
+                    takeKnowsTempo -> "the start — recorded here"
+                    else -> "assumed at the start"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            )
+            Spacer(Modifier.weight(1f))
+            // Two ways in, because they suit different takes. Pointing is quick when the downbeat is
+            // visible as an attack; the playhead is what you use when it is only audible, having
+            // scrubbed or listened your way to it — and it inherits the zoom the waveform already
+            // has, so it is as precise as the take deserves.
+            TextButton(onClick = { onPlaceDownbeat(true) }) { Text("Tap…") }
+            TextButton(onClick = { onDownbeat(playheadMs.toInt()) }) { Text("Playhead") }
+        }
+
+        // Once it is somewhere, it is moved in tens rather than re-aimed: the last few milliseconds
+        // are heard rather than seen, and they are found with the drums playing.
+        if (state.arrangement.downbeatMs > 0) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Spacer(Modifier.width(80.dp))
+                Stepper(
+                    label = formatPrecise(state.arrangement.downbeatMs.toLong()),
+                    onLabelClick = { editing = Editing.DOWNBEAT },
+                    onLess = { onDownbeat(state.arrangement.downbeatMs - DOWNBEAT_STEP_MS) },
+                    onMore = { onDownbeat(state.arrangement.downbeatMs + DOWNBEAT_STEP_MS) },
+                )
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = { onDownbeat(0) }) { Text("Clear") }
+            }
+        }
+
+        // Where beat one actually is, to within a hair. Capture starts within a block of the
+        // downbeat and the click left the speaker with a latency of its own, so "on the beat" is
+        // close but not exact — and a drummer a hair out is worse company than none.
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 "Nudge",
@@ -124,18 +256,22 @@ fun BandPanel(
                 colors = quietTrack(),
                 modifier = Modifier.weight(1f),
             )
-            Text(
-                "${if (state.arrangement.offsetMs > 0) "+" else ""}${state.arrangement.offsetMs} ms",
-                style = MaterialTheme.typography.bodySmall,
-                textAlign = TextAlign.End,
-                modifier = Modifier.width(64.dp),
-            )
+            EditableValue(
+                text = "${if (state.arrangement.offsetMs > 0) "+" else ""}" +
+                    "${state.arrangement.offsetMs} ms",
+                width = 64.dp,
+            ) { editing = Editing.NUDGE }
         }
     }
 }
 
 @Composable
-private fun Fader(label: String, value: Float, onChange: (Float) -> Unit) {
+private fun Fader(
+    label: String,
+    value: Float,
+    onEdit: () -> Unit,
+    onChange: (Float) -> Unit,
+) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.width(56.dp))
         Slider(
@@ -145,17 +281,36 @@ private fun Fader(label: String, value: Float, onChange: (Float) -> Unit) {
             colors = quietTrack(),
             modifier = Modifier.weight(1f),
         )
-        Text(
-            "${(value * 100).roundToInt()}%",
-            style = MaterialTheme.typography.bodySmall,
-            textAlign = TextAlign.End,
-            modifier = Modifier.width(64.dp),
-        )
+        EditableValue(text = "${(value * 100).roundToInt()}%", width = 64.dp, onClick = onEdit)
     }
 }
 
+/** A value that can be typed as well as dragged to — accent-coloured, as tappable values are. */
 @Composable
-private fun Stepper(label: String, onLess: () -> Unit, onMore: () -> Unit) {
+private fun EditableValue(text: String, width: Dp, onClick: () -> Unit) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.primary,
+        textAlign = TextAlign.End,
+        modifier = Modifier
+            .width(width)
+            .clip(ControlShape)
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+    )
+}
+
+/** A tenth of a beat at 60 bpm, and about as fine as a difference anyone hears in a bed. */
+private const val DOWNBEAT_STEP_MS = 10
+
+@Composable
+private fun Stepper(
+    label: String,
+    onLess: () -> Unit,
+    onMore: () -> Unit,
+    onLabelClick: (() -> Unit)? = null,
+) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         OutlinedButton(
             onClick = onLess,
@@ -167,7 +322,16 @@ private fun Stepper(label: String, onLess: () -> Unit, onMore: () -> Unit) {
             label,
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
-            modifier = Modifier.width(48.dp),
+            color = if (onLabelClick != null) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
+            modifier = Modifier
+                .width(72.dp)
+                .clip(ControlShape)
+                .let { if (onLabelClick != null) it.clickable(onClick = onLabelClick) else it }
+                .padding(vertical = 6.dp),
         )
         OutlinedButton(
             onClick = onMore,
@@ -190,6 +354,9 @@ private fun quietTrack() = SliderDefaults.colors(
  * Seven lambdas is too many to thread through a screen's parameter list one at a time — the player
  * already takes eleven — and they always travel together, so they travel as one thing.
  */
+/** Which of the panel's values is open for typing, if any. */
+private enum class Editing { NONE, BPM, NUDGE, TAKE, DRUMS, DOWNBEAT }
+
 data class BandControls(
     val toggle: () -> Unit,
     val pattern: (String) -> Unit,
@@ -198,4 +365,5 @@ data class BandControls(
     val offset: (Int) -> Unit,
     val bpm: (Float) -> Unit,
     val beatsPerBar: (Int) -> Unit,
+    val downbeat: (Int) -> Unit,
 )

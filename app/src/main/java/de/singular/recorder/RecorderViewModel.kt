@@ -940,7 +940,19 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
 
     fun setBandOffsetMs(ms: Int) = updateArrangement { it.copy(offsetMs = ms.coerceIn(-250, 250)) }
 
-    fun setBandBpm(bpm: Float) = updateArrangement { it.copy(bpm = bpm.coerceIn(MIN_BPM, MAX_BPM)) }
+    /**
+     * Where beat one is, in milliseconds from the start of the take — set by pointing at it on the
+     * waveform. Clamped to the take, since a downbeat outside it describes nothing.
+     */
+    fun setBandDownbeatMs(ms: Int) = updateArrangement {
+        val length = _openTake.value?.take?.durationMs ?: 0L
+        it.copy(downbeatMs = ms.coerceIn(0, length.toInt().coerceAtLeast(0)))
+    }
+
+    /** A tempo of the user's own, or 0 to go back to following the take's — see [bandStateFor]. */
+    fun setBandBpm(bpm: Float) = updateArrangement {
+        it.copy(bpm = if (bpm <= 0f) 0f else bpm.coerceIn(MIN_BPM, MAX_BPM))
+    }
 
     fun setBandBeatsPerBar(beats: Int) = updateArrangement { it.copy(beatsPerBar = beats) }
 
@@ -966,9 +978,11 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     private fun applyTo(player: BandPlayer) {
         val state = _band.value
         player.beats = Beats(
+            // Where bar one is, plus the correction by ear — one number to the grid, two to the
+            // user, because they are answers to different questions. See [Arrangement.downbeatMs].
+            offsetMs = state.arrangement.downbeatMs + state.arrangement.offsetMs,
             bpm = state.bpm,
             beatsPerBar = state.beatsPerBar,
-            offsetMs = state.arrangement.offsetMs,
             sampleRate = player.sampleRate,
         )
         player.pattern = Patterns.byId(state.arrangement.patternId)

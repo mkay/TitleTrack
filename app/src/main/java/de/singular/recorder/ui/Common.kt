@@ -44,6 +44,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -118,6 +124,73 @@ fun NameDialog(
             ) { Text(confirm) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/**
+ * One number, typed — for a value that a slider can only get near.
+ *
+ * A fader is right for finding a level by ear and wrong for saying 110: the last few pixels of a
+ * track are worth several bpm, and a figure you already know should not have to be hunted for. So
+ * every value beside a slider opens this, in the way the record screen's tempo has always worked.
+ *
+ * Nonsense commits nothing: a field that will not parse leaves the value where it was rather than
+ * snapping it to a bound, which is what makes it safe to clear the field while typing.
+ */
+@Composable
+fun NumberDialog(
+    title: String,
+    initial: String,
+    unit: String,
+    onConfirm: (Float) -> Unit,
+    onDismiss: () -> Unit,
+    /** What to put it back to, where there is such a thing, and what to call that. */
+    defaultLabel: String? = null,
+    onDefault: (() -> Unit)? = null,
+) {
+    var text by rememberSaveable(initial) { mutableStateOf(initial) }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+
+    fun commit() {
+        text.trim().replace(',', '.').toFloatOrNull()?.let(onConfirm)
+        onDismiss()
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                singleLine = true,
+                shape = ControlShape,
+                suffix = { Text(unit) },
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Done,
+                ),
+                keyboardActions = KeyboardActions(onDone = { commit() }),
+                modifier = Modifier.focusRequester(focus),
+            )
+        },
+        confirmButton = { TextButton(onClick = { commit() }) { Text("Set") } },
+        // The way back to the default lives here rather than on the control itself. A double tap on
+        // the slider was tried and is not reliable enough to keep: Material's slider owns that
+        // gesture, and an affordance that works sometimes is worse than one that is simply written
+        // down where the value is already being edited.
+        dismissButton = {
+            Row {
+                if (onDefault != null && defaultLabel != null) {
+                    TextButton(onClick = {
+                        onDefault()
+                        onDismiss()
+                    }) { Text(defaultLabel) }
+                }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
     )
 }
 
