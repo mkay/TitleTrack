@@ -14,17 +14,10 @@ import androidx.lifecycle.viewModelScope
 import de.singular.recorder.audio.AudioDecoder
 import de.singular.recorder.audio.AudioFormat
 import de.singular.recorder.audio.AudioRecorder
-import de.singular.recorder.audio.BandPlayer
-import de.singular.recorder.audio.Beats
-import de.singular.recorder.audio.DrumPattern
-import de.singular.recorder.audio.Patterns
-import de.singular.recorder.audio.SynthKit
 import de.singular.recorder.audio.MAX_BPM
 import de.singular.recorder.audio.MIN_BPM
 import de.singular.recorder.audio.NormalizeMode
 import de.singular.recorder.audio.RecordPhase
-import de.singular.recorder.storage.Arrangement
-import de.singular.recorder.storage.Arrangements
 import de.singular.recorder.storage.Folder
 import de.singular.recorder.storage.Listing
 import de.singular.recorder.storage.RecordingStore
@@ -168,26 +161,6 @@ data class LevelTest(
  */
 const val MAX_INPUT_GAIN_DB = 24
 
-/**
- * The band under the open take: whether it is playing, what it is playing, and the grid it follows.
- *
- * [bpm] and [beatsPerBar] are the *effective* values — the arrangement's override where there is
- * one, the take's own tempo where there is not, and the record screen's setting as a last resort.
- * [tempoFromTake] says which of those happened, because a tempo the take carries is a fact and one
- * borrowed from the record screen is a guess, and the panel should not present them alike.
- */
-data class BandState(
-    val on: Boolean = false,
-    /** Decoding the take, which happens once per take before the drums can be mixed into it. */
-    val preparing: Boolean = false,
-    val arrangement: Arrangement = Arrangement(),
-    val bpm: Float = 100f,
-    val beatsPerBar: Int = 4,
-    val tempoFromTake: Boolean = false,
-) {
-    val pattern: DrumPattern get() = Patterns.byId(arrangement.patternId)
-}
-
 /** One take opened in the player, with the peak envelope it is drawn from. */
 data class OpenTake(
     val take: Take,
@@ -216,10 +189,6 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
 
     private val prefs = application.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val stars = Stars(application)
-    private val arrangements = Arrangements(application)
-
-    /** Rendered once and shared by every band that plays — see [SynthKit]. */
-    private val kit by lazy { SynthKit() }
 
     /**
      * The starred takes, as keys — see [Stars]. Held as a flow so the list can reorder itself and
@@ -382,16 +351,6 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
 
     /** Opening a take for playback — the decode check and the prepare. See [play]. */
     private var playJob: Job? = null
-
-    /**
-     * The band, when one is playing — see [BandPlayer].
-     *
-     * Two engines, and only ever one of them live: [player] handles a take on its own, this handles
-     * a take with drums under it. Whichever is running reports through the same [_playback], so
-     * everything downstream — the mini player, the seek bar, the tabs — is unaware there are two.
-     */
-    private var band: BandPlayer? = null
-    private var bandJob: Job? = null
 
     init {
         recorder.setInputGain(_settings.value.inputGainDb)
@@ -747,7 +706,6 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         // way the player screen takes over the transport from here.
         if (_playback.value.uri != take.uri) stopPlayback()
         _openTake.value = OpenTake(take)
-        loadBand(take)
         waveformJob?.cancel()
         waveformJob = viewModelScope.launch {
             val peaks = store.waveform(take)
@@ -855,236 +813,11 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    /**
-     * Leave the player. Playback carries on in the mini player rather than being cut off.
-     *
-     * The band does not: it belongs to the screen with the faders on it, and a drummer still going
-     * behind a library list — with no way to reach the pattern, the levels or the grid — is not
-     * playback carrying on, it is a noise with no controls. Leaving hands the take back to
-     * [MediaPlayer] where it stands.
-     */
+    /** Leave the player. Playback carries on in the mini player rather than being cut off. */
     fun closeTake() {
         waveformJob?.cancel()
         waveformJob = null
-        if (band != null) {
-            val at = _playback.value.positionMs
-            val take = _openTake.value?.take
-            val wasPlaying = _playback.value.playing
-            stopBand()
-            if (wasPlaying && take != null) play(take, at) else _playback.value =
-                _playback.value.copy(playing = false)
-        }
         _openTake.value = null
-    }
-
-    // ---- the band ---------------------------------------------------------------------------
-
-    private val _band = MutableStateFlow(BandState())
-    val bandState: StateFlow<BandState> = _band.asStateFlow()
-
-    /** The arrangement key for the open take, or null before a root has been granted. */
-    private fun bandKey(): String? =
-        _openTake.value?.take?.uri?.let { Stars.keyFor(store.root, it) }
-
-    /** Read the take's saved arrangement, if any, and work out the grid it implies. */
-    private fun loadBand(take: Take) {
-        stopBand()
-        val saved = Stars.keyFor(store.root, take.uri)?.let { arrangements.get(it) } ?: Arrangement()
-        // Armed but not built: a take reopened with the band on gets its drums back, and pays for
-        // the decode when Play is pressed rather than on the way into the screen.
-        _band.value = bandStateFor(take, saved)
-    }
-
-    /**
-     * [BandState] for a take and its arrangement, with the effective grid resolved.
-     *
-     * The tempo the take carries wins over the app's current setting, and an override the user
-     * typed wins over both. A take with no tempo of its own — an import — falls back to whatever
-     * the record screen is set to, which is a guess, and the panel says so rather than pretending.
-     */
-    private fun bandStateFor(take: Take, a: Arrangement) = BandState(
-        on = a.on,
-        arrangement = a,
-        bpm = when {
-            a.bpm > 0f -> a.bpm
-            (take.bpm ?: 0f) > 0f -> take.bpm!!
-            else -> _settings.value.bpm.toFloat()
-        },
-        beatsPerBar = if (a.beatsPerBar > 0) a.beatsPerBar else _settings.value.beatsPerBar,
-        tempoFromTake = a.bpm <= 0f && (take.bpm ?: 0f) > 0f,
-    )
-
-    /** Turn the band on or off, picking up playback where it stands either way. */
-    fun toggleBand() {
-        val take = _openTake.value?.take ?: return
-        val next = !_band.value.on
-        val arrangement = _band.value.arrangement.copy(on = next)
-        saveArrangement(arrangement)
-        _band.value = _band.value.copy(on = next, arrangement = arrangement)
-        val at = _playback.value.positionMs
-        val wasPlaying = _playback.value.playing && _playback.value.uri == take.uri
-        if (next) {
-            stopMediaPlayer()
-            if (wasPlaying) startBand(take, at) else prepareBand(take)
-        } else {
-            stopBand()
-            if (wasPlaying) play(take, at)
-        }
-    }
-
-    fun setPattern(id: String) = updateArrangement { it.copy(patternId = id) }
-
-    fun setTakeLevel(level: Float) = updateArrangement { it.copy(takeLevel = level) }
-
-    fun setDrumsLevel(level: Float) = updateArrangement { it.copy(drumsLevel = level) }
-
-    fun setBandOffsetMs(ms: Int) = updateArrangement { it.copy(offsetMs = ms.coerceIn(-250, 250)) }
-
-    /**
-     * Where beat one is, in milliseconds from the start of the take — set by pointing at it on the
-     * waveform. Clamped to the take, since a downbeat outside it describes nothing.
-     */
-    fun setBandDownbeatMs(ms: Int) = updateArrangement {
-        val length = _openTake.value?.take?.durationMs ?: 0L
-        it.copy(downbeatMs = ms.coerceIn(0, length.toInt().coerceAtLeast(0)))
-    }
-
-    /** A tempo of the user's own, or 0 to go back to following the take's — see [bandStateFor]. */
-    fun setBandBpm(bpm: Float) = updateArrangement {
-        it.copy(bpm = if (bpm <= 0f) 0f else bpm.coerceIn(MIN_BPM, MAX_BPM))
-    }
-
-    fun setBandBeatsPerBar(beats: Int) = updateArrangement { it.copy(beatsPerBar = beats) }
-
-    /**
-     * Apply a change to the arrangement, save it, and hand it to a band already playing.
-     *
-     * Live by design: the player reads its grid, pattern and levels on every chunk, so a fader
-     * moves the drums while they are sounding rather than after a rebuild. That is the whole
-     * reason the accompaniment is synthesised per chunk instead of rendered up front.
-     */
-    private fun updateArrangement(change: (Arrangement) -> Arrangement) {
-        val take = _openTake.value?.take ?: return
-        val next = change(_band.value.arrangement)
-        saveArrangement(next)
-        _band.value = bandStateFor(take, next).copy(preparing = _band.value.preparing)
-        band?.let { applyTo(it) }
-    }
-
-    private fun saveArrangement(a: Arrangement) {
-        bandKey()?.let { arrangements.put(it, a) }
-    }
-
-    private fun applyTo(player: BandPlayer) {
-        val state = _band.value
-        player.beats = Beats(
-            // Where bar one is, plus the correction by ear — one number to the grid, two to the
-            // user, because they are answers to different questions. See [Arrangement.downbeatMs].
-            offsetMs = state.arrangement.downbeatMs + state.arrangement.offsetMs,
-            bpm = state.bpm,
-            beatsPerBar = state.beatsPerBar,
-            sampleRate = player.sampleRate,
-        )
-        player.pattern = Patterns.byId(state.arrangement.patternId)
-        player.takeLevel = state.arrangement.takeLevel
-        player.drumsLevel = state.arrangement.drumsLevel
-        player.looping = _looping.value
-    }
-
-    /** Decode the take for the band without starting it — so the first press of Play is instant. */
-    private fun prepareBand(take: Take) {
-        bandJob?.cancel()
-        bandJob = viewModelScope.launch {
-            _band.value = _band.value.copy(preparing = true)
-            val ready = openBand(take)
-            _band.value = _band.value.copy(preparing = false)
-            if (!ready) bandFailed()
-        }
-    }
-
-    private fun startBand(take: Take, fromMs: Long) {
-        bandJob?.cancel()
-        bandJob = viewModelScope.launch {
-            _band.value = _band.value.copy(preparing = true)
-            val ready = openBand(take)
-            _band.value = _band.value.copy(preparing = false)
-            if (!ready) {
-                bandFailed()
-                return@launch
-            }
-            val player = band ?: return@launch
-            val frame = fromMs * player.sampleRate / 1_000
-            player.play(frame)
-            _playback.value = PlaybackState(
-                take = take,
-                positionMs = fromMs,
-                durationMs = player.frameCount * 1_000 / player.sampleRate,
-                playing = true,
-            )
-            trackBand(player)
-        }
-    }
-
-    /** Build the player if it is not already up. Returns false if the take could not be decoded. */
-    private suspend fun openBand(take: Take): Boolean {
-        band?.let { return true }
-        val decoded = store.decodeToCache(take) ?: return false
-        if (decoded.pcm.length() <= 0) return false
-        val player = BandPlayer(
-            pcmFile = decoded.pcm,
-            channels = decoded.channels,
-            sampleRate = decoded.sampleRate,
-            kit = kit,
-            onFinished = { viewModelScope.launch { bandFinished() } },
-        )
-        applyTo(player)
-        band = player
-        return true
-    }
-
-    private fun bandFailed() {
-        _band.value = _band.value.copy(on = false)
-        saveArrangement(_band.value.arrangement.copy(on = false))
-        _message.value = "That take could not be opened for the band."
-    }
-
-    private fun bandFinished() {
-        band?.pause()
-        progressJob?.cancel()
-        progressJob = null
-        _playback.value = _playback.value.copy(playing = false, positionMs = 0, finished = true)
-        band?.seekTo(0)
-    }
-
-    /** Report where the band has got to, as [play] does for [MediaPlayer]. */
-    private fun trackBand(player: BandPlayer) {
-        progressJob?.cancel()
-        progressJob = viewModelScope.launch {
-            while (true) {
-                delay(100)
-                val current = band ?: break
-                if (!current.isPlaying) break
-                _playback.value = _playback.value.copy(
-                    positionMs = current.positionFrame * 1_000 / player.sampleRate,
-                )
-            }
-        }
-    }
-
-    /**
-     * Put the band away and release the audio device it was holding.
-     *
-     * Deliberately does **not** cancel [progressJob], which is shared with [MediaPlayer]: this runs
-     * on the way into the player screen (see [loadBand]), and a take started from the library list is
-     * being played by [MediaPlayer] at that moment. Cancelling here froze the playhead under audio
-     * that carried on regardless. The band's own loop needs no cancelling — [trackBand] breaks as soon
-     * as [band] is null, which is one line below.
-     */
-    private fun stopBand() {
-        bandJob?.cancel()
-        bandJob = null
-        band?.release()
-        band = null
     }
 
     // ---- playback ---------------------------------------------------------------------------
@@ -1108,10 +841,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
             current.uri == take.uri -> current.positionMs
             else -> 0
         }
-        // With the band on, the open take is played by [BandPlayer] instead — one stream carrying
-        // both, because two engines cannot agree about where beat one is.
-        if (_band.value.on && _openTake.value?.take?.uri == take.uri) startBand(take, resume)
-        else play(take, resume)
+        play(take, resume)
     }
 
     /** Give up the audio device but keep the take and where we were in it. */
@@ -1119,23 +849,14 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         // A take that is still opening counts as playing to the user, so stop has to reach it too.
         playJob?.cancel()
         playJob = null
-        bandJob?.cancel()
-        bandJob = null
         progressJob?.cancel()
         progressJob = null
-        // The band is paused rather than released: its decoded take is expensive to rebuild, and
-        // the whole point of a stopped take is that it is ready to go again from where it sits.
-        band?.pause()
-        stopMediaPlayer()
-        _playback.value = _playback.value.copy(playing = false)
-    }
-
-    private fun stopMediaPlayer() {
         player?.let {
             runCatching { it.stop() }
             runCatching { it.release() }
         }
         player = null
+        _playback.value = _playback.value.copy(playing = false)
     }
 
     /**
@@ -1230,15 +951,13 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         _looping.value = on
         // Takes effect on what is already playing, not only on the next press.
         player?.let { runCatching { it.isLooping = on } }
-        band?.looping = on
         _message.value = if (on) "Looping." else "Loop off."
     }
 
     /** Play [take] from its first sample, whatever it was doing before. */
     fun restartPlayback(take: Take) {
         if (recorderState.value.phase != RecordPhase.IDLE) return
-        if (_band.value.on && _openTake.value?.take?.uri == take.uri) startBand(take, 0)
-        else play(take, 0)
+        play(take, 0)
     }
 
     /** The mini player's transport, which always has a take to act on. */
@@ -1248,14 +967,12 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
 
     fun seekTo(ms: Long) {
         player?.let { runCatching { it.seekTo(ms.toInt()) } }
-        band?.let { it.seekTo(ms * it.sampleRate / 1_000) }
         _playback.value = _playback.value.copy(positionMs = ms)
     }
 
     /** Unload the take entirely — for when it is going away, not merely pausing. */
     fun stopPlayback() {
         pausePlayback()
-        stopBand()
         _playback.value = PlaybackState()
     }
 

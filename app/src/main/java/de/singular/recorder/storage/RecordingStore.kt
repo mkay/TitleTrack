@@ -37,9 +37,6 @@ data class Take(
 /** A take after [RecordingStore.normalize], and the boost it was given — 0 dB if it was left be. */
 data class Normalized(val take: Take, val gainDb: Float)
 
-/** A take laid out as raw PCM in the cache — see [RecordingStore.decodeToCache]. */
-data class DecodedTake(val pcm: File, val sampleRate: Int, val channels: Int)
-
 /** What one folder holds: its sub-folders and its takes, each already sorted for display. */
 data class Listing(
     val folder: Uri,
@@ -948,54 +945,6 @@ class RecordingStore(context: Context) {
 
     /** Re-read one take by uri — after a rename, or after anything else has moved under it. */
     suspend fun take(uri: Uri): Take? = withContext(Dispatchers.IO) { describe(uri) }
-
-    /**
-     * Lay [take] out as raw 16-bit PCM in the cache, for [de.singular.recorder.audio.BandPlayer]
-     * to stream and mix against.
-     *
-     * A file rather than memory, for the reason [AudioDecoder] gives: a take is never held whole.
-     * A file rather than the take itself, because playing a band under it means seeking around raw
-     * samples, and a document uri gives a forward-only stream.
-     *
-     * A 16-bit WAV — which is what this app records — is *copied* rather than decoded: the payload
-     * already is what the player wants, and going through a codec to arrive at the same samples
-     * would be a decode per take for nothing. Everything else goes through [AudioDecoder].
-     */
-    suspend fun decodeToCache(take: Take): DecodedTake? = withContext(Dispatchers.IO) {
-        val scratch = File(appContext.cacheDir, "band.pcm")
-        val wav = readHeader(take.uri, take.sizeBytes)
-            ?.takeIf { it.bitsPerSample == 16 && it.dataStart >= 0 && it.dataBytes > 0 }
-        if (wav != null) {
-            val copied = runCatching {
-                scratch.outputStream().buffered(BLOCK).use { out ->
-                    resolver.openInputStream(take.uri)?.use { input ->
-                        input.skipExactly(wav.dataStart)
-                        copyExactly(input, out, wav.dataBytes)
-                    } ?: throw IllegalStateException("That file could not be read.")
-                }
-            }
-            if (copied.isFailure) {
-                scratch.delete()
-                return@withContext null
-            }
-            return@withContext DecodedTake(scratch, wav.sampleRate, wav.channels)
-        }
-
-        val decoded = runCatching {
-            scratch.outputStream().buffered(BLOCK).use { out ->
-                val sink = MeasuringPcmWriter(out)
-                if (!AudioDecoder.decode(appContext, take.uri, sink)) {
-                    throw IllegalStateException("Nothing on this device can decode that file.")
-                }
-                sink
-            }
-        }.getOrNull()
-        if (decoded == null || decoded.sampleRate <= 0 || scratch.length() <= 0) {
-            scratch.delete()
-            return@withContext null
-        }
-        DecodedTake(scratch, decoded.sampleRate, decoded.channels)
-    }
 
     /** The WAV header of [uri], or null if it is not a WAVE at all. */
     private fun readHeader(uri: Uri, sizeBytes: Long): Wav.Info? =
