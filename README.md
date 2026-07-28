@@ -49,12 +49,20 @@ Early-stage — the recording and take-management half is built; the accompanime
 - **Takes remember their tempo** — the bpm you played to is written into the WAV itself as a
   `LIST/INFO` comment, so it survives being copied to a computer. This is what the planned drum and
   bass tracks will lock to.
-- **One accent, two versions of it** — the amber from the icon is a text colour as much as a button
-  fill (the selected tab, the setting values, the played part of a waveform), and a yellow that
-  reads at 11:1 on a dark screen manages 1.6:1 on a white one. The light theme takes the icon's
-  orange instead, darkened until it reads at 4.8:1. The record red still derives from whichever
-  accent is in force — and moves deeper as the accent approaches it, so an orange accent cannot
-  quietly become the same colour as "you are recording".
+- **One amber, a step per theme** — the colour from the icon is a text colour as much as a button
+  fill (the selected tab, the setting values, the played part of a waveform), so each theme takes the
+  step its own page can carry: a gold on the dark one, a deeper burnt orange on the light one that
+  reads at 4.8:1 where a mid-scale accent would wash out at 2.1:1. The surfaces are re-tinted onto the
+  same hue rather than left on Material's faintly violet greys, so the accent sits within its
+  background's family instead of opposite it: a warm off-white page on the light theme, a warm
+  near-black on the dark one.
+- **A striped Record button, and red kept for what is wrong** — Record used to be a full-width red
+  slab, which made the loudest thing in the app out of a screen tuned to be quiet. It is an accent
+  button now, the same fill and label as Play, with oblique light stripes over it: texture is a
+  channel the palette was not using, and it marks the button out without needing a colour of its own —
+  no third amber to keep in agreement with the other two. Red is left to the two things that are not
+  controls: the clock while a take runs, and the top of a level meter, where it means the converter is
+  clipping. A red that turns up in the ordinary run of things stops being read as a warning.
 - **Recorded honestly** — the least-processed microphone source the device offers
   (`UNPROCESSED` → `VOICE_RECOGNITION` → `MIC`), and no filtering of any kind on the way to disk.
   The voice-recorder effects are all trained on speech: noise suppression hears a sustained note or
@@ -270,5 +278,7 @@ app/src/main/java/de/singular/recorder/
   until there is an interface to record from.
 - Waveforms are drawn from the whole file at a fixed ~420 columns. There is no zoom, which is fine
   for a take and would not be for an arrangement.
-- The record colour is derived from the accent — red at the accent's own saturation and lightness.
-  A red or orange accent would land on top of it and lose the distinction it exists to make.
+- The accent is not legible as *text* on the light theme: a mid-scale amber on a near-white page
+  reads 2.1:1, where body text wants 4.5:1. Buttons and other filled controls are unaffected, since
+  those carry their own dark content. The step that would fix it is two rungs down and sits too close
+  to the record red, so this is a known trade rather than an oversight.

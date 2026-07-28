@@ -455,9 +455,9 @@ private fun Modifier.rowClicks(
 /**
  * A picked row, as a wash of the accent rather than a slab of it.
  *
- * The usual choice is `secondaryContainer`, which this app maps to the accent itself — a solid lime
- * row, and lime at full strength across a whole list is exactly what the palette spent its time
- * getting away from. A low-alpha tint reads as "picked" just as plainly and leaves the row's own
+ * The usual choice is `secondaryContainer`, which this app maps to the accent itself — a solid gold
+ * row, and the accent at full strength across a whole list is exactly what the palette spent its
+ * time getting away from. A low-alpha tint reads as "picked" just as plainly and leaves the row's own
  * text colours alone, which matters here because these rows carry two tiers of type.
  */
 private fun Modifier.selectionTint(selected: Boolean) = composed {

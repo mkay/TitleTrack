@@ -189,8 +189,9 @@ fun RecordScreen(
                     // Press to play, hold to find out how loud you are: the level test is a
                     // rehearsal of this very button, so it lives on it.
                     onLongClick = onStartLevelTest,
-                    container = MaterialTheme.colorScheme.record,
-                    onContainer = MaterialTheme.colorScheme.onRecord,
+                    // The accent, exactly as Play and Save take it — the bands are the whole of the
+                    // difference, where a red fill used to be. See `recordBand` in Theme.kt.
+                    band = MaterialTheme.colorScheme.recordBand,
                     enabled = folderLabel != null,
                 )
                 if (folderLabel == null) {

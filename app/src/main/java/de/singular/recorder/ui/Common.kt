@@ -37,13 +37,20 @@ import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.log10
 import kotlin.math.max
+import kotlin.math.sqrt
 
 /** `1:23` — or `12:03.4` while recording, where the tenths show that it is still running. */
 fun formatDuration(ms: Long, tenths: Boolean = false): String {
@@ -187,6 +194,36 @@ fun LevelMeter(level: Float, modifier: Modifier = Modifier, active: Boolean = tr
     }
 }
 
+/**
+ * Oblique bands across a filled control, in the manner of hazard tape.
+ *
+ * One repeating linear gradient with its stops doubled up, so each pair is a hard edge rather than a
+ * fade. The axis runs down-right, which puts the bands themselves perpendicular to it, rising to the
+ * right. Because the axis is the diagonal of a [band]-sided square, its length is twice [band] and
+ * each half of the gradient is one band wide measured across.
+ *
+ * Drawn behind the label and over the container, and it carries the container's own clip, so this
+ * belongs on something that fills the control rather than on the control itself. [color] lies over the
+ * fill, so it is a tint and carries its own alpha — see `recordBand` in Theme.kt.
+ */
+private fun Modifier.obliqueBands(color: Color, band: Dp = ButtonBand) = drawBehind {
+    val d = band.toPx() * sqrt(2f)
+    drawRect(
+        Brush.linearGradient(
+            0.0f to Color.Transparent,
+            0.5f to Color.Transparent,
+            0.5f to color,
+            1.0f to color,
+            start = Offset.Zero,
+            end = Offset(d, d),
+            tileMode = TileMode.Repeated,
+        ),
+    )
+}
+
+/** Band width, across. Wide enough to read as banding at a glance rather than as a hatch. */
+private val ButtonBand = 11.dp
+
 /** A thumb-height, full-width action — the shape of every button hit without looking. */
 @Composable
 fun BigButton(
@@ -199,7 +236,14 @@ fun BigButton(
     outlined: Boolean = false,
     enabled: Boolean = true,
     onLongClick: (() -> Unit)? = null,
+    band: androidx.compose.ui.graphics.Color? = null,
 ) {
+    // Only the surface-built button below has something spanning it to draw the bands on. Material's
+    // Button gives its content an inset row, which would leave the bands short of the edges — so this
+    // fails rather than half-drawing them.
+    require(band == null || onLongClick != null) {
+        "band needs the holdable button; Material's own insets its content"
+    }
     val content: @Composable () -> Unit = {
         if (icon != null) {
             Icon(icon, contentDescription = null, Modifier.size(22.dp))
@@ -232,7 +276,7 @@ fun BigButton(
             },
         ) {
             Row(
-                Modifier.fillMaxSize(),
+                Modifier.fillMaxSize().let { if (band != null && enabled) it.obliqueBands(band) else it },
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) { content() }

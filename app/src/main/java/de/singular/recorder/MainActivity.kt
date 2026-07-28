@@ -431,7 +431,7 @@ class MainActivity : ComponentActivity() {
                                 // While rows are picked the bar becomes the selection's own: a
                                 // count, a way out, and the one action a batch is worth making.
                                 // Tinted rather than filled with the accent — `secondaryContainer`
-                                // is the accent in this app, and a full-width lime bar is the sort
+                                // is the accent in this app, and a full-width bar of it is the sort
                                 // of thing the palette was tuned away from.
                                 colors = if (selecting) {
                                     TopAppBarDefaults.topAppBarColors(

@@ -91,7 +91,7 @@ fun LiveWaveform(
     // Muted while only listening: the same shape, plainly not being kept. The difference has to be
     // legible at a glance, because "am I recording?" is the one question this screen must never
     // leave ambiguous — and it survives the change, near-white against grey being a wider gap than
-    // lime against grey was.
+    // the accent against grey was.
     val fill = if (monitoring && !running) {
         MaterialTheme.colorScheme.onSurface.copy(alpha = WaveformMuted)
     } else {

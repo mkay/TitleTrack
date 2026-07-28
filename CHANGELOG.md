@@ -4,8 +4,9 @@
 
 First cut: recording and take management.
 
-- The app is **Title Track**, and its icon is a mirrored waveform in two greens on a dark ground.
-  The lime from it is the accent throughout.
+- The app is **Title Track**, and its icon is a mirrored waveform in three ambers on a dark ground.
+  The gold from it is the accent throughout, on both themes, and the surfaces are tinted onto its
+  hue: a warm near-black and a warm off-white rather than Material's faintly violet greys.
 
 - Record to a folder of your choosing (Storage Access Framework tree grant), as 44.1 kHz mono WAV.
 - Count-in of 0, 1 or 2 bars at a settable tempo, with an accented downbeat.
@@ -42,11 +43,20 @@ First cut: recording and take management.
 - The recordings folder is asked for on first launch, and again if it stops being reachable.
 - Settings: time signature, listen-before-recording, prompt-for-filename, keep-screen-on,
   System/Light/Dark theme.
-- The record colour is derived from the accent rather than fixed, so the two stay a matched pair —
-  per theme, and deeper the closer the accent comes to red, so the two can never merge.
-- A darker accent in light mode: the icon's lime, darkened to a green that holds its hue. The
-  accent is a text colour as well as a button fill, and the lime measures 1.4:1 on a white page —
-  invisible. The green reads at 4.9:1, with white on it at 5.1:1.
+- The Record button is an accent button with oblique light stripes over it, rather than a red slab.
+  The button and the running clock were one colour on the argument that they are one thing, but they
+  never appear at once — the button before a take, the clock during one — so the button takes the same
+  fill and label as Play or Save, and the stripes are the whole of the difference. Red is left to the
+  clock and to a clipping meter, which are states rather than controls.
+- The stripes are a white tint, subtle by design, and its alpha differs per theme so that the visible
+  texture does not: white lightens the light theme's deeper accent readily and mostly desaturates the
+  dark theme's saturated one, so 8% and 20% both land at about 1.15:1. Dark hazard-tape banding was
+  the first cut and is what the labels rule out — on the dark theme a dark band is the label's own
+  colour thinned, and took it from 7.0:1 to 4.8:1 wherever one crossed a letter.
+- The accent takes a step per theme rather than one for both: legible as text on the light page for
+  the first time, at 4.8:1 where every previous palette shipped a washed-out 1.9–2.1:1. Amber is the
+  first family where the fix is two rungs down rather than four, and the collision that used to rule
+  it out — a deep accent beside a red fill — went away with the red button.
 - While keep-screen-on is active an indicator sits in the app bar; tapping it explains the battery
   cost and offers a way to turn it off (as in RubberRing).
 - Compact bottom tabs, and a library list of even rows with dividers and accented folder icons.

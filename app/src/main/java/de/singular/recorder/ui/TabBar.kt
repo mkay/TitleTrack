@@ -32,9 +32,9 @@ import androidx.compose.ui.unit.dp
  * difference is the count-in digit's breathing room.
  *
  * It takes the top of the surface ramp outright rather than a tonal elevation. Elevation derives its
- * tint from `primary`, which on a screen this green is the one colour the bar must not drift toward
- * — it would blend into the page instead of ending it. An explicit step keeps the bar a deliberate
- * shade apart: 1.35:1 from the page on the dark theme, 1.15:1 on the light one.
+ * tint from `primary`, which on a page tinted onto the accent's own hue is the one colour the bar
+ * must not drift toward — it would blend into the page instead of ending it. An explicit step keeps
+ * the bar a deliberate shade apart: 1.33:1 from the page on the dark theme, 1.15:1 on the light one.
  */
 @Composable
 fun CompactTabBar(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
