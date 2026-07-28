@@ -174,8 +174,8 @@ class Metronome(private val sampleRate: Int = Wav.SAMPLE_RATE) {
      *
      * **Streamed rather than rendered.** [countIn] can lay its whole job out in one buffer because it
      * knows how many clicks it will play; a take does not end until someone says so, so this is a
-     * feeder thread writing ~20 ms at a time, in the manner of [BandPlayer]. The blocking write is
-     * what paces it — no scheduler timing is trusted with a beat.
+     * feeder thread writing ~20 ms at a time. The blocking write is what paces it — no scheduler
+     * timing is trusted with a beat.
      *
      * **Beat positions are computed, never accumulated.** At 44.1 kHz and 110 bpm a beat is
      * 24054.5454… frames, and adding a rounded interval per beat walks more than a bar away over five
@@ -191,9 +191,8 @@ class Metronome(private val sampleRate: Int = Wav.SAMPLE_RATE) {
      *
      * What the player *hears* is still behind the take's own grid by the device's output latency, and
      * that remains — the take begins on the wall clock while the clicks begin when the audio device
-     * gets round to them. It is the same order of error as the block quantisation [Beats] describes,
-     * and the reason the band has a nudge. Worth knowing before treating a take recorded to these
-     * clicks as sample-accurate against the grid; not something this can fix.
+     * gets round to them. Worth knowing before treating a take recorded to these clicks as
+     * sample-accurate against the grid; not something this can fix.
      */
     fun startTakeClicks(bpm: Float, beatsPerBar: Int, delayMs: Long, fromBeat: Long = 0) {
         if (clicking) return
