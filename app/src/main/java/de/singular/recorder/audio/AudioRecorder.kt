@@ -422,13 +422,20 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
                 val peak = peakOf(block, read)
 
                 if (countingIn) {
+                    // Counted from the *musical* part of the wait, never the whole of it. What is
+                    // left over is the lead-in and the output latency the take is being held back
+                    // by, and neither is a beat: counting them showed a bar of four as "5" for the
+                    // first fraction of a second, and — since the latency is added to the total as
+                    // soon as it is measured, part-way through — flickered back to 5 again after
+                    // reaching 4. A one-bar count-in counts 4, 3, 2, 1, whatever the wait is doing.
                     val untilDownbeat = countInEndsAt - SystemClock.elapsedRealtime()
-                    val left = (untilDownbeat + beatMs - 1) / beatMs
+                    val musical = untilDownbeat.coerceIn(0, countInMusicalMs)
+                    val left = (musical + beatMs - 1) / beatMs
                     _state.value = _state.value.copy(
                         phase = RecordPhase.COUNT_IN,
                         level = peak,
                         countInBeatsLeft = left.toInt().coerceAtLeast(0),
-                        countInRemainingMs = untilDownbeat.coerceIn(0, countInMusicalMs),
+                        countInRemainingMs = musical,
                     )
                     continue // the clicks are not part of the take
                 }
