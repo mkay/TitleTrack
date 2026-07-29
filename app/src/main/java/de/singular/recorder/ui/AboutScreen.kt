@@ -126,9 +126,9 @@ fun AboutScreen(modifier: Modifier = Modifier) {
         AboutSection("License") {
             AboutBody("Copyright © 2026 Kreuder")
             AboutBody(
-                "Title Track is free software under the GPL-3.0-only. The name and the artwork " +
-                    "are not covered by that licence — a fork needs its own. Built with AndroidX " +
-                    "and Jetpack Compose, licensed under Apache 2.0.",
+                "Title Track is free software under the GPL-3.0-only. The wordmark and the icon " +
+                    "are CC BY 4.0; the name is not licensed, so a fork needs its own. Built " +
+                    "with AndroidX and Jetpack Compose, licensed under Apache 2.0.",
             )
             AboutLink(REPO_URL) { uriHandler.openUri(REPO_URL) }
         }
