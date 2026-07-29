@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+
 package de.singular.recorder
 
 import android.Manifest
@@ -16,11 +18,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
@@ -33,6 +37,7 @@ import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
@@ -85,6 +90,7 @@ import de.singular.recorder.ui.MoveDialog
 import de.singular.recorder.ui.NameDialog
 import de.singular.recorder.ui.NoteDialog
 import de.singular.recorder.ui.PlayerScreen
+import de.singular.recorder.ui.QuickHelpDialog
 import de.singular.recorder.ui.PlayerOverflowAction
 import de.singular.recorder.ui.RecordScreen
 import de.singular.recorder.ui.SettingsScreen
@@ -97,7 +103,7 @@ private enum class Screen(val title: String) {
     RECORD("Record"),
     LIBRARY("Library"),
     SETTINGS("Settings"),
-    ABOUT("About"),
+    ABOUT("About this app"),
 
     /** One take, opened from the library. The bar names the folder it came from, not this. */
     PLAYER("Take"),
@@ -219,6 +225,18 @@ class MainActivity : ComponentActivity() {
                     screen = to
                     scope.launch { drawerState.close() }
                 }
+
+                // A drawer item that opens a dialog rather than a screen has to shut the drawer
+                // first, or the dialog arrives over a panel that is still sliding.
+                fun closeThen(action: () -> Unit) {
+                    scope.launch {
+                        drawerState.close()
+                        action()
+                    }
+                }
+
+                var showHelp by rememberSaveable { mutableStateOf(false) }
+                if (showHelp) QuickHelpDialog(onDismiss = { showHelp = false })
 
                 var showKeepAwakeInfo by remember { mutableStateOf(false) }
                 if (showKeepAwakeInfo) {
@@ -437,8 +455,13 @@ class MainActivity : ComponentActivity() {
                 ) { vm.goUp() }
                 BackHandler(
                     enabled = !selecting && !onStarredTab && screen != Screen.RECORD &&
-                        screen != Screen.PLAYER && !library.canGoUp,
+                        screen != Screen.PLAYER && screen != Screen.ABOUT && !library.canGoUp,
                 ) { screen = Screen.RECORD }
+                // About is the one screen reached from another screen rather than from the drawer,
+                // so back retraces that step instead of dropping to the record screen.
+                BackHandler(enabled = !selecting && screen == Screen.ABOUT) {
+                    screen = Screen.SETTINGS
+                }
 
                 ModalNavigationDrawer(
                     drawerState = drawerState,
@@ -446,24 +469,32 @@ class MainActivity : ComponentActivity() {
                         // Four fifths of the width, as in RubberRing: the strip of scrim left
                         // over on the right is what you tap to close it again.
                         ModalDrawerSheet(Modifier.fillMaxWidth(0.8f)) {
-                            Text(
-                                "Title Track",
-                                Modifier.padding(24.dp),
-                            )
-                            NavigationDrawerItem(
-                                label = { Text(Screen.SETTINGS.title) },
-                                icon = { Icon(Icons.Default.Settings, null) },
-                                selected = screen == Screen.SETTINGS,
-                                onClick = { go(Screen.SETTINGS) },
-                                modifier = Modifier.padding(horizontal = 12.dp),
-                            )
-                            NavigationDrawerItem(
-                                label = { Text(Screen.ABOUT.title) },
-                                icon = { Icon(Icons.Default.Info, null) },
-                                selected = screen == Screen.ABOUT,
-                                onClick = { go(Screen.ABOUT) },
-                                modifier = Modifier.padding(horizontal = 12.dp),
-                            )
+                            Column(Modifier.fillMaxSize()) {
+                                Text(
+                                    "Title Track",
+                                    Modifier.padding(24.dp),
+                                )
+                                NavigationDrawerItem(
+                                    label = { Text(Screen.SETTINGS.title) },
+                                    icon = { Icon(Icons.Default.Settings, null) },
+                                    selected = screen == Screen.SETTINGS,
+                                    onClick = { go(Screen.SETTINGS) },
+                                    modifier = Modifier.padding(horizontal = 12.dp),
+                                )
+                                // Quick help sits at the far bottom, on its own past a rule: it is
+                                // the one thing here wanted *mid-take*, and a hand reaching for it
+                                // should not have to read the list. About is not that, and has gone
+                                // to Settings — see [SettingsScreen].
+                                Spacer(Modifier.weight(1f))
+                                HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+                                NavigationDrawerItem(
+                                    label = { Text("Quick help") },
+                                    icon = { Icon(Icons.AutoMirrored.Filled.HelpOutline, null) },
+                                    selected = false,
+                                    onClick = { closeThen { showHelp = true } },
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                )
+                            }
                         }
                     },
                 ) {
@@ -524,6 +555,16 @@ class MainActivity : ComponentActivity() {
                                             Icon(
                                                 Icons.AutoMirrored.Filled.ArrowBack,
                                                 contentDescription = "Back to the library",
+                                            )
+                                        }
+                                    } else if (screen == Screen.ABOUT) {
+                                        // Reached from Settings now rather than from the drawer, so
+                                        // it is a page you came *into* and the bar has to offer the
+                                        // way back out.
+                                        IconButton(onClick = { screen = Screen.SETTINGS }) {
+                                            Icon(
+                                                Icons.AutoMirrored.Filled.ArrowBack,
+                                                contentDescription = "Back to Settings",
                                             )
                                         }
                                     } else {
@@ -715,6 +756,7 @@ class MainActivity : ComponentActivity() {
                                     settings = settings,
                                     folderLabel = library.path.firstOrNull()?.name,
                                     onChooseFolder = { folderPicker.launch(null) },
+                                    onAbout = { screen = Screen.ABOUT },
                                     onSetBeatsPerBar = vm::setBeatsPerBar,
                                     onSetAudioMetronome = vm::setAudioMetronome,
                                     onSetListenBeforeRecording = vm::setListenBeforeRecording,

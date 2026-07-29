@@ -40,7 +40,10 @@ First cut: recording and take management.
   MediaCodec, so imported files draw too.
 - Tempo written into each WAV as a `LIST/INFO` comment, so a take keeps it after being copied off
   the phone.
-- Record and Library as bottom-bar tabs; Settings and About in the drawer.
+- Record and Library as bottom-bar tabs; Settings in the drawer, with **Quick help** pinned to its
+  bottom past a rule — every gesture that has no affordance to find it by, and nothing that already
+  has a label. About sits at the end of Settings → System instead: the drawer's bottom slot belongs
+  to what you want mid-take.
 - The recordings folder is asked for on first launch, and again if it stops being reachable.
 - Settings in two tabs, split by when you come to them: Recording (microphone, time signature,
   metronome, saving) and System (recordings folder, library, screen and theme). Saving is under
@@ -56,15 +59,16 @@ First cut: recording and take management.
   never appear at once — the button before a take, the clock during one — so the button takes the same
   fill and label as Play or Save, and the stripes are the whole of the difference. Red is left to the
   clock and to a clipping meter, which are states rather than controls.
-- The stripes are a white tint, subtle by design, and its alpha differs per theme so that the visible
-  texture does not: white lightens the light theme's deeper accent readily and mostly desaturates the
-  dark theme's saturated one, so 8% and 20% both land at about 1.15:1. Dark hazard-tape banding was
-  the first cut and is what the labels rule out — on the dark theme a dark band is the label's own
-  colour thinned, and took it from 7.0:1 to 4.8:1 wherever one crossed a letter.
-- The accent takes a step per theme rather than one for both: legible as text on the light page for
-  the first time, at 4.8:1 where every previous palette shipped a washed-out 1.9–2.1:1. Amber is the
-  first family where the fix is two rungs down rather than four, and the collision that used to rule
-  it out — a deep accent beside a red fill — went away with the red button.
+- The stripes are a white tint at 20%, subtle by design: over a saturated amber it mostly desaturates
+  rather than lightens, landing at about 1.15:1 against the fill. Dark hazard-tape banding was the
+  first cut and is what the label rules out — a dark band is the amber-950 label's own colour thinned,
+  and took it from 7.0:1 to 4.8:1 wherever one crossed a letter.
+- The accent takes **two steps by job rather than one per theme**. Anything drawn — a filled button,
+  a picked chip, a switch track, a play triangle, a star — is the icon's own gold on both themes.
+  Anything set as type takes a deeper step on the light page, since the gold reads 2.1:1 there. The
+  line is drawn or set: a glyph has no counters to lose, and beside a gold button the deeper step was
+  reading brown. Accent text on light is 3.2:1 and does not clear the 4.5:1 bar — taken deliberately,
+  because the step that would is browner still and nothing in the app is only this colour.
 - While keep-screen-on is active an indicator sits in the app bar; tapping it explains the battery
   cost and offers a way to turn it off (as in RubberRing).
 - Compact bottom tabs, and a library list of even rows with dividers and accented folder icons.

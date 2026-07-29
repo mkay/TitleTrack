@@ -1,56 +1,168 @@
+// SPDX-License-Identifier: GPL-3.0-only
+
 package de.singular.recorder.ui
 
+import android.os.Build
+import android.widget.Toast
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import de.singular.recorder.BuildConfig
+import de.singular.recorder.R
 
+private const val REPO_URL = "https://github.com/mkay/TitleTrack"
+private const val ISSUES_URL = "$REPO_URL/issues"
+private const val KOFI_URL = "https://ko-fi.com/s1ngular"
+
+/**
+ * About: what the app is, where it lives, and how to report a bug or chip in.
+ *
+ * Reached from Settings rather than from the drawer — the drawer's bottom slot belongs to Quick
+ * help, which is what you want mid-take; this is the page you visit once out of curiosity and once
+ * when filing an issue.
+ *
+ * What used to be here was a description of the recording chain — sample rate, microphone source,
+ * what happens when the app leaves the foreground. That is documentation, and it belongs in the
+ * README where it can be read *before* installing rather than after. This page answers the two
+ * questions someone actually opens it with: which build am I running, and where do I take a bug.
+ *
+ * Laid out as the sibling apps do it, down to the section headings, so all three read as one hand.
+ * It sits inside the app's own Scaffold rather than bringing one of its own — the bar above it
+ * already carries the title and the way back to Settings.
+ */
 @Composable
 fun AboutScreen(modifier: Modifier = Modifier) {
+    val uriHandler = LocalUriHandler.current
+    val clipboard = LocalClipboardManager.current
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    // The versionCode rides along in the copied string: it is what pins a bug report to an exact
+    // build when a version has been re-released under the same name.
+    val version = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
+
     Column(
         modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(20.dp),
+            .padding(horizontal = 24.dp)
+            .padding(bottom = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        Spacer(Modifier.height(16.dp))
+        Image(
+            painter = painterResource(R.drawable.ic_launcher_foreground),
+            contentDescription = null,
+            modifier = Modifier.size(112.dp),
+        )
+        Spacer(Modifier.height(12.dp))
         Text("Title Track", style = MaterialTheme.typography.headlineSmall)
+        // Long-press to copy, mirroring the library's press-and-hold idiom. Android 13 and up pops
+        // its own clipboard confirmation, so only older versions get a toast.
         Text(
-            "Version ${BuildConfig.VERSION_NAME}",
+            "v$version",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .clip(ControlShape)
+                .combinedClickable(
+                    onClick = {},
+                    onLongClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        clipboard.setText(AnnotatedString("Title Track $version"))
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                            Toast.makeText(context, "Version copied", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                )
+                .padding(horizontal = 12.dp, vertical = 6.dp),
         )
-        Spacer(Modifier.height(16.dp))
-        Text(
-            "A recorder for instruments rather than for voice memos: a count-in you can play to, " +
-                "a silent metronome that stays out of the take, and a restart button for when the " +
-                "third bar goes wrong.",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Spacer(Modifier.height(16.dp))
-        Text("How takes are recorded", style = MaterialTheme.typography.titleSmall)
-        Spacer(Modifier.height(4.dp))
-        Text(
-            "44.1 kHz, 16-bit mono WAV, captured from the least-processed microphone source the " +
-                "device offers — automatic gain control riding a decaying chord is audible in a way " +
-                "it is not in a phone call. The tempo you played to is written into the file, so a " +
-                "take still knows its own tempo after it has been copied to a computer.",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Spacer(Modifier.height(16.dp))
-        Text(
-            "Recording continues only while the app is in the foreground. Leaving it — a call, the " +
-                "home button — ends the take at that point.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-        )
+
+        Spacer(Modifier.height(28.dp))
+        AboutSection("About") {
+            AboutBody(
+                "A recorder for instruments rather than for voice memos. I built Title Track " +
+                    "primarily for myself — maybe you'll find it just as useful as I do.",
+            )
+        }
+        AboutSection("Website") {
+            AboutBody("The app lives here:")
+            AboutLink(REPO_URL) { uriHandler.openUri(REPO_URL) }
+        }
+        AboutSection("Bugs") {
+            AboutBody("Found a hiccup? Let me know:")
+            AboutLink(ISSUES_URL) { uriHandler.openUri(ISSUES_URL) }
+        }
+        AboutSection("Support") {
+            AboutBody("If you can, support its development:")
+            AboutLink(KOFI_URL) { uriHandler.openUri(KOFI_URL) }
+        }
+        // GPL §5 requires a derivative to preserve legal notices, so a licence stated *in the app*
+        // rather than only in the repo is worth more than it looks: a clone that stripped this
+        // screen has done so deliberately, and the before-and-after is a screenshot.
+        AboutSection("License") {
+            AboutBody("Copyright © 2026 Kreuder")
+            AboutBody(
+                "Title Track is free software under the GPL-3.0-only. The name and the artwork " +
+                    "are not covered by that licence — a fork needs its own. Built with AndroidX " +
+                    "and Jetpack Compose, licensed under Apache 2.0.",
+            )
+            AboutLink(REPO_URL) { uriHandler.openUri(REPO_URL) }
+        }
     }
+}
+
+@Composable
+private fun AboutSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(Modifier.height(4.dp))
+        content()
+    }
+}
+
+@Composable
+private fun AboutBody(text: String) {
+    Text(text, style = MaterialTheme.typography.bodyMedium)
+}
+
+/** A tappable URL. Kept full-length rather than hidden behind link text so it stays readable. */
+@Composable
+private fun AboutLink(url: String, onClick: () -> Unit) {
+    Text(
+        url,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .clip(ControlShape)
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+    )
 }
