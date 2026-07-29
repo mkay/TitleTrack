@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.webkit.MimeTypeMap
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -70,6 +71,7 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import de.singular.recorder.audio.AudioFormat
 import de.singular.recorder.audio.RecordPhase
 import de.singular.recorder.storage.Take
 import de.singular.recorder.ui.AboutScreen
@@ -822,10 +824,36 @@ class MainActivity : ComponentActivity() {
     /** Hand a take to whichever app the share sheet lands on, read-only and for this share only. */
     private fun share(take: Take) {
         val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "audio/x-wav"
+            type = shareType(take)
             putExtra(Intent.EXTRA_STREAM, take.uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         startActivity(Intent.createChooser(intent, "Share take"))
+    }
+
+    /**
+     * What to tell the share sheet a take is.
+     *
+     * The library holds more than the WAVs the app records — takes arrive in any audio format, and
+     * an edit writes FLAC back as FLAC. The type is what the system filters the chooser on, so
+     * naming the take's own format is what puts an app that handles it in the list at all, and a
+     * receiver that trusts the label rather than sniffing the container needs it to be true.
+     *
+     * The provider is asked first, but is inconsistent about WAV in particular and will call a
+     * take `application/octet-stream` — so anything that isn't audio falls through to the
+     * extension, which gets the same vote here that it gets in the library listing. [AudioFormat]
+     * answers for the two formats the app writes itself; [MimeTypeMap] for the rest. Failing both,
+     * the audio wildcard still reaches every audio app, which is better than asserting a concrete
+     * type the bytes may not match.
+     */
+    private fun shareType(take: Take): String {
+        contentResolver.getType(take.uri)
+            ?.takeIf { it.startsWith("audio/") }
+            ?.let { return it }
+        val extension = take.name.substringAfterLast('.', "").lowercase()
+        AudioFormat.entries.firstOrNull { it.extension == extension }?.let { return it.mime }
+        return MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+            ?.takeIf { it.startsWith("audio/") }
+            ?: "audio/*"
     }
 }
