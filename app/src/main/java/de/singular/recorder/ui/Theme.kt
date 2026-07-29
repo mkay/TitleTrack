@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+
 package de.singular.recorder.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -89,6 +91,12 @@ private val BrandOnLight = Color(0xFFD97706) // amber-600
  * Reached through `brandButtonColors` and `brandSwitchColors` in Common.kt rather than at each call
  * site: Material's own defaults all point at `primary`, so a control that forgets to ask lands back
  * on the text step and is the one gold in the app that does not match.
+ *
+ * The exception is `secondaryContainer`, which the light scheme sets to this colour outright. That
+ * token is Material's own name for a filled selected surface — the drawer's picked item is the one
+ * that reads it here — and every use of it in this app falls on the drawn side of the line. Setting
+ * the token rather than the call site is what stops the next Material component that quietly uses it
+ * from arriving in the wrong gold, which is exactly how the drawer was missed.
  */
 @Suppress("UnusedReceiverParameter")
 val ColorScheme.brandFill: Color get() = BrandFill
@@ -294,7 +302,7 @@ private val TrackLightColors = lightColorScheme(
     onPrimary = OnBrandLight,
     primaryContainer = BrandPale,
     onPrimaryContainer = OnBrandPale,
-    secondaryContainer = BrandOnLight,
+    secondaryContainer = BrandFill,
     onSecondaryContainer = OnBrandLight,
     background = Color(0xFFFFFFFF),
     onBackground = Color(0xFF171717),
