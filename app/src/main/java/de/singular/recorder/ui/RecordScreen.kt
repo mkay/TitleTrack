@@ -679,12 +679,16 @@ private fun LevelTestDialog(
 }
 
 /**
- * The app's name, drawn from `wordmark.svg` as a vector rather than set as text: the lettering is a
- * dot-matrix face with its own spacing, and the launcher icon's waveform stands between the two
- * words, neither of which survives being typed out.
+ * The app's name, drawn from `wordmark_both.svg` as a vector rather than set as text: the lettering
+ * is a dot-matrix face with its own spacing, and the launcher icon's waveform stands between the
+ * two words, neither of which survives being typed out.
  *
- * A drawn pair, one per theme — see [wordmarkForTheme] for why the light page needs its own export
- * rather than a tint of the dark one.
+ * **One drawing for both themes**, as of 2026-07-29. There was a pair for a while: the mark is a ramp
+ * of three tones, and on the cream page the dark theme's three landed between 3.0:1 and 1.6:1, where
+ * the depth stops reading and what is left is three washed-out golds beside each other — so the light
+ * page got its own export, a step darker. The redrawn mark carries its own answer instead, its
+ * darkest tone taken down to amber-600 while the lit ones hold, which reads on white and on
+ * near-black alike. Ungoverned by contrast rules either way: a wordmark is a logo, not type.
  *
  * Sized by width and left to find its own height, so it keeps its proportions on any screen while
  * its centre line stays on the canvas's zero line.
@@ -692,12 +696,12 @@ private fun LevelTestDialog(
 @Composable
 private fun TitleWordmark(modifier: Modifier = Modifier) {
     Image(
-        painter = painterResource(MaterialTheme.colorScheme.wordmarkForTheme),
+        painter = painterResource(R.drawable.title_wordmark),
         contentDescription = null, // the app bar already names the screen; this is decoration
         contentScale = ContentScale.Fit,
         modifier = modifier.aspectRatio(WordmarkAspect),
     )
 }
 
-/** The wordmark's own proportions, from the source SVG's 4974x985 viewBox. */
-private const val WordmarkAspect = 4974f / 985f
+/** The wordmark's own proportions, from the source SVG's 628x134 viewBox. */
+private const val WordmarkAspect = 628f / 134f
