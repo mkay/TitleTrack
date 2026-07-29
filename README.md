@@ -8,7 +8,11 @@ choose, play, and if the third bar goes wrong hit **Restart** without looking. T
 plain WAV files into a folder you pick, so they are on your phone's storage where you can find them
 — not locked inside the app.
 
-Early-stage — the recording and take-management half is built; the accompaniment half is not.
+Early-stage release — expect rough edges. Feedback and bug reports welcome via Issues.
+
+## Screenshots
+
+<img src="docs/screenshot.png" alt="Title Track's record screen and the player with a take's waveform" width="640" />
 
 ## Features
 
@@ -60,8 +64,7 @@ Early-stage — the recording and take-management half is built; the accompanime
   that shapes the next take, **System** is the app's own set-up — where takes go, how the
   library sorts, what the screen does. One is visited often and the other twice.
 - **Takes remember their tempo** — the bpm you played to is written into the WAV itself as a
-  `LIST/INFO` comment, so it survives being copied to a computer. This is what the planned drum and
-  bass tracks will lock to.
+  `LIST/INFO` comment, so it survives being copied to a computer.
 - **One amber, two steps — by job, not by theme** — the colour from the icon is a text colour as
   much as a button fill, and the two want different rungs of the same scale. Anything *drawn* takes
   the icon's own gold: filled buttons, picked chips, switch tracks, the play triangles and stars.
@@ -217,7 +220,7 @@ FLAC-or-WAV choice as normalising, and overwriting stays WAV to WAV: a file call
 not quietly become something else.
 
 Whichever format a copy comes out as, the take's **tempo goes with it**, so an edit never costs a
-take the thing the planned drum and bass tracks lock to.
+take the bpm it was played to.
 
 A take this phone cannot decode is **refused, with a message** — a buffer is decoded before
 playback starts, so a file that will not play says so instead of running a clock over silence.
@@ -233,13 +236,6 @@ Playback outlives the screen it started from. A **mini player** sits above the t
 are, with the take's name, a play/stop toggle, a seek bar, and a close button — stop keeps the take
 and your place in it, close puts it away. Without it, wandering off to the Record tab would leave a
 take playing with nothing anywhere to stop it.
-
-## Planned
-
-- Foreground service, so a take survives the app going to the background.
-- Auto drum and bass tracks under playback, in the spirit of the late Apple Music Memos — the tempo
-  is already stored, and chord detection can come from CrystalBall's chromagram and template
-  matching.
 
 ## Tech stack
 
@@ -305,8 +301,6 @@ app/src/main/java/de/singular/recorder/
   background apps. A foreground service is the fix, and is planned.
 - Mono only. Phone microphones are effectively mono; stereo would double the file size for nothing
   until there is an interface to record from.
-- Waveforms are drawn from the whole file at a fixed ~420 columns. There is no zoom, which is fine
-  for a take and would not be for an arrangement.
 - The accent is not legible as *text* on the light theme: it reads 3.2:1 on a white page, where body
   text wants 4.5:1. Buttons, chips, switches and icons are unaffected — they take a brighter step
   that carries its own dark content. The step that would fix the text sits too close to the record
