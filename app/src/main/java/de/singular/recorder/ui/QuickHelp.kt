@@ -51,9 +51,9 @@ fun QuickHelpDialog(onDismiss: () -> Unit) {
                         "you left it.",
                 )
                 HelpItem(
-                    "Loop what you are working on",
-                    "Hold Play. Repeat is something playback is, rather than a fourth button " +
-                        "above it.",
+                    "Loop a take",
+                    "Hold Play. The whole take repeats until you stop it — the lemniscate on the " +
+                        "button says it is on.",
                 )
                 HelpItem(
                     "Pick out several takes",
