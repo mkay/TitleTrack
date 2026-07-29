@@ -22,7 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -77,7 +77,7 @@ fun SettingsScreen(
     var tab by rememberSaveable { mutableStateOf(SettingsTab.RECORDING) }
 
     Column(modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = tab.ordinal, containerColor = Color.Transparent) {
+        PrimaryTabRow(selectedTabIndex = tab.ordinal, containerColor = Color.Transparent) {
             SettingsTab.entries.forEach { entry ->
                 Tab(
                     selected = tab == entry,

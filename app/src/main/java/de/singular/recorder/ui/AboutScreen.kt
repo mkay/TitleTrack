@@ -2,6 +2,7 @@
 
 package de.singular.recorder.ui
 
+import android.content.ClipData
 import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.Image
@@ -23,21 +24,23 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import de.singular.recorder.BuildConfig
 import de.singular.recorder.R
+import kotlinx.coroutines.launch
 
 private const val REPO_URL = "https://github.com/mkay/TitleTrack"
 private const val ISSUES_URL = "$REPO_URL/issues"
@@ -62,9 +65,12 @@ private const val KOFI_URL = "https://ko-fi.com/s1ngular"
 @Composable
 fun AboutScreen(modifier: Modifier = Modifier) {
     val uriHandler = LocalUriHandler.current
-    val clipboard = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
+    // The clipboard is written from a coroutine: setting a clip suspends, since on some devices it
+    // crosses to another process. The press itself is not made to wait on it.
+    val scope = rememberCoroutineScope()
     // The versionCode rides along in the copied string: it is what pins a bug report to an exact
     // build when a version has been re-released under the same name.
     val version = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
@@ -108,7 +114,10 @@ fun AboutScreen(modifier: Modifier = Modifier) {
                     onClick = {},
                     onLongClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        clipboard.setText(AnnotatedString("Title Track $version"))
+                        val copied = "Title Track $version"
+                        scope.launch {
+                            clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(copied, copied)))
+                        }
                         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
                             Toast.makeText(context, "Version copied", Toast.LENGTH_SHORT).show()
                         }

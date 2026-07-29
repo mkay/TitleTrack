@@ -45,7 +45,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -127,7 +127,7 @@ fun LibraryScreen(
         // tabs mid-batch would abandon a selection that only means anything in the folder it was
         // made in.
         if (!selecting) {
-            TabRow(selectedTabIndex = tab.ordinal, containerColor = Color.Transparent) {
+            PrimaryTabRow(selectedTabIndex = tab.ordinal, containerColor = Color.Transparent) {
                 LibraryTab.entries.forEach { entry ->
                     Tab(
                         selected = tab == entry,
