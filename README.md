@@ -62,13 +62,17 @@ Early-stage — the recording and take-management half is built; the accompanime
 - **Takes remember their tempo** — the bpm you played to is written into the WAV itself as a
   `LIST/INFO` comment, so it survives being copied to a computer. This is what the planned drum and
   bass tracks will lock to.
-- **One amber, a step per theme** — the colour from the icon is a text colour as much as a button
-  fill (the selected tab, the setting values, the played part of a waveform), so each theme takes the
-  step its own page can carry: a gold on the dark one, a deeper burnt orange on the light one that
-  reads at 4.8:1 where a mid-scale accent would wash out at 2.1:1. The surfaces are re-tinted onto the
-  same hue rather than left on Material's faintly violet greys, so the accent sits within its
-  background's family instead of opposite it: a warm off-white page on the light theme, a warm
-  near-black on the dark one.
+- **One amber, two steps — by job, not by theme** — the colour from the icon is a text colour as
+  much as a button fill, and the two want different rungs of the same scale. Anything *drawn* takes
+  the icon's own gold: filled buttons, picked chips, switch tracks, the play triangles and stars.
+  Anything *set* takes a deeper step on the light theme, where a mid-scale amber on a white page
+  reads 2.1:1 — the selected tab, the setting values. The line is drawn or set, and a glyph falls on
+  the drawn side: an icon has no counters to lose, and beside a gold button the deeper step was
+  reading brown. The dark theme needs no such split and uses the one gold throughout, its surfaces
+  re-tinted onto the accent's own hue rather than left on Material's faintly violet greys, so the
+  accent sits within its background's family instead of opposite it. The light theme is plain white
+  and grey and lets the accent carry the warmth by itself: at a twentieth of a stop off white, a
+  tinted page is not a decision anyone reads, only a page that looks unclean beside the system's.
 - **A striped Record button, and red kept for what is wrong** — Record used to be a full-width red
   slab, which made the loudest thing in the app out of a screen tuned to be quiet. It is an accent
   button now, the same fill and label as Play, with oblique light stripes over it: texture is a
@@ -292,7 +296,7 @@ app/src/main/java/de/singular/recorder/
     MiniPlayer.kt        the bar above the tabs, so playback is never orphaned
     VisualMetronome.kt   the beat dots and the count-in
     TabBar.kt            the compact bottom tabs
-    SettingsScreen.kt · AboutScreen.kt · Common.kt · Theme.kt
+    SettingsScreen.kt · AboutScreen.kt · QuickHelp.kt · Common.kt · Theme.kt
 ```
 
 ## Known limitations
@@ -303,7 +307,26 @@ app/src/main/java/de/singular/recorder/
   until there is an interface to record from.
 - Waveforms are drawn from the whole file at a fixed ~420 columns. There is no zoom, which is fine
   for a take and would not be for an arrangement.
-- The accent is not legible as *text* on the light theme: a mid-scale amber on a near-white page
-  reads 2.1:1, where body text wants 4.5:1. Buttons and other filled controls are unaffected, since
-  those carry their own dark content. The step that would fix it is two rungs down and sits too close
-  to the record red, so this is a known trade rather than an oversight.
+- The accent is not legible as *text* on the light theme: it reads 3.2:1 on a white page, where body
+  text wants 4.5:1. Buttons, chips, switches and icons are unaffected — they take a brighter step
+  that carries its own dark content. The step that would fix the text sits too close to the record
+  red and reads brown on a white page, so this is a known trade rather than an oversight.
+
+## License
+
+GPL-3.0-**only** — version 3 of the GNU General Public License, and not "or any later version".
+The full text is in [LICENSE](LICENSE), the copyright notice in [COPYRIGHT](COPYRIGHT), and every
+source file carries `SPDX-License-Identifier: GPL-3.0-only`.
+
+Fork it, sell it, ship it — the licence asks one thing in return: if you distribute a modified
+version, publish your source under the same licence.
+
+### Name and artwork
+
+The licence covers the code. It does not extend to the name **Title Track**, the wordmark or the
+icon, which are original artwork and stay under ordinary copyright — see [COPYRIGHT](COPYRIGHT) for
+the files and the terms. You may pass them along in an unmodified build and reproduce them to refer
+to the app; a modified version needs its own name and its own artwork.
+
+Nothing here is registered as a trademark, and the reservation is not claiming to be one. It is a
+statement of what the GPL grant does and does not include.

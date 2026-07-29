@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
 """
 Measure where a take's beats actually are, by finding the app's own metronome clicks inside it.
 

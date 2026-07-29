@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
 """
 Turn one of the Figma-exported SVGs into an Android vector drawable.
 

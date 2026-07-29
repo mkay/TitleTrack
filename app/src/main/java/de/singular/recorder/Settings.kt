@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+
 package de.singular.recorder
 
 /** How the app picks its light/dark colours: follow the OS, or force one. */
