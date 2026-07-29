@@ -18,6 +18,7 @@ import de.singular.recorder.audio.AudioFormat
 import de.singular.recorder.audio.AudioRecorder
 import de.singular.recorder.audio.MAX_BPM
 import de.singular.recorder.audio.MIN_BPM
+import de.singular.recorder.audio.Metronome
 import de.singular.recorder.audio.NormalizeMode
 import de.singular.recorder.audio.RecordPhase
 import de.singular.recorder.storage.Folder
@@ -188,6 +189,8 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
 
     private val store = RecordingStore(application)
     private val recorder = AudioRecorder(application, viewModelScope)
+    private val tempoPreviewClick = Metronome()
+    private var tempoPreviewing = false
 
     val recorderState = recorder.state
 
@@ -1051,12 +1054,29 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         val v = bpm.coerceIn(MIN_BPM.toInt(), MAX_BPM.toInt())
         _settings.value = _settings.value.copy(bpm = v)
         prefs.edit { putInt(KEY_BPM, v) }
+        if (tempoPreviewing) restartTempoPreview()
     }
 
     fun setBeatsPerBar(beats: Int) {
         val v = beats.coerceIn(2, 12)
         _settings.value = _settings.value.copy(beatsPerBar = v)
         prefs.edit { putInt(KEY_BEATS_PER_BAR, v) }
+        if (tempoPreviewing) restartTempoPreview()
+    }
+
+    /** Click at the tempo dialog's current bpm, so a number can be heard rather than guessed. */
+    fun setTempoPreview(on: Boolean) {
+        tempoPreviewing = on
+        if (on) restartTempoPreview() else tempoPreviewClick.stopTakeClicks()
+    }
+
+    private fun restartTempoPreview() {
+        tempoPreviewClick.stopTakeClicks()
+        tempoPreviewClick.startTakeClicks(
+            bpm = _settings.value.bpm.toFloat(),
+            beatsPerBar = _settings.value.beatsPerBar,
+            delayMs = 0,
+        )
     }
 
     fun setCountInBars(bars: Int) {
@@ -1116,6 +1136,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
 
     override fun onCleared() {
         stopPlayback()
+        tempoPreviewClick.stopTakeClicks()
         recorder.discard()
         super.onCleared()
     }

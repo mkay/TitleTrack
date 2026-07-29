@@ -93,8 +93,10 @@ fun RecordScreen(
     onSave: (String) -> Unit,
     onSetBpm: (Int) -> Unit,
     onSetCountInBars: (Int) -> Unit,
+    onSetBeatsPerBar: (Int) -> Unit,
     onSetVisualMetronome: (Boolean) -> Unit,
     onSetAudioMetronome: (Boolean) -> Unit,
+    onSetTempoPreview: (Boolean) -> Unit,
     levelTest: LevelTest?,
     onStartLevelTest: () -> Unit,
     onRestartLevelTest: () -> Unit,
@@ -184,8 +186,9 @@ fun RecordScreen(
         when (state.phase) {
             RecordPhase.IDLE -> {
                 TakeSettings(
-                    settings, onSetBpm, onSetCountInBars, onSetVisualMetronome,
-                    onSetAudioMetronome, onStartLevelTest,
+                    settings, onSetBpm, onSetCountInBars, onSetBeatsPerBar,
+                    onSetVisualMetronome, onSetAudioMetronome, onSetTempoPreview,
+                    onStartLevelTest,
                 )
                 Spacer(Modifier.height(16.dp))
                 BigButton(
@@ -304,12 +307,15 @@ private fun TakeSettings(
     settings: Settings,
     onSetBpm: (Int) -> Unit,
     onSetCountInBars: (Int) -> Unit,
+    onSetBeatsPerBar: (Int) -> Unit,
     onSetVisualMetronome: (Boolean) -> Unit,
     onSetAudioMetronome: (Boolean) -> Unit,
+    onSetTempoPreview: (Boolean) -> Unit,
     onLevelTest: () -> Unit,
 ) {
     var tempoOpen by rememberSaveable { mutableStateOf(false) }
     var countInOpen by remember { mutableStateOf(false) }
+    var timeSignatureOpen by rememberSaveable { mutableStateOf(false) }
     var clickOpen by rememberSaveable { mutableStateOf(false) }
 
     Row(
@@ -328,6 +334,7 @@ private fun TakeSettings(
                 label = "Count-in",
                 value = countInLabel(settings.countInBars),
                 onClick = { countInOpen = true },
+                onLongClick = { timeSignatureOpen = true },
             )
             DropdownMenu(expanded = countInOpen, onDismissRequest = { countInOpen = false }) {
                 for (bars in 0..2) {
@@ -382,7 +389,16 @@ private fun TakeSettings(
         TempoDialog(
             bpm = settings.bpm,
             onSetBpm = onSetBpm,
+            onSetPreview = onSetTempoPreview,
             onDismiss = { tempoOpen = false },
+        )
+    }
+
+    if (timeSignatureOpen) {
+        TimeSignatureDialog(
+            beatsPerBar = settings.beatsPerBar,
+            onSetBeatsPerBar = onSetBeatsPerBar,
+            onDismiss = { timeSignatureOpen = false },
         )
     }
 }
@@ -475,16 +491,63 @@ private fun AudioMetronomeDialog(on: Boolean, onSet: (Boolean) -> Unit, onDismis
 }
 
 /**
+ * Beats to the bar, behind a hold on the Count-in cell.
+ *
+ * Behind a hold rather than on the row, because it is set once per song and read constantly after
+ * that — the count-in and the beat dots, not this dialog, are what confirm it was set right.
+ */
+@Composable
+private fun TimeSignatureDialog(
+    beatsPerBar: Int,
+    onSetBeatsPerBar: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Time signature") },
+        text = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (beats in listOf(3, 4, 6)) {
+                    if (beatsPerBar == beats) {
+                        Button(
+                            onClick = {},
+                            shape = ControlShape,
+                            colors = brandButtonColors(),
+                        ) { Text("$beats/4") }
+                    } else {
+                        OutlinedButton(
+                            onClick = { onSetBeatsPerBar(beats) },
+                            shape = ControlShape,
+                        ) { Text("$beats/4") }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+    )
+}
+
+/**
  * Tempo three ways: the slider to get near, the arrows to land on it, and the number itself to
  * type when you already know what you want — "138" is quicker to say than to hunt for.
  *
  * Changes apply as they are made rather than on an OK, so the count-in and the beat dots are
  * already at the new tempo when the dialog closes.
+ *
+ * Prelisten is a click at the tempo, not a preview of anything visual — the number on its own
+ * does not say whether 138 is what was meant. Off by default and switched off again on the way
+ * out, so leaving the dialog never leaves a click running behind it.
  */
 @Composable
-private fun TempoDialog(bpm: Int, onSetBpm: (Int) -> Unit, onDismiss: () -> Unit) {
+private fun TempoDialog(
+    bpm: Int,
+    onSetBpm: (Int) -> Unit,
+    onSetPreview: (Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
     var typing by remember { mutableStateOf(false) }
     var typed by remember { mutableStateOf("") }
+    var previewing by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
 
     // An empty or nonsensical field commits nothing: the tempo stays where it was rather than
@@ -494,13 +557,19 @@ private fun TempoDialog(bpm: Int, onSetBpm: (Int) -> Unit, onDismiss: () -> Unit
         typing = false
     }
 
+    fun leave() {
+        if (typing) commit()
+        if (previewing) {
+            previewing = false
+            onSetPreview(false)
+        }
+        onDismiss()
+    }
+
     LaunchedEffect(typing) { if (typing) focus.requestFocus() }
 
     AlertDialog(
-        onDismissRequest = {
-            if (typing) commit()
-            onDismiss()
-        },
+        onDismissRequest = ::leave,
         title = { Text("Tempo") },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -573,13 +642,16 @@ private fun TempoDialog(bpm: Int, onSetBpm: (Int) -> Unit, onDismiss: () -> Unit
                 )
             }
         },
-        confirmButton = {
+        dismissButton = {
             TextButton(
                 onClick = {
-                    if (typing) commit()
-                    onDismiss()
+                    previewing = !previewing
+                    onSetPreview(previewing)
                 },
-            ) { Text("Done") }
+            ) { Text(if (previewing) "Prelisten: on" else "Prelisten: off") }
+        },
+        confirmButton = {
+            TextButton(onClick = ::leave) { Text("Done") }
         },
     )
 }
