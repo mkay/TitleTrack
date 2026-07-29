@@ -146,6 +146,7 @@ class MainActivity : ComponentActivity() {
                 val starred by vm.starred.collectAsStateWithLifecycle()
                 val starredTakes by vm.starredTakes.collectAsStateWithLifecycle()
                 val movePicker by vm.movePicker.collectAsStateWithLifecycle()
+                val recents by vm.recents.collectAsStateWithLifecycle()
 
                 var screen by rememberSaveable { mutableStateOf(Screen.RECORD) }
                 // Where leaving the player goes back to. The player is reached from three places —
@@ -481,6 +482,57 @@ class MainActivity : ComponentActivity() {
                                     onClick = { go(Screen.SETTINGS) },
                                     modifier = Modifier.padding(horizontal = 12.dp),
                                 )
+                                // What was open lately, and the reason the drawer is worth pulling
+                                // at all on a screen whose two destinations are already in the tab
+                                // bar. Drawn from stored keys rather than resolved takes, so the
+                                // panel arrives full instead of filling in — see [Recents].
+                                if (recents.isNotEmpty()) {
+                                    Text(
+                                        // "Recent" alone invites the question the play triangle
+                                        // raises: a take played in the list is recent too, and is
+                                        // deliberately not here. This says which door counts.
+                                        "RECENTLY OPENED",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(
+                                            start = 28.dp, top = 16.dp, bottom = 4.dp,
+                                        ),
+                                    )
+                                    recents.forEach { key ->
+                                        NavigationDrawerItem(
+                                            label = {
+                                                Text(
+                                                    key.substringAfterLast('/')
+                                                        .substringBeforeLast('.'),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                            },
+                                            // The same waveform the Record tab wears. It earns
+                                            // its place twice: every row in this panel then shares
+                                            // one label edge, and a bare name in a list of
+                                            // destinations does not otherwise read as a take.
+                                            icon = {
+                                                Icon(
+                                                    ImageVector.vectorResource(
+                                                        R.drawable.ic_graphic_eq,
+                                                    ),
+                                                    contentDescription = null,
+                                                )
+                                            },
+                                            selected = false,
+                                            onClick = {
+                                                closeThen {
+                                                    vm.openRecent(key) {
+                                                        playerReturn = screen
+                                                        screen = Screen.PLAYER
+                                                    }
+                                                }
+                                            },
+                                            modifier = Modifier.padding(horizontal = 12.dp),
+                                        )
+                                    }
+                                }
                                 // Quick help sits at the far bottom, on its own past a rule: it is
                                 // the one thing here wanted *mid-take*, and a hand reaching for it
                                 // should not have to read the list. About is not that, and has gone

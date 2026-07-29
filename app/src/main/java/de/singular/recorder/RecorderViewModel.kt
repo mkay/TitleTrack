@@ -23,6 +23,7 @@ import de.singular.recorder.audio.RecordPhase
 import de.singular.recorder.storage.Folder
 import de.singular.recorder.storage.Listing
 import de.singular.recorder.storage.Notes
+import de.singular.recorder.storage.Recents
 import de.singular.recorder.storage.RecordingStore
 import de.singular.recorder.storage.Stars
 import de.singular.recorder.storage.Take
@@ -193,6 +194,17 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     private val prefs = application.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val stars = Stars(application)
     private val noteStore = Notes(application)
+    private val recentStore = Recents(application)
+
+    /**
+     * The takes opened most recently, as keys — see [Recents]. What the drawer lists.
+     *
+     * Keys rather than takes, and nothing resolved here: the last segment of a key is the filename,
+     * so the drawer draws from this alone and opens full rather than filling in. See [openRecent]
+     * for what a tap costs.
+     */
+    private val _recents = MutableStateFlow(recentStore.all())
+    val recents: StateFlow<List<String>> = _recents.asStateFlow()
 
     /**
      * What each take has written against it, by key — see [Notes]. A flow for the same reason the
@@ -471,6 +483,9 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
                     _starred.value = stars.rename(before, after)
                     // A note is kept against the same key and has to follow the same move.
                     _notes.value = noteStore.rename(before, after)
+                    // As does a place in the recents list — a take renamed from the player is very
+                    // often the one at the top of it.
+                    _recents.value = recentStore.rename(before, after)
                 }
             }
             refresh()
@@ -547,6 +562,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
                         if (before != null && after != null && before != after) {
                             _starred.value = stars.rename(before, after)
                             _notes.value = noteStore.rename(before, after)
+                            _recents.value = recentStore.rename(before, after)
                         }
                         if (_playback.value.uri == uri) stopPlayback()
                         if (_openTake.value?.take?.uri == uri) {
@@ -583,6 +599,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
                     // The one time a note is dropped. Deleting the take through the app is the only
                     // evidence that the idea is meant to go — see [Notes] on why nothing else is.
                     _notes.value = noteStore.remove(it)
+                    _recents.value = recentStore.remove(it)
                 }
             }
             refresh()
@@ -728,8 +745,32 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
 
     private var waveformJob: Job? = null
 
+    /**
+     * Open a take from the recents list, by the key it is remembered under.
+     *
+     * The one place a recent key is resolved, and so the one place a stale one is found: a take
+     * deleted or renamed from outside the app leaves a key pointing at nothing. That key is dropped
+     * here rather than by a sweep — see [Recents] — and [onOpened] is not called, so a dead entry
+     * costs a message and a row disappearing rather than an empty player.
+     */
+    fun openRecent(key: String, onOpened: () -> Unit) {
+        viewModelScope.launch {
+            val take = store.takeAt(key)
+            if (take == null) {
+                _recents.value = recentStore.remove(key)
+                _message.value = "That take is no longer there."
+                return@launch
+            }
+            openTake(take)
+            onOpened()
+        }
+    }
+
     /** Open [take] in the player and start reading its waveform. Does not start playing it. */
     fun openTake(take: Take) {
+        // Every route into the player comes through here — a library row, the mini player, a take
+        // just saved — so this is the one place the recents list has to be stamped.
+        starKey(take.uri)?.let { _recents.value = recentStore.touch(it) }
         // Whatever was playing was a different take, or the same one from the mini player; either
         // way the player screen takes over the transport from here.
         if (_playback.value.uri != take.uri) stopPlayback()
