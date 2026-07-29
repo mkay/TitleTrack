@@ -324,7 +324,7 @@ private fun FolderRow(
                 // The same 48dp footprint the play button has, so folder names and take names start
                 // at the same place however the list is mixed.
                 Modifier.size(LeadingSlot).padding(12.dp),
-                tint = MaterialTheme.colorScheme.primary,
+                tint = MaterialTheme.colorScheme.brandFill,
             )
         }
         Text(folder.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
@@ -375,7 +375,7 @@ internal fun TakeRow(
                 Icon(
                     if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
                     contentDescription = if (playing) "Stop" else "Play",
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = MaterialTheme.colorScheme.brandFill,
                 )
             }
         }
@@ -433,7 +433,7 @@ internal fun TakeRow(
                         Modifier.size(16.dp),
                         // The same amber the player's Note button wears once there is one, so the
                         // two say the same thing in the same colour.
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = MaterialTheme.colorScheme.brandFill,
                     )
                 }
             }
@@ -446,7 +446,7 @@ internal fun TakeRow(
                     if (starred) Icons.Default.Star else Icons.Outlined.StarOutline,
                     contentDescription = if (starred) "Starred" else "Not starred",
                     tint = if (starred) {
-                        MaterialTheme.colorScheme.primary
+                        MaterialTheme.colorScheme.brandFill
                     } else {
                         // Faint: an unstarred take is the normal case, and a folder of them should
                         // not read as a column of grey stars down the side of the list.
@@ -503,7 +503,7 @@ private fun SelectionTick(selected: Boolean) {
         contentDescription = if (selected) "Selected" else "Not selected",
         Modifier.size(LeadingSlot).padding(12.dp),
         tint = if (selected) {
-            MaterialTheme.colorScheme.primary
+            MaterialTheme.colorScheme.brandFill
         } else {
             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
         },

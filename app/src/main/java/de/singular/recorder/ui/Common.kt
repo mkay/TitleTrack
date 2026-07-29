@@ -22,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -258,6 +259,36 @@ private fun Modifier.obliqueBands(color: Color, band: Dp = ButtonBand) = drawBeh
 /** Band width, across. Wide enough to read as banding at a glance rather than as a hatch. */
 private val ButtonBand = 11.dp
 
+/**
+ * The fill for a control that is a solid area of the accent — a button, a picked chip, a switch that
+ * is on. All of them take `brandFill` rather than `primary`; see Theme.kt for why an area and a
+ * piece of type want different steps of the same amber.
+ *
+ * Here rather than at each call site because the whole point is that they agree: a chip and the
+ * button under it are the same gold, or the split has bought a mess instead of a look.
+ */
+@Composable
+fun brandButtonColors(
+    container: Color? = null,
+    onContainer: Color? = null,
+) = ButtonDefaults.buttonColors(
+    containerColor = container ?: MaterialTheme.colorScheme.brandFill,
+    contentColor = onContainer ?: MaterialTheme.colorScheme.onPrimary,
+)
+
+/**
+ * The same fill on a switch, whose track is the only part of it that is an area.
+ *
+ * Material's own default track is `primary` with an `onPrimary` thumb, which is the pairing this
+ * keeps — only the step moves. The border goes with the track: left at `primary` it would draw a
+ * darker outline around a lighter fill, which reads as an edge nobody asked for.
+ */
+@Composable
+fun brandSwitchColors() = SwitchDefaults.colors(
+    checkedTrackColor = MaterialTheme.colorScheme.brandFill,
+    checkedBorderColor = MaterialTheme.colorScheme.brandFill,
+)
+
 /** A thumb-height, full-width action — the shape of every button hit without looking. */
 @Composable
 fun BigButton(
@@ -322,11 +353,8 @@ fun BigButton(
             onClick, sized, enabled = enabled, shape = shape,
             // Not `buttonColors()` even when nothing is overridden: its default fill is `primary`,
             // and a filled action takes `brandFill` — the same colour on dark, a step lighter on
-            // light. See Theme.kt.
-            colors = ButtonDefaults.buttonColors(
-                containerColor = container ?: MaterialTheme.colorScheme.brandFill,
-                contentColor = onContainer ?: MaterialTheme.colorScheme.onPrimary,
-            ),
+            // light. See [brandButtonColors].
+            colors = brandButtonColors(container, onContainer),
         ) { content() }
     }
 }

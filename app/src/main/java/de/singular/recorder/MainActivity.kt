@@ -89,6 +89,7 @@ import de.singular.recorder.ui.PlayerOverflowAction
 import de.singular.recorder.ui.RecordScreen
 import de.singular.recorder.ui.SettingsScreen
 import de.singular.recorder.ui.TitleTrackTheme
+import de.singular.recorder.ui.brandFill
 import de.singular.recorder.ui.isDark
 import kotlinx.coroutines.launch
 
@@ -573,7 +574,7 @@ class MainActivity : ComponentActivity() {
                                                 // itself, and the accent is what makes it read as
                                                 // set rather than as another available action.
                                                 tint = if (isStarred) {
-                                                    MaterialTheme.colorScheme.primary
+                                                    MaterialTheme.colorScheme.brandFill
                                                 } else {
                                                     LocalContentColor.current
                                                 },

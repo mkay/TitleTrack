@@ -133,7 +133,11 @@ private fun RecordingSettings(
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         for (beats in listOf(3, 4, 6)) {
             if (settings.beatsPerBar == beats) {
-                Button(onClick = {}, shape = ControlShape) { Text("$beats/4") }
+                Button(
+                    onClick = {},
+                    shape = ControlShape,
+                    colors = brandButtonColors(),
+                ) { Text("$beats/4") }
             } else {
                 OutlinedButton(
                     onClick = { onSetBeatsPerBar(beats) },
@@ -217,7 +221,11 @@ private fun SystemSettings(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             )
         }
-        Switch(checked = settings.keepScreenOn, onCheckedChange = onSetKeepScreenOn)
+        Switch(
+            checked = settings.keepScreenOn,
+            onCheckedChange = onSetKeepScreenOn,
+            colors = brandSwitchColors(),
+        )
     }
 
     Spacer(Modifier.height(12.dp))
@@ -227,7 +235,11 @@ private fun SystemSettings(
         for (mode in ThemeMode.entries) {
             val label = mode.name.lowercase().replaceFirstChar { it.uppercase() }
             if (settings.themeMode == mode) {
-                Button(onClick = {}, shape = ControlShape) { Text(label) }
+                Button(
+                    onClick = {},
+                    shape = ControlShape,
+                    colors = brandButtonColors(),
+                ) { Text(label) }
             } else {
                 OutlinedButton(
                     onClick = { onSetThemeMode(mode) },
@@ -259,7 +271,7 @@ private fun SwitchRow(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             )
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = onCheckedChange, colors = brandSwitchColors())
     }
 }
 

@@ -57,23 +57,38 @@ private val BrandOnDark = Color(0xFFF59E0B) // amber-500
 private val BrandOnLight = Color(0xFFD97706) // amber-600
 
 /**
- * What a filled action is *filled* with — Record, Play, Done, Save — which as of 2026-07-29 is
- * amber-500 on both themes, and so the one place the accent is not `primary`.
+ * The accent as a **shape** rather than as type: a filled button, a picked chip, a switch that is
+ * on, a trim handle, and every icon the accent tints — the play triangles, the stars, the folders,
+ * the note bubble. As of 2026-07-29 that is amber-500 on both themes, and so the one place the
+ * accent is not `primary`.
  *
  * The split is the light theme's alone, and it exists because a fill and a label are not the same
  * job. `primary` there is amber-600 at 3.2:1 because it is *text* — the selected tab, the setting
- * values, the played part of a waveform — and text is what the contrast floor is for. None of that
- * applies to a slab of colour 64dp tall with its own dark label on it: what a fill owes the page is
- * to look like the mark, and against white the same amber-600 that reads dim as text reads muddy as
- * an area. amber-500 is the icon's own colour and the colour the dark theme has always filled with.
+ * values — and text is what the contrast floor is for. None of that applies to a slab of colour with
+ * its own dark label on it, nor to a solid glyph: what these owe the page is to look like the mark,
+ * and against white the same amber-600 that reads dim as text reads muddy as a shape. amber-500 is
+ * the icon's own colour and the colour the dark theme has always used.
+ *
+ * The line is **drawn or set**, and glyphs fall on the drawn side of it. An icon has no counters to
+ * lose and no stroke thin enough for 3.2:1 to be doing the work a contrast floor is for — a play
+ * triangle is a 24dp area, and it was reading as a brown triangle beside a gold button.
+ *
+ * What stays on `primary` is what is set, and what is drawn *of* the audio: the tab bar (its icon
+ * and its label are one colour two pixels apart, and splitting them would put two golds side by
+ * side), the level meter, the mini player's progress, the metronome's dots, the played part of a
+ * waveform, the selection wash. Those either are type or sit beside it.
  *
  * The cost is a step off the ramp, which the record button was explicitly kept on ([recordBand]) —
- * but that was about the record button differing from *other buttons*, and this moves every filled
- * button together. What it does not do is give the light theme a second accent to keep in agreement
- * with the first: the two ambers never touch, one being an area and the other being type.
+ * but that was about the record button differing from *other buttons*, and this moves everything
+ * drawn together. What it does not do is give the light theme a second accent to keep in agreement
+ * with the first: the two ambers do not touch, one being a shape and the other being type.
  *
- * The dark theme's fill was already amber-500, so this collapses rather than adds — both themes now
- * fill with the same colour, label it amber-950 at 7.0:1, and band it identically.
+ * The dark theme was already amber-500 throughout, so this collapses rather than adds — both themes
+ * now fill with the same colour, label it amber-950 at 7.0:1, and band it identically.
+ *
+ * Reached through `brandButtonColors` and `brandSwitchColors` in Common.kt rather than at each call
+ * site: Material's own defaults all point at `primary`, so a control that forgets to ask lands back
+ * on the text step and is the one gold in the app that does not match.
  */
 @Suppress("UnusedReceiverParameter")
 val ColorScheme.brandFill: Color get() = BrandFill

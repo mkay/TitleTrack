@@ -450,7 +450,7 @@ private fun PlayerTools(
                 // stepping back to the secondary ink. Full strength then means "there is something
                 // in here", rather than being what the row looks like all the time.
                 tint = if (hasNote) {
-                    MaterialTheme.colorScheme.primary
+                    MaterialTheme.colorScheme.brandFill
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
@@ -603,7 +603,7 @@ private fun WaveformView(
     val panel = MaterialTheme.colorScheme.waveformPanel
     val zeroLine = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
     val handleColor = MaterialTheme.colorScheme.onSurface
-    val tabFill = MaterialTheme.colorScheme.primary
+    val tabFill = MaterialTheme.colorScheme.brandFill
     val gripColor = MaterialTheme.colorScheme.onPrimary
     val beatLine = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
     val barLine = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
@@ -1082,6 +1082,7 @@ private fun TrimTools(
                 Modifier.weight(1f).height(48.dp),
                 enabled = !busy && endMs - startMs >= MIN_TRIM_MS,
                 shape = ControlShape,
+                colors = brandButtonColors(),
                 contentPadding = ToolPadding,
             ) {
                 if (busy) {

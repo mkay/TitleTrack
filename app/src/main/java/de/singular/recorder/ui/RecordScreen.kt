@@ -464,7 +464,7 @@ private fun AudioMetronomeDialog(on: Boolean, onSet: (Boolean) -> Unit, onDismis
                         if (on) "Clicking through the take" else "Count-in only",
                         style = MaterialTheme.typography.bodyLarge,
                     )
-                    Switch(checked = on, onCheckedChange = onSet)
+                    Switch(checked = on, onCheckedChange = onSet, colors = brandSwitchColors())
                 }
             }
         },

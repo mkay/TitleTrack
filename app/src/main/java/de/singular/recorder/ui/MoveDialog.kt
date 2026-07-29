@@ -76,7 +76,7 @@ fun MoveDialog(
                                     Icons.Default.Folder,
                                     null,
                                     Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.primary,
+                                    tint = MaterialTheme.colorScheme.brandFill,
                                 )
                             },
                             label = folder.name,

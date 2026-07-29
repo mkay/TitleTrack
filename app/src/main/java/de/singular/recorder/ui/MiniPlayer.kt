@@ -90,7 +90,7 @@ fun MiniPlayer(
                     Icon(
                         if (playback.playing) Icons.Default.Stop else Icons.Default.PlayArrow,
                         contentDescription = if (playback.playing) "Stop" else "Play",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = MaterialTheme.colorScheme.brandFill,
                     )
                 }
                 // Stop only silences the take; this is how it stops taking up the screen. Dimmed,
