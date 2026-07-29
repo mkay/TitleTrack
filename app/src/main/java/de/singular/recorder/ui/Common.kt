@@ -290,7 +290,7 @@ fun BigButton(
     if (onLongClick != null) {
         // Material's buttons take one gesture only, so a button with two is built from a surface.
         // Same shape, same height, same colours — it is the same button, holdable.
-        val enabledContainer = container ?: MaterialTheme.colorScheme.primary
+        val enabledContainer = container ?: MaterialTheme.colorScheme.brandFill
         Surface(
             modifier = sized.combinedClickable(
                 enabled = enabled,
@@ -320,14 +320,13 @@ fun BigButton(
     } else {
         Button(
             onClick, sized, enabled = enabled, shape = shape,
-            colors = if (container != null) {
-                ButtonDefaults.buttonColors(
-                    containerColor = container,
-                    contentColor = onContainer ?: MaterialTheme.colorScheme.onPrimary,
-                )
-            } else {
-                ButtonDefaults.buttonColors()
-            },
+            // Not `buttonColors()` even when nothing is overridden: its default fill is `primary`,
+            // and a filled action takes `brandFill` — the same colour on dark, a step lighter on
+            // light. See Theme.kt.
+            colors = ButtonDefaults.buttonColors(
+                containerColor = container ?: MaterialTheme.colorScheme.brandFill,
+                contentColor = onContainer ?: MaterialTheme.colorScheme.onPrimary,
+            ),
         ) { content() }
     }
 }

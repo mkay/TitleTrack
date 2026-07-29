@@ -5,8 +5,9 @@
 First cut: recording and take management.
 
 - The app is **Title Track**, and its icon is a mirrored waveform in three ambers on a dark ground.
-  The gold from it is the accent throughout, on both themes, and the surfaces are tinted onto its
-  hue: a warm near-black and a warm off-white rather than Material's faintly violet greys.
+  The gold from it is the accent throughout, on both themes. The dark theme's surfaces are tinted
+  onto its hue — a warm near-black rather than Material's faintly violet greys — while the light
+  theme is plain white and grey, and lets the accent carry the warmth by itself.
 
 - Record to a folder of your choosing (Storage Access Framework tree grant), as 44.1 kHz mono WAV.
 - Count-in of 0, 1 or 2 bars at a settable tempo, with an accented downbeat.

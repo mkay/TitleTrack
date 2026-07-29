@@ -10,7 +10,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
-import de.singular.recorder.R
 import de.singular.recorder.ThemeMode
 
 /**
@@ -31,29 +30,55 @@ import de.singular.recorder.ThemeMode
  * On light, amber-600 — and the number is worse than the step above it, deliberately. This was
  * amber-700 at **4.8:1**, chosen because the accent is not only a button fill but the *text* colour
  * of the selected tab, the setting values and the played part of a waveform, and 4.5:1 is the bar
- * for type. **amber-600 reads 3.0:1** on this page and does not clear it.
+ * for type. **amber-600 reads 3.2:1** on this page and does not clear it.
  *
  * It was taken anyway, on 2026-07-28, as a look: amber-700 on a warm page reads brown rather than
  * gold, which is not the colour the mark is. The contrast floor was a floor for a reason and there
  * is no arguing it away — the accent is small text and 3.0:1 is a real cost to someone reading it in
  * sunlight. What makes it survivable is that nothing is *only* this colour: a selected tab also has
  * its indicator, a setting value also has its label, and the record button also has its stripes.
- * If it proves hard to read, the fix is amber-700 again, not a lighter page — the page is already
- * within 1.05:1 of white and has nowhere to go.
+ * If it proves hard to read, the fix is amber-700 again, not a lighter page — the page is white as
+ * of 2026-07-29 and has nowhere left to go.
  *
  * Do not "correct" this back to 4.5:1 as a tidy-up. It is a decision, not a slip.
  *
  * For the record: amber-500 measures **2.1:1** here and lime-500 measured 1.9:1, so the family is
- * still the first one where a legible light accent was even in reach. And the light accent now lands
- * nearer the record red than amber-700 did, which was once the objection to going dark — no longer
- * live, since the record button is the accent with stripes over it (see [recordBand]) and red has
- * been narrowed to the running state and to clipping.
+ * still the first one where a legible light accent was even in reach. That number is why amber-500's
+ * arrival on this theme is confined to the button fills — see [brandFill] — and does not take the
+ * accent's text roles with it. And the light accent lands nearer the record red than amber-700 did,
+ * which was once the objection to going dark — no longer live, since the record button is the accent
+ * with stripes over it (see [recordBand]) and red has been narrowed to the running state and to
+ * clipping.
  *
  * Filled controls set their own content colour, and the two themes need different ones here — see
  * [OnBrandDark].
  */
 private val BrandOnDark = Color(0xFFF59E0B) // amber-500
 private val BrandOnLight = Color(0xFFD97706) // amber-600
+
+/**
+ * What a filled action is *filled* with — Record, Play, Done, Save — which as of 2026-07-29 is
+ * amber-500 on both themes, and so the one place the accent is not `primary`.
+ *
+ * The split is the light theme's alone, and it exists because a fill and a label are not the same
+ * job. `primary` there is amber-600 at 3.2:1 because it is *text* — the selected tab, the setting
+ * values, the played part of a waveform — and text is what the contrast floor is for. None of that
+ * applies to a slab of colour 64dp tall with its own dark label on it: what a fill owes the page is
+ * to look like the mark, and against white the same amber-600 that reads dim as text reads muddy as
+ * an area. amber-500 is the icon's own colour and the colour the dark theme has always filled with.
+ *
+ * The cost is a step off the ramp, which the record button was explicitly kept on ([recordBand]) —
+ * but that was about the record button differing from *other buttons*, and this moves every filled
+ * button together. What it does not do is give the light theme a second accent to keep in agreement
+ * with the first: the two ambers never touch, one being an area and the other being type.
+ *
+ * The dark theme's fill was already amber-500, so this collapses rather than adds — both themes now
+ * fill with the same colour, label it amber-950 at 7.0:1, and band it identically.
+ */
+@Suppress("UnusedReceiverParameter")
+val ColorScheme.brandFill: Color get() = BrandFill
+
+private val BrandFill = Color(0xFFF59E0B) // amber-500
 
 /**
  * Content sitting *on* the accent, which the two themes have to answer differently because their
@@ -137,7 +162,7 @@ private val OnRecord = Color(0xFFFFFFFF)
  * The button was red for as long as the recording state was red, on the argument that they are one
  * thing. They are not, and the giveaway is that **they never appear at once** — the button is on
  * screen only before a take, and the clock only during one. So the button is an accent button like
- * Play or Save, down to the same `primary` fill and `onPrimary` label, while [record] keeps the red
+ * Play or Save, down to the same [brandFill] and `onPrimary` label, while [record] keeps the red
  * for the state. A red slab 64dp tall and the full width of the page was also simply the loudest
  * thing in the app, on a screen whose whole palette had been tuned toward being quiet.
  *
@@ -146,23 +171,24 @@ private val OnRecord = Color(0xFFFFFFFF)
  * the ramp: no separate fill, no separate label, no third amber to keep in agreement with the other
  * two. See `obliqueBands` in Common.kt for the geometry.
  *
- * A **white tint**, and the alpha differs per theme so that the *visible* texture does not. White
- * over amber-700 lightens it readily and over a saturated amber-500 mostly desaturates it, so 8% on
- * light and 20% on dark both land at about 1.15:1 against their fill — subtle, which is the point:
- * this is a marking on a button, not a second colour competing with the label over it.
+ * A **white tint at 20%**, one value for both themes, which over a saturated amber-500 mostly
+ * desaturates rather than lightens and lands at about 1.15:1 against the fill — subtle, which is the
+ * point: this is a marking on a button, not a second colour competing with the label over it.
  *
- * Dark bands were the first cut, hazard-tape fashion, and are what the per-theme labels rule out. On
- * dark, where the label is amber-950, a dark band is the label's own colour thinned and took it from
- * 7.0:1 down to 4.8:1 where one crossed a letter — the worst number in the palette, in the one place
- * it must not be. Lightening inverts that, to 8.2:1. The light theme pays a little for the same
- * choice in reverse, its white label going 5.0:1 → 4.4:1 over a band, which is why the alpha there is
- * as low as it is: past about 12% the label starts to be the thing paying for the texture.
+ * It was 8% on light for as long as that theme filled with amber-700 and then amber-600, white over
+ * a darker amber lightening it far more readily. [brandFill] made both buttons amber-500, so a
+ * per-theme alpha would now produce a *visibly* different texture on the same colour, which is the
+ * opposite of what the split was for.
+ *
+ * Dark bands were the first cut, hazard-tape fashion, and are what the amber-950 label rules out: a
+ * dark band is the label's own colour thinned, and took it from 7.0:1 down to 4.8:1 where one
+ * crossed a letter — the worst number in the palette, in the one place it must not be. Lightening
+ * inverts that, to 8.2:1.
  */
-val ColorScheme.recordBand: Color get() =
-    if (surface.luminance() < 0.5f) RecordBandOnDark else RecordBandOnLight
+@Suppress("UnusedReceiverParameter")
+val ColorScheme.recordBand: Color get() = RecordBand
 
-private val RecordBandOnDark = Color(0x33FFFFFF) // white at 20%
-private val RecordBandOnLight = Color(0x14FFFFFF) // white at 8%
+private val RecordBand = Color(0x33FFFFFF) // white at 20%
 
 /**
  * The ground a waveform is drawn on — the record screen's panel, the player's, and the trim rows
@@ -177,38 +203,10 @@ private val RecordBandOnLight = Color(0x14FFFFFF) // white at 8%
  * carried a hue the panel had to be protected from. On the warm ramp it costs more than it buys: the
  * ink panel lands within a hundredth of `surfaceContainer` in lightness and differs from it only by
  * being greyer, which is a distinction nobody reads as anything but a slightly dead patch. This is
- * 1.33:1 against the page on dark and 1.06:1 on light, and the waveform still reads on it at 12:1.
- * The light figure was 1.15:1 until the ramp was compressed — see [TrackLightColors].
+ * 1.33:1 against the page on dark and 1.14:1 on light, and the waveform still reads on it at 12:1.
+ * The light theme's ground is a plain grey rather than a tint of its page — see [TrackLightColors].
  */
 val ColorScheme.waveformPanel: Color get() = surfaceContainerHighest
-
-/**
- * Which wordmark to draw: there is one per theme, and they are exports rather than tints.
- *
- * The mark is a ramp of three tones, and a ramp is a statement about the ground it sits on. On the
- * dark page it is a ramp of *light* — the letters sit back and the waveform between them is the lit
- * part. On a cream page the same three land between 3.0:1 and 1.6:1, where the depth stops reading
- * and what is left is three washed-out golds beside each other.
- *
- * A single tint was the answer for a while, and flattening the mark to one dark colour did work; it
- * cost the ramp entirely, which is most of what the mark is. Both are drawn now, and each is simply
- * **its own Figma export, converted as it comes** — the light one already leaves the source a step
- * darker than the dark one, which is the whole of the adjustment it needs.
- *
- * It was darkened twice over for a while: two further steps on top of that, applied by `--map` in
- * `tools/svg2vector.py`, to put the mark near an amber-700 accent. That went on 2026-07-28 with the
- * accent's own move to amber-600 — the mark had become the brownest thing on a gold screen, which is
- * backwards for the one element everything else is named after. Ungoverned by contrast rules either
- * way: a wordmark is a logo, not type.
- *
- * Chosen here rather than by a `-night` resource folder, and that is not a detail: those follow the
- * *system's* night setting, while this app's theme is its own preference. Anyone running the app
- * light on a dark phone would get the dark mark on the cream page — the exact pairing this exists to
- * avoid.
- */
-val ColorScheme.wordmarkForTheme: Int get() =
-    if (surface.luminance() < 0.5f) R.drawable.title_wordmark else R.drawable.title_wordmark_light
-
 
 /**
  * The ground the accent stands on, and the reason it stops reading as neon.
@@ -250,27 +248,31 @@ private val TrackDarkColors = darkColorScheme(
 )
 
 /**
- * The light theme is tinted onto the same hue as the dark one, but far more lightly.
+ * The light theme is **white and grey**, and is the one place the two themes do not answer the same
+ * question the same way.
  *
- * Three pages have been tried here. Material's own default is not white — it is #FEF7FF, a
- * near-white carrying a faint *violet*, which is the accent's opposite and quietly works against it.
- * A page committed fully to the accent's own 50 step fixed that but committed harder than a light
- * theme wants to. This sits between them at #FEF9F1: a hair over 1.05:1 against true white, so it
- * reads as a warm white rather than as a coloured page — enough to take the violet out and put the
- * accent on its own ground, and not enough to be a colour in its own right. Amber costs nothing here
- * that lime did not: a warm off-white is the easier of the two to keep this side of being a colour,
- * a faint yellow being what paper does anyway.
+ * Four pages have been tried. Material's own default is not white — it is #FEF7FF, a near-white
+ * carrying a faint *violet*, which is the accent's opposite and quietly works against it. A page
+ * committed fully to the accent's own 50 step fixed that but committed harder than a light theme
+ * wants to. #FEF9F1 sat between them, a hair over 1.05:1 against true white, on the argument that
+ * the dark theme's retint (see [TrackDarkColors]) is what stops the accent reading as neon and the
+ * light theme should be built the same way.
  *
- * The ramp below descends from it on the same hue with the saturation tapering as it darkens, so the
- * containers deepen without turning into a colour either. Body text holds at 14.7:1, secondary at
- * 7.1:1 — both a shade better than the lime ramp they were rehued from, warm neutrals of a given
- * saturation coming out slightly darker than cool ones.
+ * **On 2026-07-29 it went white.** The argument did not carry across: what the warm tint buys on
+ * near-black is a ground the accent can sit *within*, and at the white end there is no room to sit
+ * within anything — 1.05:1 is below the threshold at which a hue reads as a decision, so all it did
+ * was make the page look slightly unclean beside a white system UI. A hue this faint is either
+ * invisible or it is a smudge, and on a phone's own white it was the second.
  *
- * **The ramp was compressed on 2026-07-28** so that its top step is a tint rather than a shade: the
- * panel it grounds is the largest thing on the record screen, and at 1.15:1 it read as a slab laid
- * on the page rather than as the page with a warmth to it. The whole ramp moved, not just the top —
- * the steps have to keep ascending, and lightening the end alone would have folded it into the two
- * below. The other four are barely used, so the visible change is the panel and the tab bar.
+ * So the surfaces are neutral here, and the accent carries the warmth on its own. The ramp is
+ * Tailwind's neutral scale, descending from white so the containers deepen as plain grey: body text
+ * at 17.9:1, secondary at 7.8:1, both better than the warm ramp they replace.
+ *
+ * The top step — the waveform panel, the largest area on the record screen — is #F0F0F0 at 1.14:1.
+ * That is close to the 1.15:1 the warm ramp was compressed *away from* on 2026-07-28 for reading as
+ * a slab laid on the page. It reads differently now for the reason the tint was dropped: a grey
+ * panel on white is a panel, where a warm panel on a warm page was the page failing to be one
+ * colour. This is the step the tab bar takes too, so the two largest tinted areas agree.
  */
 private val TrackLightColors = lightColorScheme(
     primary = BrandOnLight,
@@ -279,19 +281,19 @@ private val TrackLightColors = lightColorScheme(
     onPrimaryContainer = OnBrandPale,
     secondaryContainer = BrandOnLight,
     onSecondaryContainer = OnBrandLight,
-    background = Color(0xFFFEF9F1),
-    onBackground = Color(0xFF2F230E),
-    surface = Color(0xFFFEF9F1),
-    onSurface = Color(0xFF2F230E),
-    surfaceVariant = Color(0xFFEEDEC4),
-    onSurfaceVariant = Color(0xFF68522C),
-    surfaceContainerLowest = Color(0xFFFFFEFB),
-    surfaceContainerLow = Color(0xFFFEF8EE),
-    surfaceContainer = Color(0xFFFDF6E9),
-    surfaceContainerHigh = Color(0xFFFCF4E6),
-    surfaceContainerHighest = Color(0xFFFBF2E3),
-    outline = Color(0xFF978059),
-    outlineVariant = Color(0xFFDDCCAF),
+    background = Color(0xFFFFFFFF),
+    onBackground = Color(0xFF171717),
+    surface = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF171717),
+    surfaceVariant = Color(0xFFE5E5E5),
+    onSurfaceVariant = Color(0xFF525252),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFFAFAFA),
+    surfaceContainer = Color(0xFFF7F7F7),
+    surfaceContainerHigh = Color(0xFFF4F4F4),
+    surfaceContainerHighest = Color(0xFFF0F0F0),
+    outline = Color(0xFFA3A3A3),
+    outlineVariant = Color(0xFFD4D4D4),
 )
 
 /** Controls use a gentle corner rather than the fully-rounded Material default, as in RubberRing. */
