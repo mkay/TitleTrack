@@ -94,6 +94,7 @@ import de.singular.recorder.ui.QuickHelpDialog
 import de.singular.recorder.ui.PlayerOverflowAction
 import de.singular.recorder.ui.RecordScreen
 import de.singular.recorder.ui.SettingsScreen
+import de.singular.recorder.ui.SupportDialog
 import de.singular.recorder.ui.TitleTrackTheme
 import de.singular.recorder.ui.brandFill
 import de.singular.recorder.ui.isDark
@@ -238,6 +239,9 @@ class MainActivity : ComponentActivity() {
 
                 var showHelp by rememberSaveable { mutableStateOf(false) }
                 if (showHelp) QuickHelpDialog(onDismiss = { showHelp = false })
+
+                var showSupport by rememberSaveable { mutableStateOf(false) }
+                if (showSupport) SupportDialog(onDismiss = { showSupport = false })
 
                 var showKeepAwakeInfo by remember { mutableStateOf(false) }
                 if (showKeepAwakeInfo) {
@@ -480,6 +484,23 @@ class MainActivity : ComponentActivity() {
                                     icon = { Icon(Icons.Default.Settings, null) },
                                     selected = screen == Screen.SETTINGS,
                                     onClick = { go(Screen.SETTINGS) },
+                                    modifier = Modifier.padding(horizontal = 12.dp),
+                                )
+                                // Above the recents rather than below them: the list underneath
+                                // grows and shrinks, and an item that moves down the panel as you
+                                // use the app is one you stop being able to find.
+                                NavigationDrawerItem(
+                                    label = { Text("Support Title Track") },
+                                    icon = {
+                                        Icon(
+                                            ImageVector.vectorResource(
+                                                R.drawable.ic_heart_smile,
+                                            ),
+                                            contentDescription = null,
+                                        )
+                                    },
+                                    selected = false,
+                                    onClick = { closeThen { showSupport = true } },
                                     modifier = Modifier.padding(horizontal = 12.dp),
                                 )
                                 // What was open lately, and the reason the drawer is worth pulling

@@ -44,6 +44,10 @@ First cut: recording and take management.
   bottom past a rule — every gesture that has no affordance to find it by, and nothing that already
   has a label. About sits at the end of Settings → System instead: the drawer's bottom slot belongs
   to what you want mid-take.
+- **Support Title Track** in the drawer, above the recents so it stays put as they grow: a dialog
+  with three ways to say the app is worth keeping up — a like on a page of mine, a star on the
+  repo, or Ko-fi. Each is a link out to the browser, so the app still asks for no INTERNET
+  permission and the like is counted only when you press the button on the page.
 - The recordings folder is asked for on first launch, and again if it stops being reachable.
 - Settings in two tabs, split by when you come to them: Recording (microphone, time signature,
   metronome, saving) and System (recordings folder, library, screen and theme). Saving is under

@@ -51,6 +51,9 @@ dependencies {
     // Browsing and creating inside the folder the user granted us: SAF trees are a document-id
     // tree, not a path, and this wraps the DocumentsContract calls that walk one.
     implementation("androidx.documentfile:documentfile:1.0.1")
+    // Custom Tabs, for the Support dialog's links. The browser fetches in its own process, so
+    // this buys the in-app look without the app ever needing INTERNET — see [openCustomTab].
+    implementation("androidx.browser:browser:1.8.0")
 
     val composeBom = platform("androidx.compose:compose-bom:2026.06.01")
     implementation(composeBom)

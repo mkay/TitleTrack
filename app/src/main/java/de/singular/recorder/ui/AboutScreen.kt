@@ -42,9 +42,11 @@ import de.singular.recorder.BuildConfig
 import de.singular.recorder.R
 import kotlinx.coroutines.launch
 
-private const val REPO_URL = "https://github.com/mkay/TitleTrack"
+// Shared with the Support dialog next door, which offers the same two places to go with more
+// words around them — see [SupportDialog].
+const val REPO_URL = "https://github.com/mkay/TitleTrack"
 private const val ISSUES_URL = "$REPO_URL/issues"
-private const val KOFI_URL = "https://ko-fi.com/s1ngular"
+const val KOFI_URL = "https://ko-fi.com/s1ngular"
 
 /**
  * About: what the app is, where it lives, and how to report a bug or chip in.
