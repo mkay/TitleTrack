@@ -5,9 +5,11 @@
 First cut: recording and take management.
 
 - The app is **Title Track**, and its icon is a mirrored waveform in three ambers on a dark ground.
-  The gold from it is the accent throughout, on both themes. The dark theme's surfaces are tinted
-  onto its hue — a warm near-black rather than Material's faintly violet greys — while the light
-  theme is plain white and grey, and lets the accent carry the warmth by itself.
+  The gold from it is the accent throughout, on both themes. Both leave their surfaces plain — white
+  and grey on light, Material's own on dark — and let the accent carry the warmth by itself. Each
+  was tinted onto the accent's hue at one point and each gave it up: a tint faint enough to keep a
+  page neutral is not a decision anyone reads, and a tint strong enough to read makes the page a
+  colour rather than a ground.
 
 - Record to a folder of your choosing (Storage Access Framework tree grant), as 44.1 kHz mono WAV.
 - Count-in of 0, 1 or 2 bars at a settable tempo, with an accented downbeat.
@@ -34,7 +36,9 @@ First cut: recording and take management.
   share. The triangle plays a take in place; its name opens it in the player.
 - A mini player above the tabs: it shows whatever take is loaded wherever you are, with a
   play/stop toggle, a seek bar and a tap on the name to open the full player. Stopping keeps the
-  take and the position rather than dismissing it.
+  take and the position rather than dismissing it. It stands on the tab bar's own ground, the two
+  being stacked with nothing between them and any difference showing as a seam the width of the
+  phone.
 - Open shows a take in a player with its waveform: tap or drag it to seek. WAV is read straight
   through; anything else the device can decode (m4a, mp3, ogg, flac) is decoded to peaks through
   MediaCodec, so imported files draw too.
@@ -78,8 +82,10 @@ First cut: recording and take management.
 - While keep-screen-on is active an indicator sits in the app bar; tapping it explains the battery
   cost and offers a way to turn it off (as in RubberRing).
 - Compact bottom tabs, and a library list of even rows with dividers and accented folder icons.
-- The waveform panel takes the same step of the surface ramp as the tab bar, so the two large tinted
-  areas on a screen agree rather than each being its own shade of nearly-the-page.
+- The waveform panel sits a tenth of a stop off the page — enough to bound the waveform, not enough
+  to be the heaviest thing on the record screen. It took the top of the surface ramp, matched to the
+  tab bar so the two large tinted areas on a screen agreed; the two no longer meet anywhere, the bar
+  having left the ramp for the mini player's ground.
 - The player's app bar names where the back arrow goes — the take's folder, or "Library" at the top
   level — instead of repeating the take name shown on the screen below it. Share moved up beside it.
 - The player's waveform fills the height that is left, on the record screen's panel and zero line.

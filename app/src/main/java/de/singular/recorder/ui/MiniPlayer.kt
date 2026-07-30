@@ -58,7 +58,8 @@ fun MiniPlayer(
     modifier: Modifier = Modifier,
 ) {
     val take = playback.take?.takeIf { playback.playing || !playback.finished } ?: return
-    Surface(modifier.fillMaxWidth(), tonalElevation = 3.dp) {
+    // The tab bar sits directly under this and shares the ground — see [BottomBarElevation].
+    Surface(modifier.fillMaxWidth(), tonalElevation = BottomBarElevation) {
         Column(Modifier.padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // The name is the way back into the full player, the same as it is in the list.

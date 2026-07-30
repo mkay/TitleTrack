@@ -33,14 +33,15 @@ import androidx.compose.ui.unit.dp
  * arrangement (icon over label, tinted when selected) in about 58dp. On the Record screen that
  * difference is the count-in digit's breathing room.
  *
- * It takes the top of the surface ramp outright rather than a tonal elevation. Elevation derives its
- * tint from `primary`, which on a page tinted onto the accent's own hue is the one colour the bar
- * must not drift toward — it would blend into the page instead of ending it. An explicit step keeps
- * the bar a deliberate shade apart: 1.33:1 from the page on the dark theme, 1.15:1 on the light one.
+ * Its ground is the mini player's, which stacks directly on top of it with nothing in between — see
+ * [BottomBarElevation] for the shared value and for what was given up to share it. This took an
+ * explicit step off the surface ramp until then (`surfaceContainerHighest`, 1.5:1 from the page on
+ * dark and 1.14:1 on light) and refused tonal elevation for tinting toward the accent; the seam
+ * between two bottom bars a shade apart was the worse of the two problems.
  */
 @Composable
 fun CompactTabBar(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
-    Surface(modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceContainerHighest) {
+    Surface(modifier.fillMaxWidth(), tonalElevation = BottomBarElevation) {
         Row(
             Modifier
                 .fillMaxWidth()

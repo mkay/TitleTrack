@@ -71,11 +71,11 @@ Early-stage release — expect rough edges. Feedback and bug reports welcome via
   Anything *set* takes a deeper step on the light theme, where a mid-scale amber on a white page
   reads 2.1:1 — the selected tab, the setting values. The line is drawn or set, and a glyph falls on
   the drawn side: an icon has no counters to lose, and beside a gold button the deeper step was
-  reading brown. The dark theme needs no such split and uses the one gold throughout, its surfaces
-  re-tinted onto the accent's own hue rather than left on Material's faintly violet greys, so the
-  accent sits within its background's family instead of opposite it. The light theme is plain white
-  and grey and lets the accent carry the warmth by itself: at a twentieth of a stop off white, a
-  tinted page is not a decision anyone reads, only a page that looks unclean beside the system's.
+  reading brown. The dark theme needs no such split and uses the one gold throughout. Both themes
+  leave their surfaces plain — grey on light, Material's own on dark — and let the accent carry the
+  warmth by itself. Each was tinted onto the accent's hue at one point and each gave it up for the
+  same reason: a tint faint enough to keep a page neutral is not a decision anyone reads, and a tint
+  strong enough to read makes the page a colour rather than a ground.
 - **A striped Record button, and red kept for what is wrong** — Record used to be a full-width red
   slab, which made the loudest thing in the app out of a screen tuned to be quiet. It is an accent
   button now, the same fill and label as Play, with oblique light stripes over it: texture is a

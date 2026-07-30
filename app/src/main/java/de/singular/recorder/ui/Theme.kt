@@ -24,10 +24,11 @@ import de.singular.recorder.ThemeMode
  * has always been. Green (hue 142) and emerald (160) were tried in full during the lime era and
  * rejected on sight for reading as generic; that finding stands and neither is worth revisiting.
  *
- * On dark, amber-500: 8.9:1 against the page and 8.1:1 on the tab bar. Lime took a step *down* here
+ * On dark, amber-500: 8.7:1 against the page and 5.7:1 on the tab bar. Lime took a step *down* here
  * (lime-600) because lime-500's comparable 9.6:1 dominated a dark screen, and that step is not taken
  * again — what dominated was the chartreuse, not the luminance. Amber at this level reads as lit
- * rather than as loud, and the ground being tinted onto its own hue (below) does the rest.
+ * rather than as loud, and being warm against a cool-neutral ground it does not need the ground
+ * brought round to meet it (see [TrackDarkColors]).
  *
  * On light, amber-600 — and the number is worse than the step above it, deliberately. This was
  * amber-700 at **4.8:1**, chosen because the accent is not only a button fill but the *text* colour
@@ -217,36 +218,65 @@ private val RecordBand = Color(0x33FFFFFF) // white at 20%
  * The ground a waveform is drawn on — the record screen's panel, the player's, and the trim rows
  * that belong to them.
  *
- * The top of the surface ramp, which is the step the tab bar takes, so the two largest tinted areas
- * on a screen agree rather than each being their own shade of nearly-the-page.
+ * **A tenth of a stop off the page, and no more** — `surfaceContainer` on dark at 1.14:1,
+ * `surfaceContainerHigh` on light at 1.10:1. The number is the rule; the rung is whichever one hits
+ * it, and the two ramps do not agree on that because they are not the same length. Light's runs from
+ * white down to #F0F0F0, five steps inside a tenth of a stop, so its second-from-top is already
+ * there. Dark's has the whole range from near-black upward, so the same ratio is two rungs down.
+ *
+ * It was the ramp's top on both, `surfaceContainerHighest`, so that the panel and the tab bar — the
+ * two largest tinted areas on a screen — were the same shade rather than each being its own version
+ * of nearly-the-page. What that got wrong is that a panel does not need the strongest step available
+ * to read as a panel: the page is right there behind it, and taking the whole step made the largest
+ * area on the record screen the heaviest thing on it. That was 1.14:1 on light and **1.5:1 on dark**,
+ * and dark was the louder mistake of the two — a mid-grey slab under the waveform on a near-black
+ * screen. One rung down (1.29:1) was still reading as a slab; this is the step where the panel stops
+ * announcing itself and just bounds the waveform.
+ *
+ * The floor is that the panel must stay *visible* as a panel, since the trim rows and the player's
+ * canvas are read as areas with edges. A tenth of a stop is about where a large field still separates
+ * from its ground without becoming an object on it; below that — dark's `surfaceContainerLow` is
+ * 1.09:1 — the edge starts to disappear on a phone at arm's length in daylight.
+ *
+ * The panel and the tab bar no longer meet anywhere: this came down the ramp, and the bar left it
+ * entirely for the mini player's ground (see [BottomBarElevation]). What that leaves is the right
+ * division of labour — the bar is a strip at the edge and sits down, the panel is the middle of the
+ * screen and lifts — and no seam, the two never being adjacent.
  *
  * It was ink over the page for a while — `onSurface` at 4.5% — on the argument that mixing toward the
  * text colour desaturates as it darkens, and that the largest area on the screen wants *less* of the
- * theme's hue than everything else does. That argument was made against a lime accent, where the page
- * carried a hue the panel had to be protected from. On the warm ramp it costs more than it buys: the
- * ink panel lands within a hundredth of `surfaceContainer` in lightness and differs from it only by
- * being greyer, which is a distinction nobody reads as anything but a slightly dead patch. This is
- * 1.33:1 against the page on dark and 1.14:1 on light, and the waveform still reads on it at 12:1.
- * The light theme's ground is a plain grey rather than a tint of its page — see [TrackLightColors].
+ * theme's hue than everything else does. On a ramp of plain greys that buys nothing: the ink panel
+ * lands within a hundredth of `surfaceContainer` in lightness and differs from it only by being
+ * greyer, which is a distinction nobody reads as anything but a slightly dead patch. Note that the
+ * dark panel has now arrived at `surfaceContainer` by the other route.
+ *
+ * The waveform reads on this at 11:1 on light and 9.6:1 on dark — every step down the ramp buys the
+ * dark ink contrast, its ink being near-white and its ground moving away from it.
  */
-val ColorScheme.waveformPanel: Color get() = surfaceContainerHighest
+val ColorScheme.waveformPanel: Color get() =
+    if (surface.luminance() < 0.5f) surfaceContainer else surfaceContainerHigh
 
 /**
- * The ground the accent stands on, and the reason it stops reading as neon.
+ * The dark theme's surfaces are **Material's own**, and only the accent is ours.
  *
- * Material's own neutrals are not neutral — they carry a faint violet, and an accent on a violet-grey
- * is pushed away from its background by hue as well as by level. That hue contrast was most of what
- * "neon" was describing back when the accent was lime; the accent itself was only ever half the
- * problem, which is why moving to amber does not make the retint unnecessary.
+ * They were re-tinted onto the accent's hue (38°) for a long time — a warm near-black page and a warm
+ * grey ramp above it — on the argument that Material's neutrals are not neutral, that they carry a
+ * faint violet, and that an accent pushed away from its ground by hue as well as by level is what
+ * "neon" was describing. That was true of lime, whose complaint was hue contrast far more than
+ * brightness.
  *
- * So the surfaces are re-tinted onto the accent's own hue (38°) at a saturation low enough to still
- * read as a dark grey — 20–30% at the near-black end, tapering as the ramp lightens so the higher
- * containers do not turn into a colour in their own right. The accent sits *within* its background's
- * family rather than opposite it, which reads as considered rather than electric. The whole ramp is
- * the lime one rehued, holding each step's saturation and lightness, so a warm grey now where there
- * was a cool one and every level unchanged.
+ * Amber does not have that problem to solve. It is a warm accent, so the distance to a cool-neutral
+ * ground is small to begin with, and the retint was spending a whole ramp to close a gap the change
+ * of hue had already mostly closed. What it bought instead was a page that reads *brown* rather than
+ * black wherever it sits beside an untinted system surface — a dialog, a keyboard, the notification
+ * shade — which is exactly the objection that took the light theme to white on 2026-07-29
+ * (see [TrackLightColors]). The same argument lands here: a tint too faint to read as a decision
+ * reads as a smudge, and a tint strong enough to read as a decision makes the page a colour.
  *
- * Body text holds at 16.1:1 and secondary text at 12.2:1 over this ground.
+ * So the ramp is defaults, and the accent carries the warmth alone — which is what the light theme
+ * already does, so the two themes are now built the same way. The retint is not worth reviving for
+ * amber; if it ever is again, the finding to start from is that the page was #120F0A and the ramp
+ * above it held the lime ramp's saturation and lightness step for step.
  */
 private val TrackDarkColors = darkColorScheme(
     primary = BrandOnDark,
@@ -255,31 +285,18 @@ private val TrackDarkColors = darkColorScheme(
     onPrimaryContainer = BrandPale,
     secondaryContainer = BrandOnDark,
     onSecondaryContainer = OnBrandDark,
-    background = Color(0xFF120F0A),
-    onBackground = Color(0xFFEEEBE7),
-    surface = Color(0xFF120F0A),
-    onSurface = Color(0xFFEEEBE7),
-    surfaceVariant = Color(0xFF413A2D),
-    onSurfaceVariant = Color(0xFFD3CEC5),
-    surfaceContainerLowest = Color(0xFF0C0A06),
-    surfaceContainerLow = Color(0xFF18140E),
-    surfaceContainer = Color(0xFF1E1A12),
-    surfaceContainerHigh = Color(0xFF272219),
-    surfaceContainerHighest = Color(0xFF2F2920),
-    outline = Color(0xFF9A907E),
-    outlineVariant = Color(0xFF4D4538),
 )
 
 /**
- * The light theme is **white and grey**, and is the one place the two themes do not answer the same
- * question the same way.
+ * The light theme is **white and grey** — the one scheme still stated in full, the dark one having
+ * gone back to Material's own surfaces (see [TrackDarkColors]).
  *
  * Four pages have been tried. Material's own default is not white — it is #FEF7FF, a near-white
  * carrying a faint *violet*, which is the accent's opposite and quietly works against it. A page
  * committed fully to the accent's own 50 step fixed that but committed harder than a light theme
  * wants to. #FEF9F1 sat between them, a hair over 1.05:1 against true white, on the argument that
- * the dark theme's retint (see [TrackDarkColors]) is what stops the accent reading as neon and the
- * light theme should be built the same way.
+ * the dark theme's retint was what stopped the accent reading as neon and the light theme should be
+ * built the same way.
  *
  * **On 2026-07-29 it went white.** The argument did not carry across: what the warm tint buys on
  * near-black is a ground the accent can sit *within*, and at the white end there is no room to sit
@@ -291,11 +308,14 @@ private val TrackDarkColors = darkColorScheme(
  * Tailwind's neutral scale, descending from white so the containers deepen as plain grey: body text
  * at 17.9:1, secondary at 7.8:1, both better than the warm ramp they replace.
  *
- * The top step — the waveform panel, the largest area on the record screen — is #F0F0F0 at 1.14:1.
- * That is close to the 1.15:1 the warm ramp was compressed *away from* on 2026-07-28 for reading as
- * a slab laid on the page. It reads differently now for the reason the tint was dropped: a grey
- * panel on white is a panel, where a warm panel on a warm page was the page failing to be one
- * colour. This is the step the tab bar takes too, so the two largest tinted areas agree.
+ * The top step is #F0F0F0 at 1.14:1, and **nothing takes it any more**. The waveform panel and the
+ * tab bar both did, and both left — the panel a rung down to #F4F4F4 ([waveformPanel]), the bar off
+ * the ramp altogether ([BottomBarElevation]). The step is kept because the ramp is a ramp and its top
+ * is where the next thing that needs to sit above #F4F4F4 will land. What that step is still
+ * measured against is the 1.15:1 the warm ramp was compressed *away from* on 2026-07-28 for reading
+ * as a slab laid on the page: it reads differently now for the reason the tint was dropped, a grey
+ * panel on white being a panel where a warm panel on a warm page was the page failing to be one
+ * colour. That holds for a strip at the edge of the screen; it stopped holding for the middle of it.
  */
 private val TrackLightColors = lightColorScheme(
     primary = BrandOnLight,
@@ -321,6 +341,28 @@ private val TrackLightColors = lightColorScheme(
 
 /** Controls use a gentle corner rather than the fully-rounded Material default, as in RubberRing. */
 val ControlShape = RoundedCornerShape(5.dp)
+
+/**
+ * What the bottom of the screen is made of — the tab bar, and the mini player stacked directly on top
+ * of it.
+ *
+ * They are two composables and one surface. Nothing separates them in the layout, so any difference
+ * in ground shows up as a seam across the full width of the phone, an inch above the gesture handle.
+ * A single value, shared, is what stops that: the mini player set its own tonal elevation and the tab
+ * bar took an explicit step off the surface ramp, and the two were never going to land on the same
+ * colour by coincidence.
+ *
+ * It is Material's tonal elevation rather than a ramp step, which means the ground is `surfaceTint` —
+ * `primary` — mixed over the page at about 8%. The tab bar used to refuse exactly this, on the
+ * argument that the accent means "a control" and the largest area on the screen is not one. Matching
+ * the mini player is worth more: a faint amber wash is what these two bars *both* now sit on, and 8%
+ * of the accent is a warmth rather than a colour — 1.07:1 off the page on light, 1.13:1 on dark, so
+ * fainter than the ramp step it replaces as well as warmer.
+ *
+ * Change it in one place or not at all. Two bottom bars a shade apart is the thing this exists to
+ * prevent.
+ */
+val BottomBarElevation = 3.dp
 
 /** Whether [mode] means dark right now — resolving SYSTEM against the OS setting. */
 @Composable
