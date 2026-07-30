@@ -51,9 +51,10 @@ const val KOFI_URL = "https://ko-fi.com/s1ngular"
 /**
  * About: what the app is, where it lives, and how to report a bug or chip in.
  *
- * Reached from Settings rather than from the drawer — the drawer's bottom slot belongs to Quick
- * help, which is what you want mid-take; this is the page you visit once out of curiosity and once
- * when filing an issue.
+ * A tab inside Settings rather than an item in the drawer — the drawer's bottom slot belongs to
+ * Quick help, which is what you want mid-take; this is the page you visit once out of curiosity and
+ * once when filing an issue. It was a screen of its own until the settings grew tabs and it became a
+ * destination buried in one of them; see [SettingsTab] for why a tab is where it ended up.
  *
  * What used to be here was a description of the recording chain — sample rate, microphone source,
  * what happens when the app leaves the foreground. That is documentation, and it belongs in the
@@ -61,8 +62,8 @@ const val KOFI_URL = "https://ko-fi.com/s1ngular"
  * questions someone actually opens it with: which build am I running, and where do I take a bug.
  *
  * Laid out as the sibling apps do it, down to the section headings, so all three read as one hand.
- * It sits inside the app's own Scaffold rather than bringing one of its own — the bar above it
- * already carries the title and the way back to Settings.
+ * It brings neither a Scaffold nor a way back out: the app's own bar is above it and already says
+ * Settings, and a tab is switched away from rather than left.
  */
 @Composable
 fun AboutScreen(modifier: Modifier = Modifier) {

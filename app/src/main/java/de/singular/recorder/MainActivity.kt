@@ -79,7 +79,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import de.singular.recorder.audio.AudioFormat
 import de.singular.recorder.audio.RecordPhase
 import de.singular.recorder.storage.Take
-import de.singular.recorder.ui.AboutScreen
 import de.singular.recorder.ui.ControlShape
 import de.singular.recorder.ui.CompactTab
 import de.singular.recorder.ui.CompactTabBar
@@ -103,8 +102,9 @@ import kotlinx.coroutines.launch
 private enum class Screen(val title: String) {
     RECORD("Record"),
     LIBRARY("Library"),
+    // About used to be a screen of its own, reached from a row at the bottom of Settings. It is a
+    // tab inside Settings now, so there is nowhere left to navigate *to* — see SettingsTab.
     SETTINGS("Settings"),
-    ABOUT("About this app"),
 
     /** One take, opened from the library. The bar names the folder it came from, not this. */
     PLAYER("Take"),
@@ -460,13 +460,8 @@ class MainActivity : ComponentActivity() {
                 ) { vm.goUp() }
                 BackHandler(
                     enabled = !selecting && !onStarredTab && screen != Screen.RECORD &&
-                        screen != Screen.PLAYER && screen != Screen.ABOUT && !library.canGoUp,
+                        screen != Screen.PLAYER && !library.canGoUp,
                 ) { screen = Screen.RECORD }
-                // About is the one screen reached from another screen rather than from the drawer,
-                // so back retraces that step instead of dropping to the record screen.
-                BackHandler(enabled = !selecting && screen == Screen.ABOUT) {
-                    screen = Screen.SETTINGS
-                }
 
                 ModalNavigationDrawer(
                     drawerState = drawerState,
@@ -628,16 +623,6 @@ class MainActivity : ComponentActivity() {
                                             Icon(
                                                 Icons.AutoMirrored.Filled.ArrowBack,
                                                 contentDescription = "Back to the library",
-                                            )
-                                        }
-                                    } else if (screen == Screen.ABOUT) {
-                                        // Reached from Settings now rather than from the drawer, so
-                                        // it is a page you came *into* and the bar has to offer the
-                                        // way back out.
-                                        IconButton(onClick = { screen = Screen.SETTINGS }) {
-                                            Icon(
-                                                Icons.AutoMirrored.Filled.ArrowBack,
-                                                contentDescription = "Back to Settings",
                                             )
                                         }
                                     } else {
@@ -831,7 +816,6 @@ class MainActivity : ComponentActivity() {
                                     settings = settings,
                                     folderLabel = library.path.firstOrNull()?.name,
                                     onChooseFolder = { folderPicker.launch(null) },
-                                    onAbout = { screen = Screen.ABOUT },
                                     onSetBeatsPerBar = vm::setBeatsPerBar,
                                     onSetAudioMetronome = vm::setAudioMetronome,
                                     onSetListenBeforeRecording = vm::setListenBeforeRecording,
@@ -841,8 +825,6 @@ class MainActivity : ComponentActivity() {
                                     onSetThemeMode = vm::setThemeMode,
                                     modifier = content,
                                 )
-
-                                Screen.ABOUT -> AboutScreen(content)
 
                                 // A take that vanished under us (deleted from another app) leaves
                                 // nothing to show, so fall back to the list it came from.

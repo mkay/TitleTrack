@@ -2,20 +2,17 @@
 
 package de.singular.recorder.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,9 +28,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import de.singular.recorder.R
@@ -41,7 +36,7 @@ import de.singular.recorder.Settings
 import de.singular.recorder.ThemeMode
 
 /**
- * The two halves of the settings.
+ * The two halves of the settings, and the page that is not a setting at all.
  *
  * The split is by *when you come here*, not by what the settings technically are. **Recording** is
  * everything that shapes the next take — the things a musician changes between sets, or while
@@ -51,10 +46,23 @@ import de.singular.recorder.ThemeMode
  * Saving is under Recording rather than System, which is the one placement worth arguing: naming a
  * take happens at the end of a take, with the instrument still in hand, and it is part of that loop
  * rather than part of the app's set-up.
+ *
+ * **About** is the odd one, and is here because the tab row is the only always-visible strip on this
+ * screen. It was a row at the bottom of System, which is where a footer item belongs right up until
+ * the settings acquire tabs — then it is a destination buried inside one of two halves, with nothing
+ * about "System" that says the app's version and its bug tracker are in there. A tab is one tap from
+ * either half and says its own name whichever half is showing.
+ *
+ * The honest cost is that two of these tabs set things and the third does not, so the row is no
+ * longer three of a kind. The alternative was pinning the About row under the tabs, which puts a
+ * destination *above* the settings and inverts where a footer sits; the bottom of the screen was not
+ * available, being already the mini player and the app's own tabs. Between a slightly mixed tab row
+ * and a slightly upside-down page, the tab row is the one that stays legible as it grows.
  */
 enum class SettingsTab(val title: String) {
     RECORDING("Recording"),
     SYSTEM("System"),
+    ABOUT("About"),
 }
 
 @Composable
@@ -62,7 +70,6 @@ fun SettingsScreen(
     settings: Settings,
     folderLabel: String?,
     onChooseFolder: () -> Unit,
-    onAbout: () -> Unit,
     onSetBeatsPerBar: (Int) -> Unit,
     onSetAudioMetronome: (Boolean) -> Unit,
     onSetListenBeforeRecording: (Boolean) -> Unit,
@@ -86,33 +93,47 @@ fun SettingsScreen(
                 )
             }
         }
-        Column(
-            Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(20.dp),
-        ) {
-            when (tab) {
-                SettingsTab.RECORDING -> RecordingSettings(
+        // Each tab scrolls on its own, rather than the row of settings being poured into one shared
+        // scroller. Two reasons: About brings its own layout and its own scroll — it is a page, not
+        // a column of rows — and a shared scroll state carried its offset across a tab switch, so
+        // arriving at System already halfway down it.
+        when (tab) {
+            SettingsTab.RECORDING -> SettingsPage {
+                RecordingSettings(
                     settings = settings,
                     onSetBeatsPerBar = onSetBeatsPerBar,
                     onSetAudioMetronome = onSetAudioMetronome,
                     onSetListenBeforeRecording = onSetListenBeforeRecording,
                     onSetPromptForFilename = onSetPromptForFilename,
                 )
+            }
 
-                SettingsTab.SYSTEM -> SystemSettings(
+            SettingsTab.SYSTEM -> SettingsPage {
+                SystemSettings(
                     settings = settings,
                     folderLabel = folderLabel,
                     onChooseFolder = onChooseFolder,
-                    onAbout = onAbout,
                     onSetStarredFirst = onSetStarredFirst,
                     onSetKeepScreenOn = onSetKeepScreenOn,
                     onSetThemeMode = onSetThemeMode,
                 )
             }
+
+            SettingsTab.ABOUT -> AboutScreen()
         }
     }
+}
+
+/** The ground the two settings halves stand on: the whole tab, scrolling, at the page's margin. */
+@Composable
+private fun SettingsPage(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp),
+        content = content,
+    )
 }
 
 @Composable
@@ -183,7 +204,6 @@ private fun SystemSettings(
     settings: Settings,
     folderLabel: String?,
     onChooseFolder: () -> Unit,
-    onAbout: () -> Unit,
     onSetStarredFirst: (Boolean) -> Unit,
     onSetKeepScreenOn: (Boolean) -> Unit,
     onSetThemeMode: (ThemeMode) -> Unit,
@@ -257,53 +277,6 @@ private fun SystemSettings(
                     shape = ControlShape,
                 ) { Text(label) }
             }
-        }
-    }
-
-    // Last, and on this tab rather than in the drawer: the drawer's bottom slot belongs to Quick
-    // help, which is what you want mid-take. This is the page visited once out of curiosity and
-    // once when filing a bug.
-    Spacer(Modifier.height(24.dp))
-    Section("About")
-    LinkRow(
-        icon = Icons.Default.Info,
-        title = "About this app",
-        subtitle = "Version, source code, and how to get in touch",
-        onClick = onAbout,
-    )
-}
-
-/**
- * A row that leads somewhere else, rather than setting something here.
- *
- * An icon, a line and a line under it, the whole row tappable — the shape a destination takes in the
- * sibling apps. Not a button: a button says an action is about to happen, and nothing happens here
- * except arriving on another page.
- */
-@Composable
-private fun LinkRow(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit,
-) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(ControlShape)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.width(16.dp))
-        Column {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }

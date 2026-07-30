@@ -42,16 +42,18 @@ First cut: recording and take management.
   the phone.
 - Record and Library as bottom-bar tabs; Settings in the drawer, with **Quick help** pinned to its
   bottom past a rule — every gesture that has no affordance to find it by, and nothing that already
-  has a label. About sits at the end of Settings → System instead: the drawer's bottom slot belongs
-  to what you want mid-take.
+  has a label. About is the third tab in Settings instead: the drawer's bottom slot belongs to what
+  you want mid-take.
 - **Support Title Track** in the drawer, above the recents so it stays put as they grow: a dialog
   with three ways to say the app is worth keeping up — a like on a page of mine, a star on the
   repo, or Ko-fi. Each is a link out to the browser, so the app still asks for no INTERNET
   permission and the like is counted only when you press the button on the page.
 - The recordings folder is asked for on first launch, and again if it stops being reachable.
-- Settings in two tabs, split by when you come to them: Recording (microphone, time signature,
-  metronome, saving) and System (recordings folder, library, screen and theme). Saving is under
-  Recording, since naming a take happens at the end of one with the instrument still in hand.
+- Settings in tabs, the two that set things split by when you come to them: Recording (microphone,
+  time signature, metronome, saving) and System (recordings folder, library, screen and theme).
+  Saving is under Recording, since naming a take happens at the end of one with the instrument still
+  in hand. About is a third tab beside them — a destination rather than a setting, but one tap from
+  either half instead of buried at the foot of one.
 - An audible metronome through the take, off by default and meant for headphones — on a speaker the
   click lands in the take at whatever level the speaker managed and cannot be taken out afterwards.
   Behind a long press on the record screen's Metronome cell as well as in Settings; the cell reads
