@@ -15,7 +15,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import de.singular.recorder.PlaybackState
+import de.singular.recorder.R
 import de.singular.recorder.StarredTake
 import de.singular.recorder.storage.Take
 import kotlinx.coroutines.delay
@@ -71,7 +73,7 @@ fun StarredList(
                 LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter))
             }
         }
-        takes.isEmpty() -> Hint("Nothing starred yet. Tap the star on a take to keep it here.", modifier)
+        takes.isEmpty() -> Hint(stringResource(R.string.starred_empty), modifier)
         else -> LazyColumn(modifier) {
             itemsIndexed(takes, key = { _, it -> it.key }) { i, starred ->
                 if (i > 0) RowDivider()

@@ -46,8 +46,10 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import de.singular.recorder.R
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -55,7 +57,15 @@ import kotlin.math.log10
 import kotlin.math.max
 import kotlin.math.sqrt
 
-/** `1:23` — or `12:03.4` while recording, where the tenths show that it is still running. */
+/**
+ * `1:23` — or `12:03.4` while recording, where the tenths show that it is still running.
+ *
+ * `Locale.US` on purpose, and the same goes for [formatPrecise]. A timecode is a timecode in every
+ * language: minutes and seconds are separated by a colon and the fraction by a point, on a stopwatch
+ * and in a DAW alike. Handing this `Locale.getDefault()` would put a comma in the middle of it in
+ * half of Europe, which reads as a different quantity rather than as a local convention. Sizes and
+ * gains are the opposite case — see [formatSize].
+ */
 fun formatDuration(ms: Long, tenths: Boolean = false): String {
     val totalSeconds = ms / 1_000
     val minutes = totalSeconds / 60
@@ -73,8 +83,16 @@ fun formatPrecise(ms: Long): String = String.format(
     ms % 1_000 / 10,
 )
 
+/**
+ * `1.5 MB` — or `1,5 MB` to a reader whose language writes it that way.
+ *
+ * The number follows the language, unlike a timecode: a size is an ordinary decimal, and `1.5` in
+ * German is how you write one and a half thousandths of nothing. The unit symbol does not follow it
+ * — MB is MB, and the SI symbols are the same word in every language this will be translated into,
+ * so there is nothing here for a translator to get hold of.
+ */
 fun formatSize(bytes: Long): String = when {
-    bytes >= 1_000_000 -> String.format(Locale.US, "%.1f MB", bytes / 1_000_000f)
+    bytes >= 1_000_000 -> String.format(Locale.getDefault(), "%.1f MB", bytes / 1_000_000f)
     bytes >= 1_000 -> "${bytes / 1_000} kB"
     else -> "$bytes B"
 }
@@ -120,7 +138,9 @@ fun NameDialog(
                 enabled = text.isNotBlank(),
             ) { Text(confirm) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
     )
 }
 
@@ -142,19 +162,25 @@ fun NoteDialog(
     var text by rememberSaveable(initial) { mutableStateOf(initial) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initial.isEmpty()) "Add a note" else "Note") },
+        title = {
+            Text(stringResource(if (initial.isEmpty()) R.string.note_add_title else R.string.note_title))
+        },
         text = {
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
-                placeholder = { Text("Chords, words, what the idea was…") },
+                placeholder = { Text(stringResource(R.string.note_placeholder)) },
                 minLines = 3,
                 maxLines = 8,
                 shape = ControlShape,
             )
         },
-        confirmButton = { TextButton(onClick = { onConfirm(text) }) { Text("Save") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(text) }) { Text(stringResource(R.string.action_save)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
     )
 }
 

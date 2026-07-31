@@ -45,8 +45,56 @@ android {
     }
 }
 
+/**
+ * Fails the build on a user-facing string typed straight into a composable.
+ *
+ * This exists because Android's own `HardcodedText` lint only reads XML layouts — it has nothing
+ * to say about `Text("Cancel")`, which is the only way this app writes UI. Without a check of our
+ * own, the next screen written would silently be English-only and nothing would complain.
+ *
+ * Deliberately narrow: it looks at the two constructs that actually put words in front of someone,
+ * and leaves alone the places a bare string is legitimate (Compose animation labels, log messages,
+ * file extensions). Something that slips past this is still caught by reading the diff.
+ */
+val checkNoHardcodedUiStrings by tasks.registering {
+    group = "verification"
+    description = "Fails if a composable passes a literal where a string resource belongs."
+    val sources = fileTree("src/main/java") { include("**/*.kt") }
+    inputs.files(sources)
+    // No real output; the up-to-date marker keeps repeat runs cheap.
+    val stamp = layout.buildDirectory.file("tmp/hardcoded-ui-strings.ok")
+    outputs.file(stamp)
+    doLast {
+        val patterns = listOf(
+            Regex("\\bText\\(\\s*\""),
+            Regex("\\bcontentDescription\\s*=\\s*\""),
+        )
+        val offenders = sources.files.flatMap { file ->
+            file.readLines().withIndex()
+                .filter { (_, line) -> patterns.any { it.containsMatchIn(line) } }
+                .map { (i, line) -> "${file.relativeTo(projectDir)}:${i + 1}: ${line.trim()}" }
+        }
+        if (offenders.isNotEmpty()) {
+            error(
+                "Hardcoded UI strings — move these to res/values/strings.xml and read them " +
+                    "with stringResource():\n" + offenders.joinToString("\n"),
+            )
+        }
+        stamp.get().asFile.apply { parentFile.mkdirs() }.writeText("ok\n")
+    }
+}
+
+tasks.named("check") { dependsOn(checkNoHardcodedUiStrings) }
+
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
+    // Only for AppCompatDelegate.setApplicationLocales, which is how the language row in Settings
+    // applies a choice. On Android 13+ that call forwards to the framework's per-app language, so
+    // our picker and the one in Android's Settings are one value; below 33 AppCompat is what stores
+    // the choice and re-applies it on launch — and that machinery hangs off AppCompatActivity,
+    // which is why MainActivity extends it despite the UI being entirely Compose. minSdk is 26, so
+    // that lower branch covers 26 to 32.
+    implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.activity:activity-compose:1.12.4")
     // Browsing and creating inside the folder the user granted us: SAF trees are a document-id
     // tree, not a path, and this wraps the DocumentsContract calls that walk one.

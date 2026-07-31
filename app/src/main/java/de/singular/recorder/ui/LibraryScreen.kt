@@ -3,6 +3,7 @@
 package de.singular.recorder.ui
 
 import android.net.Uri
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -59,6 +60,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.composed
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -132,7 +134,7 @@ fun LibraryScreen(
                     Tab(
                         selected = tab == entry,
                         onClick = { onTabChange(entry) },
-                        text = { Text(entry.title) },
+                        text = { Text(stringResource(entry.title)) },
                     )
                 }
             }
@@ -167,7 +169,10 @@ fun LibraryScreen(
         ) {
             Breadcrumb(state.path, onBreadcrumb, Modifier.weight(1f))
             IconButton(onClick = { newFolder = true }, enabled = state.current != null) {
-                Icon(Icons.Default.CreateNewFolder, contentDescription = "New sub-folder")
+                Icon(
+                    Icons.Default.CreateNewFolder,
+                    contentDescription = stringResource(R.string.cd_new_subfolder),
+                )
             }
         }
         if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -175,10 +180,12 @@ fun LibraryScreen(
 
         val listing = state.listing
         when {
-            state.current == null -> Hint("Choose a folder to keep your recordings in.", Modifier.weight(1f))
-            listing?.error != null -> Hint(listing.error, Modifier.weight(1f))
+            state.current == null ->
+                Hint(stringResource(R.string.library_no_folder), Modifier.weight(1f))
+
+            listing?.error != null -> Hint(stringResource(listing.error.message), Modifier.weight(1f))
             listing != null && listing.folders.isEmpty() && listing.takes.isEmpty() ->
-                Hint("Nothing here yet. Recorded takes will appear in this folder.", Modifier.weight(1f))
+                Hint(stringResource(R.string.library_empty), Modifier.weight(1f))
 
             listing != null -> LazyColumn(Modifier.weight(1f)) {
                 itemsIndexed(listing.folders, key = { _, it -> it.uri.toString() }) { i, folder ->
@@ -232,9 +239,9 @@ fun LibraryScreen(
 
     if (newFolder) {
         NameDialog(
-            title = "New sub-folder",
+            title = stringResource(R.string.folder_new_title),
             initial = "",
-            confirm = "Create",
+            confirm = stringResource(R.string.action_create),
             onConfirm = {
                 newFolder = false
                 onCreateFolder(it)
@@ -245,9 +252,9 @@ fun LibraryScreen(
 
     renaming?.let { uri ->
         NameDialog(
-            title = "Rename",
+            title = stringResource(R.string.rename_title),
             initial = renamingName,
-            confirm = "Rename",
+            confirm = stringResource(R.string.action_rename),
             onConfirm = {
                 renaming = null
                 onRename(Uri.parse(uri), it)
@@ -259,15 +266,19 @@ fun LibraryScreen(
     deleting?.let { uri ->
         AlertDialog(
             onDismissRequest = { deleting = null },
-            title = { Text("Delete?") },
-            text = { Text("“$deletingName” will be removed from your storage. This cannot be undone.") },
+            title = { Text(stringResource(R.string.delete_one_title)) },
+            text = { Text(stringResource(R.string.delete_one_message, deletingName)) },
             confirmButton = {
                 TextButton(onClick = {
                     deleting = null
                     onDelete(Uri.parse(uri))
-                }) { Text("Delete") }
+                }) { Text(stringResource(R.string.action_delete)) }
             },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } },
+            dismissButton = {
+                TextButton(onClick = { deleting = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
         )
     }
 }
@@ -376,7 +387,9 @@ internal fun TakeRow(
             IconButton(onClick = onPlay) {
                 Icon(
                     if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (playing) "Stop" else "Play",
+                    contentDescription = stringResource(
+                        if (playing) R.string.cd_stop else R.string.cd_play,
+                    ),
                     tint = MaterialTheme.colorScheme.brandFill,
                 )
             }
@@ -387,29 +400,35 @@ internal fun TakeRow(
                 style = MaterialTheme.typography.bodyLarge,
                 maxLines = 1,
             )
+            val separator = stringResource(R.string.take_meta_separator)
+            // Resolved before the builder rather than inside it: buildString's lambda is ordinary
+            // Kotlin, not a composable scope, so stringResource cannot be called from within it.
+            val bpmText = take.bpm?.let {
+                val n = if (it == it.toInt().toFloat()) "${it.toInt()}" else "$it"
+                stringResource(R.string.take_meta_bpm, n)
+            }
             Text(
                 buildString {
                     formatKind(take.name).takeIf { it.isNotEmpty() }?.let {
                         append(it)
-                        append(" · ")
+                        append(separator)
                     }
                     append(formatDuration(take.durationMs))
-                    take.bpm?.let {
-                        append(" · ")
-                        append(if (it == it.toInt().toFloat()) "${it.toInt()}" else "$it")
-                        append(" bpm")
+                    bpmText?.let {
+                        append(separator)
+                        append(it)
                     }
-                    append(" · ")
+                    append(separator)
                     append(formatSize(take.sizeBytes))
                     val date = formatDate(take.modifiedAt)
                     if (date.isNotEmpty()) {
-                        append(" · ")
+                        append(separator)
                         append(date)
                     }
                     // Last, not first: the name is what is being scanned for, and a folder
                     // prefixed to every line would push the useful part of each one rightwards.
                     if (folder != null) {
-                        append(" · ")
+                        append(separator)
                         append(folder)
                     }
                 },
@@ -431,7 +450,7 @@ internal fun TakeRow(
                 if (hasNote) {
                     Icon(
                         ImageVector.vectorResource(R.drawable.ic_comment),
-                        contentDescription = "Has a note",
+                        contentDescription = stringResource(R.string.cd_has_note),
                         Modifier.size(16.dp),
                         // The same amber the player's Note button wears once there is one, so the
                         // two say the same thing in the same colour.
@@ -446,7 +465,9 @@ internal fun TakeRow(
             IconButton(onClick = onToggleStar, modifier = Modifier.size(StarSlot)) {
                 Icon(
                     if (starred) Icons.Default.Star else Icons.Outlined.StarOutline,
-                    contentDescription = if (starred) "Starred" else "Not starred",
+                    contentDescription = stringResource(
+                        if (starred) R.string.cd_starred else R.string.cd_not_starred,
+                    ),
                     tint = if (starred) {
                         MaterialTheme.colorScheme.brandFill
                     } else {
@@ -502,7 +523,9 @@ private fun Modifier.selectionTint(selected: Boolean) = composed {
 private fun SelectionTick(selected: Boolean) {
     Icon(
         if (selected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
-        contentDescription = if (selected) "Selected" else "Not selected",
+        contentDescription = stringResource(
+            if (selected) R.string.cd_selected else R.string.cd_not_selected,
+        ),
         Modifier.size(LeadingSlot).padding(12.dp),
         tint = if (selected) {
             MaterialTheme.colorScheme.brandFill
@@ -551,11 +574,11 @@ private fun RowMenu(
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
-            Icon(Icons.Default.MoreVert, contentDescription = "More")
+            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.cd_more))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
-                text = { Text("Rename") },
+                text = { Text(stringResource(R.string.action_rename)) },
                 leadingIcon = { Icon(Icons.Default.DriveFileRenameOutline, null) },
                 onClick = {
                     open = false
@@ -564,7 +587,7 @@ private fun RowMenu(
             )
             if (onMove != null) {
                 DropdownMenuItem(
-                    text = { Text("Move to…") },
+                    text = { Text(stringResource(R.string.action_move_to)) },
                     leadingIcon = { Icon(Icons.AutoMirrored.Filled.DriveFileMove, null) },
                     onClick = {
                         open = false
@@ -574,7 +597,7 @@ private fun RowMenu(
             }
             if (onShare != null) {
                 DropdownMenuItem(
-                    text = { Text("Share") },
+                    text = { Text(stringResource(R.string.action_share)) },
                     leadingIcon = { Icon(Icons.Default.Share, null) },
                     onClick = {
                         open = false
@@ -583,7 +606,7 @@ private fun RowMenu(
                 )
             }
             DropdownMenuItem(
-                text = { Text("Delete") },
+                text = { Text(stringResource(R.string.action_delete)) },
                 leadingIcon = { Icon(Icons.Default.Delete, null) },
                 onClick = {
                     open = false
@@ -606,7 +629,7 @@ internal fun Hint(text: String, modifier: Modifier = Modifier) {
 }
 
 /** The two ways of looking at the same takes: where they sit, and which ones were kept. */
-enum class LibraryTab(val title: String) {
-    ALL("All files"),
-    STARRED("Starred"),
+enum class LibraryTab(@StringRes val title: Int) {
+    ALL(R.string.library_tab_all),
+    STARRED(R.string.library_tab_starred),
 }

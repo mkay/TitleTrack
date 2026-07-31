@@ -1,4 +1,514 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-License-Identifier: GPL-3.0-only
+
+  Translators: see the notes on individual strings below. Anything marked
+  translatable="false" is a brand name, a legal notice, or a unit symbol —
+  please leave those alone.
+
+  Format arguments are positional (%1$s, %2$d) so a translation can reorder
+  them. Durations and timecodes are formatted in code and arrive as text.
+-->
 <resources>
-    <string name="app_name">Title Track</string>
+
+    <!-- ===== Brand ===== -->
+
+    <!-- The app's name. Not licensed for use by forks, and never translated. -->
+    <string name="app_name" translatable="false">Title Track</string>
+
+    <!-- ===== Common actions ===== -->
+
+    <string name="action_cancel">Cancel</string>
+    <string name="action_save">Save</string>
+    <string name="action_got_it">Got it</string>
+
+    <!-- ===== Naming and notes ===== -->
+
+    <!-- Title of the note editor when there is no note yet. -->
+    <string name="note_add_title">Add a note</string>
+    <!-- Title of the note editor when one is being changed. -->
+    <string name="note_title">Note</string>
+    <!-- Greyed-out example inside the empty note field. -->
+    <string name="note_placeholder">Chords, words, what the idea was…</string>
+
+    <!-- ===== Quick help =====
+         Every item is a gesture with no affordance — a hold, or a second tap. The titles are what
+         someone is trying to do; the bodies say which gesture does it. "Record", "Metronome" and
+         "Play" name buttons, so they must match the labels used elsewhere. -->
+
+    <string name="help_title">Quick help</string>
+
+    <string name="help_level_title">Set your level</string>
+    <string name="help_level_body">Hold Record and play the loudest thing you are going to play. It offers a gain that leaves the take room to be louder than the rehearsal.</string>
+
+    <string name="help_click_title">Hear the click through the take</string>
+    <string name="help_click_body">Long-press Metronome on the record row. For headphones only — on a speaker the microphone hears it too, and it lands in the take for good.</string>
+
+    <string name="help_replay_title">Play a take again</string>
+    <string name="help_replay_body">Double-tap Play to start it from the beginning; a single tap picks up where you left it.</string>
+
+    <string name="help_loop_title">Loop a take</string>
+    <string name="help_loop_body">Hold Play. The whole take repeats until you stop it — the lemniscate on the button says it is on.</string>
+
+    <string name="help_trim_title">Move a trim handle</string>
+    <string name="help_trim_body">Press Trim, then hold a handle still until it grabs, and drag. The short hold is what stops a reach for a handle from seeking instead.</string>
+
+    <string name="help_select_title">Pick out several takes</string>
+    <string name="help_select_body">Long-press a take in the library. The bar becomes the selection\'s, for moving or deleting the lot.</string>
+
+    <!-- ===== Settings ===== -->
+
+    <!-- The three tabs. They share the width of the screen between them, so keep these short —
+         a long word here shrinks the type for all three. -->
+    <string name="settings_tab_recording">Recording</string>
+    <string name="settings_tab_system">System</string>
+    <string name="settings_tab_about">About</string>
+
+    <!-- Recording tab -->
+    <string name="settings_section_microphone">Microphone</string>
+    <string name="setting_listen_title">Listen before recording</string>
+    <string name="setting_listen_detail">Check levels and catch clipping before you play, not after. Keeps the microphone open, so its indicator stays lit.</string>
+
+    <string name="settings_section_time_signature">Time signature</string>
+    <string name="settings_time_signature_detail">Beats to the bar, for the count-in and the metronome.</string>
+    <!-- A time signature, e.g. 4/4. %1$d is the beats to the bar; the lower number is always 4. -->
+    <string name="time_signature_over_four" translatable="false">%1$d/4</string>
+
+    <string name="settings_section_metronome">Metronome</string>
+    <string name="setting_click_title">Click while recording</string>
+    <string name="setting_click_detail">For headphones. On a speaker the microphone hears the click too, and it lands in the take for good. The count-in clicks either way, and the beat on screen is always silent.</string>
+
+    <string name="settings_section_saving">Saving</string>
+    <string name="setting_prompt_name_title">Prompt for a filename</string>
+    <string name="setting_prompt_name_detail">Off: takes are saved at once, named by date and time. Rename them later.</string>
+
+    <!-- System tab -->
+    <string name="settings_section_folder">Recordings folder</string>
+    <!-- Stands where the folder\'s name would be, before one has been picked. -->
+    <string name="settings_folder_none">Not chosen yet</string>
+    <string name="settings_folder_detail">Takes land here as 44.1 kHz mono WAV, tempo included.</string>
+    <string name="action_choose_folder">Choose folder…</string>
+    <string name="action_change_folder">Change folder…</string>
+
+    <string name="settings_section_library">Library</string>
+    <string name="setting_starred_first_title">Starred takes first</string>
+    <string name="setting_starred_first_detail">Off: every folder stays in date order. The Starred tab still gathers them.</string>
+
+    <string name="settings_section_display">Display</string>
+    <string name="setting_keep_screen_on_title">Keep the screen on</string>
+    <string name="setting_keep_screen_on_detail">Your hands are on the instrument. Costs battery.</string>
+
+    <string name="setting_theme">Theme</string>
+    <!-- The three theme choices. "System" means: whatever the phone is set to. -->
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+
+    <string name="setting_language">Language</string>
+    <!-- Chosen when the app should simply speak whatever the phone speaks. Every other entry in
+         that list names itself in its own language, so this is the only one to translate. -->
+    <string name="language_system">System language</string>
+
+    <!-- ===== About ===== -->
+
+    <!-- The version, as shown under the app name. %1$s is like "0.2 (2)". -->
+    <string name="about_version">v%1$s</string>
+    <!-- Confirmation after long-pressing the version to copy it. Android 13+ shows its own. -->
+    <string name="about_version_copied">Version copied</string>
+
+    <string name="about_section_about">About</string>
+    <string name="about_body">A recorder for instruments rather than for voice memos. I built Title Track primarily for myself — maybe you\'ll find it just as useful as I do.</string>
+
+    <string name="about_section_website">Website</string>
+    <string name="about_website_body">The app lives here:</string>
+
+    <string name="about_section_bugs">Bugs</string>
+    <string name="about_bugs_body">Found a hiccup? Let me know:</string>
+
+    <string name="about_section_support">Support</string>
+    <string name="about_support_body">If you can, support its development:</string>
+
+    <!-- The licence section. Both lines below are translatable="false": they state the exact terms
+         the app is released under, and a paraphrase in another language could change what they
+         mean. GPL §5 requires a derivative to preserve legal notices, which is the whole reason
+         they are stated in the app and not only in the repo. -->
+    <string name="about_section_license">License</string>
+    <string name="about_copyright" translatable="false">Copyright © 2026 Kreuder</string>
+    <string name="about_license" translatable="false">Title Track is free software under the GPL-3.0-only. The wordmark and the icon are CC BY 4.0; the name is not licensed, so a fork needs its own. Built with AndroidX and Jetpack Compose, licensed under Apache 2.0.</string>
+
+    <!-- ===== Support dialog =====
+         Written in the first person: it is the developer asking, not the app. Keep that voice. -->
+
+    <string name="support_title">Keep this app alive</string>
+    <string name="support_intro">This app doesn\'t track. Anything.\nThe downside is I have no idea if or how often it\'s used or downloaded.\nCould be zero, could be a secret cult following. I genuinely don\'t know.</string>
+    <string name="support_question">Am I wasting my time publishing it? You tell me.</string>
+    <string name="support_ways">There are three (maybe more) ways to keep me motivated:</string>
+
+    <string name="support_easy_title">The easy way</string>
+    <string name="support_easy_action">Give it a like</string>
+    <string name="support_easy_note">Opens a page on my website with a like button. Nothing is counted until you press it — just the press and an anonymised IP.</string>
+
+    <string name="support_nerdy_title">The nerdy way</string>
+    <string name="support_nerdy_action">Star it on GitHub</string>
+    <string name="support_nerdy_note">A star is a number I can actually see, and it helps others find it.</string>
+
+    <string name="support_generous_title">The generous way</string>
+    <string name="support_generous_action">Support it on Ko-fi</string>
+    <string name="support_generous_note">Entirely optional. The app is and stays free either way.</string>
+
+    <string name="action_close">Close</string>
+    <!-- Shown when a link cannot be opened because the device has no browser at all. -->
+    <string name="error_no_browser">No browser found</string>
+
+    <!-- ===== Move dialog ===== -->
+
+    <string name="move_title_one">Move to…</string>
+    <!-- Title when several takes are being moved at once. %1$d is how many. -->
+    <plurals name="move_title_many">
+        <item quantity="one">Move %1$d to…</item>
+        <item quantity="other">Move %1$d to…</item>
+    </plurals>
+    <string name="move_up_one_level">Up one level</string>
+    <string name="move_no_subfolders">No sub-folders here.</string>
+    <!-- Confirms the move into whichever folder the dialog is currently showing. -->
+    <string name="action_move_here">Move here</string>
+
+    <!-- ===== Player transport =====
+         Spoken by a screen reader rather than shown, except where noted. -->
+
+    <string name="cd_play">Play</string>
+    <string name="cd_stop">Stop</string>
+    <string name="cd_close_player">Close the player</string>
+
+    <!-- Separates a take\'s file type from its time: "WAV · 0:12 / 1:30". -->
+    <string name="mini_player_separator" translatable="false"> · </string>
+    <!-- Between position and total: "0:12 / 1:30". -->
+    <string name="mini_player_of" translatable="false"> / </string>
+
+    <!-- ===== Starred tab ===== -->
+
+    <string name="starred_empty">Nothing starred yet. Tap the star on a take to keep it here.</string>
+
+    <!-- ===== Library ===== -->
+
+    <!-- The two ways of looking at the same takes. They share a tab row, so keep them short. -->
+    <string name="library_tab_all">All files</string>
+    <string name="library_tab_starred">Starred</string>
+
+    <string name="cd_new_subfolder">New sub-folder</string>
+    <string name="library_no_folder">Choose a folder to keep your recordings in.</string>
+    <string name="library_empty">Nothing here yet. Recorded takes will appear in this folder.</string>
+
+    <string name="folder_new_title">New sub-folder</string>
+    <string name="action_create">Create</string>
+    <string name="rename_title">Rename</string>
+    <string name="action_rename">Rename</string>
+
+    <string name="delete_one_title">Delete?</string>
+    <!-- %1$s is the take or folder\'s name; the quotation marks around it are part of the string,
+         so a translation should use whichever marks its language writes. -->
+    <string name="delete_one_message">“%1$s” will be removed from your storage. This cannot be undone.</string>
+    <string name="action_delete">Delete</string>
+
+    <!-- The line under a take\'s name: type, length, tempo, size, date, folder. The separator is
+         shared, so a translation changes it once. -->
+    <string name="take_meta_separator" translatable="false"> · </string>
+    <!-- Tempo. %1$s is the number; "bpm" is an abbreviation used in every language this ships in. -->
+    <string name="take_meta_bpm" translatable="false">%1$s bpm</string>
+
+    <string name="cd_has_note">Has a note</string>
+    <string name="cd_starred">Starred</string>
+    <string name="cd_not_starred">Not starred</string>
+    <string name="cd_selected">Selected</string>
+    <string name="cd_not_selected">Not selected</string>
+    <string name="cd_more">More</string>
+
+    <string name="action_move_to">Move to…</string>
+    <string name="action_share">Share</string>
+
+    <!-- ===== Storage errors =====
+         One per StorageFailure. They are shown in a snackbar or in place of a folder listing, so
+         each is a whole sentence that says what went wrong without naming a Uri or a class. -->
+
+    <string name="error_no_folder_chosen">No folder chosen yet.</string>
+    <string name="error_folder_unreachable">That folder is unreachable.</string>
+    <string name="error_folder_unreadable">That folder could not be read.</string>
+
+    <string name="error_cannot_create_file">Could not create a file in that folder.</string>
+    <string name="error_cannot_open_new_file">Could not open the new file for writing.</string>
+    <string name="error_cannot_write_into_folder">Nothing could be written into that folder.</string>
+    <string name="error_cannot_write_file">That file could not be written.</string>
+
+    <string name="error_cannot_read_file">That file could not be read.</string>
+    <!-- The header says the audio is longer than the file actually is — a truncated download. -->
+    <string name="error_file_truncated">That file ended sooner than its header says.</string>
+    <string name="error_file_has_no_audio">That file has no audio in it.</string>
+    <!-- No codec on this phone can open the file; nothing is wrong with the file as such. -->
+    <string name="error_no_decoder">Nothing on this device can decode that file.</string>
+    <string name="error_decoded_to_silence">That file decoded to no audio.</string>
+
+    <string name="error_copy_not_created">The copy could not be created.</string>
+    <string name="error_copy_not_written">The copy could not be written.</string>
+    <string name="error_copy_unreadable">The copy was written but could not be read back.</string>
+    <string name="error_original_not_removed">The original could not be removed.</string>
+    <string name="error_folders_cannot_move">Folders cannot be moved here.</string>
+
+    <string name="error_nothing_selected">Nothing selected to keep.</string>
+    <string name="error_selection_too_short">That selection is too short to keep.</string>
+    <!-- "in place" means: changing the file itself rather than writing a new one alongside it. -->
+    <string name="error_trim_wav_only">Only WAV takes can be trimmed in place. Save a copy instead.</string>
+    <string name="error_normalise_wav_only">Only WAV takes can be overwritten. Save a normalised copy instead.</string>
+
+    <!-- ===== Messages =====
+         Everything that appears in the snackbar over the bottom of the screen. Each one reports on
+         something that has just happened, so they are short and in the past tense. -->
+
+    <!-- The folder was picked but the system would not let us hold onto the permission. -->
+    <string name="msg_folder_not_kept">That folder could not be kept — please pick it again.</string>
+    <string name="msg_folder_not_created">The folder could not be created.</string>
+    <string name="msg_not_renamed">That could not be renamed.</string>
+    <string name="msg_not_deleted">That could not be deleted.</string>
+    <string name="msg_not_moved">That could not be moved.</string>
+    <string name="msg_choose_folder_first">Choose a folder to keep your recordings in first.</string>
+    <string name="msg_choose_record_folder_first">Choose a folder to record into first.</string>
+
+    <!-- %1$d is how many of the batch did move before the rest failed. -->
+    <plurals name="msg_moved_partly">
+        <item quantity="one">Moved %1$d — the rest could not be moved.</item>
+        <item quantity="other">Moved %1$d — the rest could not be moved.</item>
+    </plurals>
+    <!-- %1$s is the destination folder\'s name. -->
+    <string name="msg_moved_one">Moved to %1$s.</string>
+    <!-- %1$d is how many takes moved, %2$s the destination folder\'s name. -->
+    <plurals name="msg_moved_many">
+        <item quantity="one">Moved %1$d take to %2$s.</item>
+        <item quantity="other">Moved %1$d takes to %2$s.</item>
+    </plurals>
+
+    <!-- Shown when the level test is asked for without microphone permission. %1$s is the app\'s
+         name, which is never translated. -->
+    <string name="msg_needs_microphone">%1$s needs the microphone to measure the level.</string>
+
+    <!-- %1$s is the filename the take was saved under. -->
+    <string name="msg_saved_as">Saved as %1$s</string>
+    <string name="msg_not_saved">The take could not be saved.</string>
+    <!-- The take was opened from the recents list, but the file is no longer in the folder. -->
+    <string name="msg_take_gone">That take is no longer there.</string>
+    <string name="msg_nowhere_for_copy">There is nowhere to write a copy.</string>
+
+    <!-- Normalising found the take is already as loud as it can safely be made. -->
+    <string name="msg_already_level">Already at level — nothing to lift.</string>
+    <!-- %1$s is the new file\'s name, %2$s the gain applied, like "+3.4". -->
+    <string name="msg_saved_copy_with_gain">Saved %1$s, %2$s dB.</string>
+    <!-- %1$s is the gain applied, like "+3.4". -->
+    <string name="msg_normalised">Normalised, %1$s dB.</string>
+    <string name="msg_not_normalised">That take could not be normalised.</string>
+
+    <!-- %1$s is the new file\'s name. -->
+    <string name="msg_saved_copy">Saved %1$s.</string>
+    <string name="msg_trimmed">Trimmed.</string>
+    <string name="msg_not_trimmed">That take could not be trimmed.</string>
+
+    <string name="msg_not_played">That file could not be played.</string>
+
+    <string name="msg_looping">Looping.</string>
+    <string name="msg_loop_off">Loop off.</string>
+
+    <!-- ===== Screens and app bar ===== -->
+
+    <!-- The two tabs at the foot of the screen, and the two screens reached from the drawer.
+         "Take" titles the player; the bar shows the folder\'s name instead when there is one. -->
+    <string name="screen_record">Record</string>
+    <string name="screen_library">Library</string>
+    <string name="screen_settings">Settings</string>
+    <string name="screen_player">Take</string>
+
+    <string name="cd_menu">Menu</string>
+    <string name="cd_back_to_library">Back to the library</string>
+    <string name="cd_cancel_selection">Cancel selection</string>
+    <string name="cd_move_selected">Move selected</string>
+    <string name="cd_delete_selected">Delete selected</string>
+    <string name="cd_star">Star</string>
+    <string name="cd_unstar">Unstar</string>
+    <string name="cd_screen_kept_on">Screen kept on</string>
+
+    <!-- Titles the app bar while takes are being picked out. %1$d is how many. -->
+    <plurals name="selection_count">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
+
+    <!-- ===== Drawer ===== -->
+
+    <string name="drawer_support">Support %1$s</string>
+    <!-- Heading over the takes opened lately. Shown in capitals by the style, so write it as
+         ordinary words if that reads better in your language. -->
+    <string name="drawer_recently_opened">RECENTLY OPENED</string>
+
+    <!-- ===== Keep-awake notice ===== -->
+
+    <string name="keep_awake_title">Screen stays on</string>
+    <!-- %1$s is the app\'s name. The quoted phrase is the setting\'s own label — translate it the
+         same way there, or the sentence points at something the reader cannot find. -->
+    <string name="keep_awake_body">“Keep the screen on” is enabled, so the display won\'t dim or lock while %1$s is open. Handy with an instrument in your hands, but it uses more battery.</string>
+
+    <!-- ===== Deleting a batch ===== -->
+
+    <!-- Title of the confirmation. %1$d is how many rows are selected. -->
+    <plurals name="delete_many_title">
+        <item quantity="one">Delete %1$d?</item>
+        <item quantity="other">Delete %1$d?</item>
+    </plurals>
+    <!-- Noun phrases the sentences below are built from: "3 takes", "1 folder". -->
+    <plurals name="count_takes">
+        <item quantity="one">%1$d take</item>
+        <item quantity="other">%1$d takes</item>
+    </plurals>
+    <plurals name="count_folders">
+        <item quantity="one">%1$d folder</item>
+        <item quantity="other">%1$d folders</item>
+    </plurals>
+    <!-- %1$s is a phrase from count_takes above. -->
+    <string name="delete_many_takes">%1$s will be removed from your storage. This cannot be undone.</string>
+    <!-- %1$s is a phrase from count_folders above. -->
+    <string name="delete_many_folders">%1$s, with everything inside, will be removed from your storage. This cannot be undone.</string>
+    <!-- %1$s is from count_takes, %2$s from count_folders. -->
+    <string name="delete_many_both">%1$s and %2$s, with everything inside, will be removed from your storage. This cannot be undone.</string>
+
+    <!-- ===== Choosing the recordings folder ===== -->
+
+    <string name="folder_missing_title">Recordings folder missing</string>
+    <string name="folder_choose_title">Where should takes go?</string>
+    <!-- %1$s is the app\'s name. -->
+    <string name="folder_missing_body">The folder %1$s was recording into is no longer reachable — it may have been removed, or the permission withdrawn. Choose it again, or pick another one.</string>
+    <string name="folder_choose_body">Pick a folder to record into. Takes are written there as plain WAV files, so they can be copied off over USB like any other file.</string>
+    <string name="action_not_now">Not now</string>
+
+    <!-- Title of the system share sheet. -->
+    <string name="share_take_title">Share take</string>
+
+    <!-- ===== Record screen ===== -->
+
+    <string name="record_counting_in">Counting in…</string>
+    <!-- Under the running clock while capture is happening. -->
+    <string name="record_recording">Recording</string>
+    <!-- Under the clock once capture has stopped and there is something to save. -->
+    <string name="record_take_ready">Take ready</string>
+
+    <string name="action_record">Record</string>
+    <string name="action_done">Done</string>
+    <string name="action_restart">Restart</string>
+    <string name="action_discard">Discard</string>
+    <string name="record_choose_folder_prompt">Choose a folder to record into…</string>
+
+    <!-- The four cells above the Record button: each is a label and what it currently says. -->
+    <string name="cell_tempo">Tempo</string>
+    <!-- %1$d is the tempo. "bpm" is beats per minute, left as-is in every language here. -->
+    <string name="cell_tempo_value" translatable="false">%1$d bpm</string>
+    <string name="cell_count_in">Count-in</string>
+    <string name="cell_metronome">Metronome</string>
+    <string name="cell_input">Input</string>
+
+    <!-- Count-in length. -->
+    <string name="count_in_off">Off</string>
+    <plurals name="count_in_bars">
+        <item quantity="one">%1$d bar</item>
+        <item quantity="other">%1$d bars</item>
+    </plurals>
+
+    <!-- What the metronome is doing: on screen, audible, both, or neither. -->
+    <string name="metronome_on_and_click">On + click</string>
+    <string name="metronome_on">On</string>
+    <string name="metronome_click">Click</string>
+    <string name="metronome_off">Off</string>
+
+    <!-- Input gain. dB is a unit symbol, the same in every language. -->
+    <string name="gain_none" translatable="false">0 dB</string>
+    <string name="gain_boost" translatable="false">+%1$d dB</string>
+
+    <!-- Long-press dialog on the Metronome cell. -->
+    <string name="click_dialog_title">Click while recording</string>
+    <string name="click_dialog_body">For headphones. On a speaker the microphone hears the click too, and it lands in the take for good.</string>
+    <string name="click_through_take">Clicking through the take</string>
+    <string name="click_count_in_only">Count-in only</string>
+
+    <!-- Long-press dialog on the Count-in cell. -->
+    <string name="time_signature_title">Time signature</string>
+
+    <!-- Tempo dialog. -->
+    <string name="tempo_title">Tempo</string>
+    <!-- Typographic minus (U+2212) and plus on the stepper buttons. -->
+    <string name="button_decrement" translatable="false">−</string>
+    <string name="button_increment" translatable="false">+</string>
+    <string name="tempo_preview_on">Prelisten: on</string>
+    <string name="tempo_preview_off">Prelisten: off</string>
+
+    <!-- Save dialog, when the app has been told to ask for a name. -->
+    <string name="save_take_title">Save take</string>
+    <string name="save_take_name_label">Name</string>
+    <!-- %1$s is the take\'s length, %2$s the folder it is going into. -->
+    <string name="save_take_detail">%1$s · into %2$s</string>
+
+    <!-- Level test, reached by holding Record. -->
+    <string name="level_title">Set the level</string>
+    <string name="level_body">Play the loudest thing you are going to play.</string>
+    <!-- The loudest peak heard so far. %1$s is a number like "−14"; dBFS is a unit symbol. -->
+    <string name="level_peak" translatable="false">Peak %1$s dBFS</string>
+    <string name="level_listening">Listening…</string>
+    <string name="level_nothing_heard">Nothing heard yet.</string>
+    <string name="level_loud_enough">Loud enough already.</string>
+    <string name="level_very_quiet">Very quiet — move the phone closer.</string>
+    <!-- %1$d is the gain that would be applied, in whole decibels. -->
+    <string name="level_quiet">Quiet. Takes can be lifted by +%1$d dB.</string>
+    <string name="level_measure_again">Measure again</string>
+    <string name="level_keep_zero">Keep 0 dB</string>
+    <!-- %1$d is the suggested gain in whole decibels. -->
+    <string name="level_record_at">Record at +%1$d dB</string>
+
+    <!-- ===== Player ===== -->
+
+    <string name="player_no_waveform">No waveform for this file — nothing on this device could decode it.</string>
+
+    <!-- The three tools under the waveform. -->
+    <string name="tool_trim">Trim</string>
+    <string name="tool_level">Level</string>
+    <string name="tool_note">Note</string>
+
+    <!-- Normalise, asked in two steps: how loud, then what to do with the result. -->
+    <string name="normalise_title">Normalise</string>
+    <string name="normalise_body">Lift a quiet take to a usable level.</string>
+    <string name="normalise_peak">Peak — loudest moment hits the top</string>
+    <string name="normalise_loudness">Loudness — louder overall, peaks rounded</string>
+    <!-- "no undo" is emphasised in the app; keep the same words in one piece if you can. -->
+    <string name="normalise_wav_warning_before">Overwriting rewrites the recording itself: there is </string>
+    <string name="warning_no_undo">no undo</string>
+    <string name="normalise_wav_warning_after">. A copy leaves this take alone.</string>
+    <string name="normalise_other_body">This one is decoded and saved as a new file; the original is left alone.</string>
+    <string name="action_overwrite_take">Overwrite this take</string>
+    <!-- %1$s is a file format, "FLAC" or "WAV". -->
+    <string name="action_save_normalised">Save a normalised %1$s</string>
+
+    <!-- Trim, in the strip below the waveform. -->
+    <!-- Floats over the waveform for a couple of seconds after Trim is pressed, and goes as soon
+         as a handle is actually grabbed. Keep it to one short line — it sits over the artwork. -->
+    <string name="hint_long_press_handle">Long-press a handle to move it</string>
+
+    <string name="trim_title">Trim</string>
+    <string name="trim_start">Start</string>
+    <string name="trim_end">End</string>
+    <!-- Confirms the trim. Deliberately says no length: it used to read "Keep 0:18", and a button
+         whose width moves as you drag the handles under it reads as a different button each time.
+         The length is on the Start/End readouts beside it, which is where a number belongs. -->
+    <string name="trim_keep">Keep selection</string>
+    <!-- %1$s is how much is being cut, like "0:08". Emphasis as in the normalise warning. -->
+    <string name="trim_wav_warning_before">%1$s is removed. Overwriting this take has </string>
+    <string name="trim_wav_warning_after">; a copy leaves it alone.</string>
+    <string name="trim_other_body">%1$s is removed. This one is decoded and saved as a new file; the original is left alone.</string>
+    <!-- %1$s is a file format, "FLAC" or "WAV". -->
+    <string name="action_save_trimmed">Save a trimmed %1$s</string>
+
+    <!-- Nudging a trim edge. %1$s is "Start" or "End" from above. -->
+    <string name="cd_nudge_earlier">%1$s earlier</string>
+    <string name="cd_nudge_later">%1$s later</string>
+
 </resources>

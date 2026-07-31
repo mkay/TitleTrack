@@ -3,6 +3,8 @@
 package de.singular.recorder.ui
 
 import android.os.SystemClock
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.systemGestureExclusion
@@ -60,6 +62,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -74,6 +77,7 @@ import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -88,6 +92,7 @@ import de.singular.recorder.R
 import de.singular.recorder.audio.AudioFormat
 import de.singular.recorder.audio.NormalizeMode
 import de.singular.recorder.storage.Take
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
 import kotlin.math.max
@@ -129,6 +134,22 @@ fun PlayerScreen(
     var scrubMs by remember(take.uri) { mutableLongStateOf(0L) }
     // The trim selection, as fractions of the take. Reset whenever the take changes underneath.
     var trimming by remember(take.uri) { mutableStateOf(false) }
+
+    // Holding a handle still to grab it is the one gesture on this screen that nothing can show,
+    // and the handles only exist once Trim is pressed — so the hint rides on entering trim mode
+    // rather than on opening the take. It fades on its own, never something to dismiss, and retires
+    // early once a handle is actually grabbed, since it sits where the drag happens.
+    var hintDone by remember(take.uri, trimming) { mutableStateOf(!trimming) }
+    LaunchedEffect(take.uri, trimming) {
+        if (!trimming) return@LaunchedEffect
+        delay(HintVisibleMs)
+        hintDone = true
+    }
+    val hintAlpha by animateFloatAsState(
+        targetValue = if (hintDone) 0f else 1f,
+        animationSpec = tween(HintFadeMs),
+        label = "handleHintAlpha",
+    )
     var startFrac by remember(take.uri) { mutableFloatStateOf(0f) }
     var endFrac by remember(take.uri) { mutableFloatStateOf(1f) }
     val positionMs = if (loaded) playback.positionMs else scrubMs
@@ -150,19 +171,25 @@ fun PlayerScreen(
             maxLines = 2,
         )
         Spacer(Modifier.height(4.dp))
+        val separator = stringResource(R.string.take_meta_separator)
+        // Resolved before the builder: buildString's lambda is ordinary Kotlin, not a composable
+        // scope, so stringResource cannot be called from within it.
+        val bpmText = take.bpm?.let {
+            val n = if (it == it.toInt().toFloat()) "${it.toInt()}" else "$it"
+            stringResource(R.string.take_meta_bpm, n)
+        }
         Text(
             buildString {
                 formatKind(take.name).takeIf { it.isNotEmpty() }?.let {
                     append(it)
-                    append(" · ")
+                    append(separator)
                 }
                 append(formatDuration(take.durationMs))
-                take.bpm?.let {
-                    append(" · ")
-                    append(if (it == it.toInt().toFloat()) "${it.toInt()}" else "$it")
-                    append(" bpm")
+                bpmText?.let {
+                    append(separator)
+                    append(it)
                 }
-                append(" · ")
+                append(separator)
                 append(formatSize(take.sizeBytes))
             },
             style = MaterialTheme.typography.bodySmall,
@@ -194,7 +221,7 @@ fun PlayerScreen(
             when {
                 open.loadingWaveform -> CircularProgressIndicator()
                 open.peaks == null -> Text(
-                    "No waveform for this file — nothing on this device could decode it.",
+                    stringResource(R.string.player_no_waveform),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     textAlign = TextAlign.Center,
@@ -224,7 +251,27 @@ fun PlayerScreen(
                             endFrac = frac.coerceIn(startFrac + minGap, 1f)
                         }
                     },
+                    onHandleGrabbed = { hintDone = true },
                     modifier = Modifier.fillMaxSize(),
+                )
+            }
+
+            // Sits above the waveform but takes no touches of its own — the gesture it describes
+            // has to stay available through it, and a hint that ate the taps would be its own bug.
+            // Neutral (the inverse-surface pair Material uses for snackbars) rather than the
+            // accent: it is a passing note over the waveform, not a control.
+            if (hintAlpha > 0f) {
+                Text(
+                    stringResource(R.string.hint_long_press_handle),
+                    color = MaterialTheme.colorScheme.inverseOnSurface,
+                    style = MaterialTheme.typography.labelLarge,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .alpha(hintAlpha * HintOpacity)
+                        .clip(ControlShape)
+                        .background(MaterialTheme.colorScheme.inverseSurface)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
                 )
             }
         }
@@ -285,7 +332,7 @@ fun PlayerScreen(
         // so the button does not repeat it — it just stops inviting a press that ends in silence.
         val playable = open.loadingWaveform || open.peaks != null
         BigButton(
-            text = if (playing) "Stop" else "Play",
+            text = stringResource(if (playing) R.string.cd_stop else R.string.cd_play),
             enabled = playable,
             // In loop mode the lemniscate takes the transport's place rather than sitting next to
             // it: the label already says what a press will do, so the icon is free to say what
@@ -338,11 +385,11 @@ fun PlayerOverflowAction(
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
-            Icon(Icons.Default.MoreVert, contentDescription = "More")
+            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.cd_more))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
-                text = { Text("Rename") },
+                text = { Text(stringResource(R.string.action_rename)) },
                 leadingIcon = { Icon(Icons.Default.DriveFileRenameOutline, null) },
                 onClick = {
                     open = false
@@ -350,7 +397,7 @@ fun PlayerOverflowAction(
                 },
             )
             DropdownMenuItem(
-                text = { Text("Move to…") },
+                text = { Text(stringResource(R.string.action_move_to)) },
                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.DriveFileMove, null) },
                 onClick = {
                     open = false
@@ -358,7 +405,7 @@ fun PlayerOverflowAction(
                 },
             )
             DropdownMenuItem(
-                text = { Text("Share") },
+                text = { Text(stringResource(R.string.action_share)) },
                 leadingIcon = { Icon(Icons.Default.Share, null) },
                 onClick = {
                     open = false
@@ -366,7 +413,7 @@ fun PlayerOverflowAction(
                 },
             )
             DropdownMenuItem(
-                text = { Text("Delete") },
+                text = { Text(stringResource(R.string.action_delete)) },
                 leadingIcon = { Icon(Icons.Default.Delete, null) },
                 onClick = {
                     open = false
@@ -410,7 +457,7 @@ private fun PlayerTools(
         ) {
             Icon(Icons.Default.ContentCut, contentDescription = null, Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Trim", style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(R.string.tool_trim), style = MaterialTheme.typography.labelLarge)
         }
         OutlinedButton(
             onClick = { normalizing = true },
@@ -426,7 +473,10 @@ private fun PlayerTools(
             } else {
                 Icon(Icons.Default.GraphicEq, contentDescription = null, Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Level", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    stringResource(R.string.tool_level),
+                    style = MaterialTheme.typography.labelLarge,
+                )
             }
         }
         OutlinedButton(
@@ -458,7 +508,7 @@ private fun PlayerTools(
                 },
             )
             Spacer(Modifier.width(6.dp))
-            Text("Note", style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(R.string.tool_note), style = MaterialTheme.typography.labelLarge)
         }
     }
 
@@ -466,14 +516,16 @@ private fun PlayerTools(
     // dialog would be a grid to read; two pairs are two glances.
     if (normalizing) {
         ChoiceDialog(
-            title = "Normalise",
-            body = { Text("Lift a quiet take to a usable level.", style = DialogBody) },
+            title = stringResource(R.string.normalise_title),
+            body = {
+                Text(stringResource(R.string.normalise_body), style = DialogBody)
+            },
             options = listOf(
-                "Peak — loudest moment hits the top" to {
+                stringResource(R.string.normalise_peak) to {
                     mode = NormalizeMode.PEAK
                     normalizing = false
                 },
-                "Loudness — louder overall, peaks rounded" to {
+                stringResource(R.string.normalise_loudness) to {
                     mode = NormalizeMode.LOUDNESS
                     normalizing = false
                 },
@@ -487,21 +539,26 @@ private fun PlayerTools(
         // putting it back where it came from would mean encoding it again. The dialog offers what
         // is actually possible rather than a button that would fail.
         val isWav = take.name.endsWith(".wav", ignoreCase = true)
+        // Resolved out here rather than inside buildList, which is not a composable scope.
+        val overwriteLabel = stringResource(R.string.action_overwrite_take)
+        val normalisedLabels = listOf(AudioFormat.FLAC, AudioFormat.WAV)
+            .map { it to stringResource(R.string.action_save_normalised, it.label) }
         ChoiceDialog(
-            title = "Normalise",
+            title = stringResource(R.string.normalise_title),
             body = {
+                val before = stringResource(R.string.normalise_wav_warning_before)
+                val noUndo = stringResource(R.string.warning_no_undo)
+                val after = stringResource(R.string.normalise_wav_warning_after)
+                val plain = stringResource(R.string.normalise_other_body)
                 Text(
                     if (isWav) {
                         buildAnnotatedString {
-                            append("Overwriting rewrites the recording itself: there is ")
-                            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("no undo") }
-                            append(". A copy leaves this take alone.")
+                            append(before)
+                            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(noUndo) }
+                            append(after)
                         }
                     } else {
-                        buildAnnotatedString {
-                            append("This one is decoded and saved as a new file; the original is ")
-                            append("left alone.")
-                        }
+                        buildAnnotatedString { append(plain) }
                     },
                     style = DialogBody,
                 )
@@ -512,15 +569,15 @@ private fun PlayerTools(
             options = buildList {
                 if (isWav) {
                     add(
-                        "Overwrite this take" to {
+                        overwriteLabel to {
                             mode = null
                             onNormalize(chosen, false, AudioFormat.WAV)
                         },
                     )
                 }
-                for (format in listOf(AudioFormat.FLAC, AudioFormat.WAV)) {
+                for ((format, label) in normalisedLabels) {
                     add(
-                        "Save a normalised ${format.label}" to {
+                        label to {
                             mode = null
                             onNormalize(chosen, true, format)
                         },
@@ -560,7 +617,9 @@ private fun ChoiceDialog(
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
     )
 }
 
@@ -594,6 +653,12 @@ private fun WaveformView(
     beatFrac: Float = 0f,
     beatsPerBar: Int = 4,
     onHandleDrag: (TrimEdge, Float) -> Unit = { _, _ -> },
+    /**
+     * Fires the moment a handle is actually grabbed — the hold has been held and the haptic has
+     * gone. The gesture is invisible, so the screen above puts a hint over the waveform until this
+     * says it has been found.
+     */
+    onHandleGrabbed: () -> Unit = {},
 ) {
     // Neutral, matching the record screen: the played part is the waveform's own ink, the unplayed
     // part the same ink dimmed. Position is carried by the step in weight rather than by a change
@@ -613,6 +678,9 @@ private fun WaveformView(
     val scrollTrack = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
     val scrollThumb = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
     val haptic = LocalHapticFeedback.current
+    // Read through a holder: the gesture loop below is a long-lived coroutine, and capturing the
+    // callback directly would pin whichever one was current when it started.
+    val grabbed by rememberUpdatedState(onHandleGrabbed)
 
     // The viewport. Kept here rather than hoisted: it is how this take is being *looked at*, and it
     // starts again from the whole file whenever a different one is opened.
@@ -725,6 +793,7 @@ private fun WaveformView(
                                 grabDx = downX - (at - offset) * size.width * zoom
                             }
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            grabbed()
                         }
                     }
 
@@ -1047,6 +1116,18 @@ private const val NUDGE_MS = 10L
 private val ToolPadding = PaddingValues(horizontal = 6.dp)
 
 /**
+ * How long the handle hint stays up, and how long it takes to go.
+ *
+ * Long enough to be read once without being read twice, and it goes on its own — a hint with a
+ * dismiss on it is a dialog, and the whole point is that it costs nothing to ignore.
+ */
+private const val HintVisibleMs = 2250L
+private const val HintFadeMs = 400
+
+/** Enough to read over a waveform, not enough to compete with it. */
+private const val HintOpacity = 0.5f
+
+/**
  * The trim bar: where the two edges are, buttons to move them by a hair, and the way out.
  *
  * Dragging gets an edge to roughly the right place; these get it exactly there. On a phone, a
@@ -1068,8 +1149,12 @@ private fun TrimTools(
 
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            EdgeNudge("Start", startMs, Modifier.weight(1f)) { onNudge(TrimEdge.START, it) }
-            EdgeNudge("End", endMs, Modifier.weight(1f)) { onNudge(TrimEdge.END, it) }
+            EdgeNudge(stringResource(R.string.trim_start), startMs, Modifier.weight(1f)) {
+                onNudge(TrimEdge.START, it)
+            }
+            EdgeNudge(stringResource(R.string.trim_end), endMs, Modifier.weight(1f)) {
+                onNudge(TrimEdge.END, it)
+            }
         }
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1078,7 +1163,12 @@ private fun TrimTools(
                 Modifier.weight(1f).height(48.dp),
                 shape = ControlShape,
                 contentPadding = ToolPadding,
-            ) { Text("Cancel", style = MaterialTheme.typography.labelLarge) }
+            ) {
+                Text(
+                    stringResource(R.string.action_cancel),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
             Button(
                 onClick = { asking = true },
                 Modifier.weight(1f).height(48.dp),
@@ -1091,7 +1181,7 @@ private fun TrimTools(
                     CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 } else {
                     Text(
-                        "Keep ${formatDuration(endMs - startMs)}",
+                        stringResource(R.string.trim_keep),
                         style = MaterialTheme.typography.labelLarge,
                     )
                 }
@@ -1104,21 +1194,25 @@ private fun TrimTools(
         // away outright, so the copy is the option worth having.
         val isWav = take.name.endsWith(".wav", ignoreCase = true)
         val cut = formatDuration(durationMs - (endMs - startMs))
+        val overwriteLabel = stringResource(R.string.action_overwrite_take)
+        val trimmedLabels = listOf(AudioFormat.FLAC, AudioFormat.WAV)
+            .map { it to stringResource(R.string.action_save_trimmed, it.label) }
         ChoiceDialog(
-            title = "Trim",
+            title = stringResource(R.string.trim_title),
             body = {
+                val before = stringResource(R.string.trim_wav_warning_before, cut)
+                val noUndo = stringResource(R.string.warning_no_undo)
+                val after = stringResource(R.string.trim_wav_warning_after)
+                val plain = stringResource(R.string.trim_other_body, cut)
                 Text(
                     if (isWav) {
                         buildAnnotatedString {
-                            append("$cut is removed. Overwriting this take has ")
-                            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("no undo") }
-                            append("; a copy leaves it alone.")
+                            append(before)
+                            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(noUndo) }
+                            append(after)
                         }
                     } else {
-                        buildAnnotatedString {
-                            append("$cut is removed. This one is decoded and saved as a new file; ")
-                            append("the original is left alone.")
-                        }
+                        buildAnnotatedString { append(plain) }
                     },
                     style = DialogBody,
                 )
@@ -1129,15 +1223,15 @@ private fun TrimTools(
             options = buildList {
                 if (isWav) {
                     add(
-                        "Overwrite this take" to {
+                        overwriteLabel to {
                             asking = false
                             onTrim(false, AudioFormat.WAV)
                         },
                     )
                 }
-                for (format in listOf(AudioFormat.FLAC, AudioFormat.WAV)) {
+                for ((format, label) in trimmedLabels) {
                     add(
-                        "Save a trimmed ${format.label}" to {
+                        label to {
                             asking = false
                             onTrim(true, format)
                         },
@@ -1177,10 +1271,18 @@ private fun EdgeNudge(
             )
         }
         IconButton(onClick = { onNudge(-NUDGE_MS) }, Modifier.size(40.dp)) {
-            Icon(Icons.Default.Remove, contentDescription = "$label earlier", Modifier.size(18.dp))
+            Icon(
+                Icons.Default.Remove,
+                contentDescription = stringResource(R.string.cd_nudge_earlier, label),
+                Modifier.size(18.dp),
+            )
         }
         IconButton(onClick = { onNudge(NUDGE_MS) }, Modifier.size(40.dp)) {
-            Icon(Icons.Default.Add, contentDescription = "$label later", Modifier.size(18.dp))
+            Icon(
+                Icons.Default.Add,
+                contentDescription = stringResource(R.string.cd_nudge_later, label),
+                Modifier.size(18.dp),
+            )
         }
     }
 }

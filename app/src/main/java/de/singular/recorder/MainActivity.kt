@@ -7,12 +7,13 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.webkit.MimeTypeMap
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -67,8 +68,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -99,21 +103,27 @@ import de.singular.recorder.ui.brandFill
 import de.singular.recorder.ui.isDark
 import kotlinx.coroutines.launch
 
-private enum class Screen(val title: String) {
-    RECORD("Record"),
-    LIBRARY("Library"),
+private enum class Screen(@StringRes val title: Int) {
+    RECORD(R.string.screen_record),
+    LIBRARY(R.string.screen_library),
     // About used to be a screen of its own, reached from a row at the bottom of Settings. It is a
     // tab inside Settings now, so there is nowhere left to navigate *to* — see SettingsTab.
-    SETTINGS("Settings"),
+    SETTINGS(R.string.screen_settings),
 
     /** One take, opened from the library. The bar names the folder it came from, not this. */
-    PLAYER("Take"),
+    PLAYER(R.string.screen_player),
 }
 
 /** The two halves of the app, side by side in the bottom bar: make one, then listen to it. */
 private val TABS = listOf(Screen.RECORD, Screen.LIBRARY)
 
-class MainActivity : ComponentActivity() {
+/**
+ * An [AppCompatActivity] for one reason: the language row in Settings applies its choice through
+ * `AppCompatDelegate.setApplicationLocales`, and below Android 13 the storing and re-applying of
+ * that choice hangs off this base class. Nothing else about AppCompat is used — the UI is Compose
+ * from [setContent] down, and the XML theme draws nothing.
+ */
+class MainActivity : AppCompatActivity() {
 
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -184,9 +194,12 @@ class MainActivity : ComponentActivity() {
                     screen = Screen.PLAYER
                 }
 
+                // Resolved here rather than where it was raised: the words are chosen in whatever
+                // language is in effect when the snackbar goes up — see [Message].
+                val resources = LocalContext.current.resources
                 LaunchedEffect(message) {
                     message?.let {
-                        snackbar.showSnackbar(it)
+                        snackbar.showSnackbar(it.resolve(resources))
                         vm.clearMessage()
                     }
                 }
@@ -253,12 +266,13 @@ class MainActivity : ComponentActivity() {
                                 contentDescription = null,
                             )
                         },
-                        title = { Text("Screen stays on") },
+                        title = { Text(stringResource(R.string.keep_awake_title)) },
                         text = {
                             Text(
-                                "“Keep the screen on” is enabled, so the display won't dim or " +
-                                    "lock while Title Track is open. Handy with an instrument in " +
-                                    "your hands, but it uses more battery.",
+                                stringResource(
+                                    R.string.keep_awake_body,
+                                    stringResource(R.string.app_name),
+                                ),
                             )
                         },
                         confirmButton = {
@@ -267,10 +281,12 @@ class MainActivity : ComponentActivity() {
                                     showKeepAwakeInfo = false
                                     screen = Screen.SETTINGS
                                 },
-                            ) { Text("Settings") }
+                            ) { Text(stringResource(R.string.screen_settings)) }
                         },
                         dismissButton = {
-                            TextButton(onClick = { showKeepAwakeInfo = false }) { Text("Got it") }
+                            TextButton(onClick = { showKeepAwakeInfo = false }) {
+                                Text(stringResource(R.string.action_got_it))
+                            }
                         },
                     )
                 }
@@ -328,9 +344,9 @@ class MainActivity : ComponentActivity() {
                 // this dialog are gone.
                 openTake?.takeIf { renamingOpenTake }?.let { open ->
                     NameDialog(
-                        title = "Rename",
+                        title = stringResource(R.string.rename_title),
                         initial = open.take.name.substringBeforeLast('.'),
-                        confirm = "Rename",
+                        confirm = stringResource(R.string.action_rename),
                         onConfirm = {
                             renamingOpenTake = false
                             vm.renameOpenTake(it)
@@ -344,11 +360,10 @@ class MainActivity : ComponentActivity() {
                 openTake?.takeIf { deletingOpenTake }?.let { open ->
                     AlertDialog(
                         onDismissRequest = { deletingOpenTake = false },
-                        title = { Text("Delete?") },
+                        title = { Text(stringResource(R.string.delete_one_title)) },
                         text = {
                             Text(
-                                "“${open.take.name}” will be removed from your storage. " +
-                                    "This cannot be undone.",
+                                stringResource(R.string.delete_one_message, open.take.name),
                             )
                         },
                         confirmButton = {
@@ -357,10 +372,12 @@ class MainActivity : ComponentActivity() {
                                 val uri = open.take.uri
                                 leavePlayer()
                                 vm.deleteDocument(uri)
-                            }) { Text("Delete") }
+                            }) { Text(stringResource(R.string.action_delete)) }
                         },
                         dismissButton = {
-                            TextButton(onClick = { deletingOpenTake = false }) { Text("Cancel") }
+                            TextButton(onClick = { deletingOpenTake = false }) {
+                                Text(stringResource(R.string.action_cancel))
+                            }
                         },
                     )
                 }
@@ -376,23 +393,38 @@ class MainActivity : ComponentActivity() {
                     val takes = selection.size - folders
                     AlertDialog(
                         onDismissRequest = { deletingSelection = false },
-                        title = { Text("Delete ${selection.size}?") },
-                        text = {
+                        title = {
                             Text(
-                                buildString {
-                                    append(
-                                        listOfNotNull(
-                                            takes.takeIf { it > 0 }
-                                                ?.let { if (it == 1) "1 take" else "$it takes" },
-                                            folders.takeIf { it > 0 }?.let {
-                                                if (it == 1) "1 folder" else "$it folders"
-                                            },
-                                        ).joinToString(" and "),
+                                pluralStringResource(
+                                    R.plurals.delete_many_title,
+                                    selection.size,
+                                    selection.size,
+                                ),
+                            )
+                        },
+                        // Three whole sentences rather than one assembled from fragments. The
+                        // pieces read as English word order — noun phrase, comma, verb — and a
+                        // translator handed "with everything inside" on its own has nothing to
+                        // agree it with.
+                        text = {
+                            val takesPhrase = pluralStringResource(
+                                R.plurals.count_takes, takes, takes,
+                            )
+                            val foldersPhrase = pluralStringResource(
+                                R.plurals.count_folders, folders, folders,
+                            )
+                            Text(
+                                when {
+                                    takes > 0 && folders > 0 -> stringResource(
+                                        R.string.delete_many_both, takesPhrase, foldersPhrase,
                                     )
-                                    if (folders > 0) append(", with everything inside")
-                                    append(
-                                        " will be removed from your storage. " +
-                                            "This cannot be undone.",
+
+                                    folders > 0 -> stringResource(
+                                        R.string.delete_many_folders, foldersPhrase,
+                                    )
+
+                                    else -> stringResource(
+                                        R.string.delete_many_takes, takesPhrase,
                                     )
                                 },
                             )
@@ -402,10 +434,12 @@ class MainActivity : ComponentActivity() {
                                 deletingSelection = false
                                 selection.forEach { vm.deleteDocument(Uri.parse(it)) }
                                 selection = emptySet()
-                            }) { Text("Delete") }
+                            }) { Text(stringResource(R.string.action_delete)) }
                         },
                         dismissButton = {
-                            TextButton(onClick = { deletingSelection = false }) { Text("Cancel") }
+                            TextButton(onClick = { deletingSelection = false }) {
+                                Text(stringResource(R.string.action_cancel))
+                            }
                         },
                     )
                 }
@@ -471,11 +505,11 @@ class MainActivity : ComponentActivity() {
                         ModalDrawerSheet(Modifier.fillMaxWidth(0.8f)) {
                             Column(Modifier.fillMaxSize()) {
                                 Text(
-                                    "Title Track",
+                                    stringResource(R.string.app_name),
                                     Modifier.padding(24.dp),
                                 )
                                 NavigationDrawerItem(
-                                    label = { Text(Screen.SETTINGS.title) },
+                                    label = { Text(stringResource(Screen.SETTINGS.title)) },
                                     icon = { Icon(Icons.Default.Settings, null) },
                                     selected = screen == Screen.SETTINGS,
                                     onClick = { go(Screen.SETTINGS) },
@@ -485,7 +519,14 @@ class MainActivity : ComponentActivity() {
                                 // grows and shrinks, and an item that moves down the panel as you
                                 // use the app is one you stop being able to find.
                                 NavigationDrawerItem(
-                                    label = { Text("Support Title Track") },
+                                    label = {
+                                        Text(
+                                            stringResource(
+                                                R.string.drawer_support,
+                                                stringResource(R.string.app_name),
+                                            ),
+                                        )
+                                    },
                                     icon = {
                                         Icon(
                                             ImageVector.vectorResource(
@@ -507,7 +548,7 @@ class MainActivity : ComponentActivity() {
                                         // "Recent" alone invites the question the play triangle
                                         // raises: a take played in the list is recent too, and is
                                         // deliberately not here. This says which door counts.
-                                        "RECENTLY OPENED",
+                                        stringResource(R.string.drawer_recently_opened),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.padding(
@@ -556,7 +597,7 @@ class MainActivity : ComponentActivity() {
                                 Spacer(Modifier.weight(1f))
                                 HorizontalDivider(Modifier.padding(horizontal = 16.dp))
                                 NavigationDrawerItem(
-                                    label = { Text("Quick help") },
+                                    label = { Text(stringResource(R.string.help_title)) },
                                     icon = { Icon(Icons.AutoMirrored.Filled.HelpOutline, null) },
                                     selected = false,
                                     onClick = { closeThen { showHelp = true } },
@@ -590,7 +631,14 @@ class MainActivity : ComponentActivity() {
                                 },
                                 title = {
                                     if (selecting) {
-                                        Text("${selection.size} selected", maxLines = 1)
+                                        Text(
+                                            pluralStringResource(
+                                                R.plurals.selection_count,
+                                                selection.size,
+                                                selection.size,
+                                            ),
+                                            maxLines = 1,
+                                        )
                                         return@TopAppBar
                                     }
                                     // The player names the take itself, in the middle of the
@@ -602,9 +650,9 @@ class MainActivity : ComponentActivity() {
                                             library.current
                                                 ?.takeIf { library.canGoUp }
                                                 ?.name
-                                                ?: Screen.LIBRARY.title
+                                                ?: stringResource(Screen.LIBRARY.title)
                                         } else {
-                                            screen.title
+                                            stringResource(screen.title)
                                         },
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -615,21 +663,27 @@ class MainActivity : ComponentActivity() {
                                         IconButton(onClick = { selection = emptySet() }) {
                                             Icon(
                                                 Icons.Default.Close,
-                                                contentDescription = "Cancel selection",
+                                                contentDescription =
+                                                    stringResource(R.string.cd_cancel_selection),
                                             )
                                         }
                                     } else if (screen == Screen.PLAYER) {
                                         IconButton(onClick = { leavePlayer() }) {
                                             Icon(
                                                 Icons.AutoMirrored.Filled.ArrowBack,
-                                                contentDescription = "Back to the library",
+                                                contentDescription =
+                                                    stringResource(R.string.cd_back_to_library),
                                             )
                                         }
                                     } else {
                                         IconButton(
                                             onClick = { scope.launch { drawerState.open() } },
                                         ) {
-                                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                                            Icon(
+                                                Icons.Default.Menu,
+                                                contentDescription =
+                                                    stringResource(R.string.cd_menu),
+                                            )
                                         }
                                     }
                                 },
@@ -640,13 +694,15 @@ class MainActivity : ComponentActivity() {
                                         }) {
                                             Icon(
                                                 Icons.AutoMirrored.Filled.DriveFileMove,
-                                                contentDescription = "Move selected",
+                                                contentDescription =
+                                                    stringResource(R.string.cd_move_selected),
                                             )
                                         }
                                         IconButton(onClick = { deletingSelection = true }) {
                                             Icon(
                                                 Icons.Default.Delete,
-                                                contentDescription = "Delete selected",
+                                                contentDescription =
+                                                    stringResource(R.string.cd_delete_selected),
                                             )
                                         }
                                         return@TopAppBar
@@ -666,8 +722,10 @@ class MainActivity : ComponentActivity() {
                                                 } else {
                                                     Icons.Outlined.StarOutline
                                                 },
-                                                contentDescription =
-                                                    if (isStarred) "Unstar" else "Star",
+                                                contentDescription = stringResource(
+                                                    if (isStarred) R.string.cd_unstar
+                                                    else R.string.cd_star,
+                                                ),
                                                 // Tinted when given, plain when not: a star is the
                                                 // only thing in this bar that means anything by
                                                 // itself, and the accent is what makes it read as
@@ -688,7 +746,8 @@ class MainActivity : ComponentActivity() {
                                             // it matches the menu icon rather than an accent.
                                             Icon(
                                                 painterResource(R.drawable.ic_brightness_alert),
-                                                contentDescription = "Screen kept on",
+                                                contentDescription =
+                                                    stringResource(R.string.cd_screen_kept_on),
                                             )
                                         }
                                     }
@@ -729,7 +788,7 @@ class MainActivity : ComponentActivity() {
                                                 if (screen == Screen.PLAYER) vm.closeTake()
                                                 screen = tab
                                             },
-                                            label = tab.title,
+                                            label = stringResource(tab.title),
                                             icon = {
                                                 Icon(
                                                     when (tab) {
@@ -903,21 +962,34 @@ class MainActivity : ComponentActivity() {
     ) {
         AlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(if (hadFolder) "Recordings folder missing" else "Where should takes go?") },
+            title = {
+                Text(
+                    stringResource(
+                        if (hadFolder) R.string.folder_missing_title
+                        else R.string.folder_choose_title,
+                    ),
+                )
+            },
             text = {
                 Text(
                     if (hadFolder) {
-                        "The folder Title Track was recording into is no longer reachable — it may " +
-                            "have been removed, or the permission withdrawn. Choose it again, or " +
-                            "pick another one."
+                        stringResource(
+                            R.string.folder_missing_body,
+                            stringResource(R.string.app_name),
+                        )
                     } else {
-                        "Pick a folder to record into. Takes are written there as plain WAV files, " +
-                            "so they can be copied off over USB like any other file."
+                        stringResource(R.string.folder_choose_body)
                     },
                 )
             },
-            confirmButton = { TextButton(onClick = onChoose) { Text("Choose folder…") } },
-            dismissButton = { TextButton(onClick = onDismiss) { Text("Not now") } },
+            confirmButton = {
+                TextButton(onClick = onChoose) {
+                    Text(stringResource(R.string.action_choose_folder))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_not_now)) }
+            },
         )
     }
 
@@ -928,7 +1000,7 @@ class MainActivity : ComponentActivity() {
             putExtra(Intent.EXTRA_STREAM, take.uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        startActivity(Intent.createChooser(intent, "Share take"))
+        startActivity(Intent.createChooser(intent, getString(R.string.share_take_title)))
     }
 
     /**

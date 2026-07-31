@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.3 — unreleased
+
+The app speaks German, and can be told which language to speak.
+
+- **Language support, with German as the first translation.** Every user-facing word lived in the
+  Kotlin as a literal, so the app could only ever be English. There are now around 240 of them in
+  `res/values/strings.xml` with `res/values-de` alongside.
+- **A Language row in Settings → System**, offering the system language, Deutsch and English, each
+  named in its own language — someone who has landed in a language they cannot read needs a word on
+  the screen they are sure to recognise. The choice goes through `AppCompatDelegate`, so on Android
+  13 and up it *is* the per-app language in Android's own Settings rather than a second setting that
+  quietly disagrees with it.
+- Prose that was assembled from fragments is merged into whole sentences, and counts built by hand
+  become plurals. A translator cannot work with half a clause, and German reorders clauses anyway.
+- Errors changed shape. The store used to throw finished English sentences and the ViewModel put
+  them on screen; it now names the cause and the words are chosen where the message is *shown*, in
+  whatever language is in effect then. Same for every notice in the snackbar. The precise cause
+  stays in the exception, where the log wants it.
+- Sizes and gains follow the language — `1,5 MB` and `+3,2 dB` to a German reader. Timecodes do not:
+  a timecode is a timecode everywhere, and a comma in the middle of one reads as a different
+  quantity. The date-and-time name a take is saved under stays fixed too, so a folder of takes does
+  not sort into two groups the day the phone changes language.
+- The licence and copyright lines are marked untranslatable. They state the exact terms the app is
+  released under, and a paraphrase could change what they mean.
+- Pressing **Trim** now says *Long-press a handle to move it* over the waveform for a moment. The
+  hold is the one gesture on that screen nothing can show, and the hint goes on its own — sooner if
+  a handle is grabbed, since it sits where the drag happens. Quick help gained the same item.
+- The trim button reads **Keep selection** rather than the length being kept. A button whose width
+  moves as you drag the handles under it reads as a different button each time; the length is on the
+  Start and End readouts beside it, which is where a number belongs.
+- A build check of our own, because Android's `HardcodedText` lint only reads XML layouts and has
+  nothing to say about `Text("Cancel")` — which is the only way this app writes UI. Without it the
+  next screen written would silently be English-only and nothing would complain.
+
 ## 0.2 — unreleased
 
 First cut: recording and take management.

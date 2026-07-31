@@ -1,0 +1,395 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-License-Identifier: GPL-3.0-only
+
+  Deutsch. Geduzt, nicht gesiezt: die App richtet sich an Musiker und redet
+  wie jemand, der neben einem sitzt.
+
+  Fachbegriffe, die im deutschen Studioalltag englisch bleiben, bleiben es
+  auch hier: Take, Sample, Peak, Loop, Metronom-Klick, bpm, dB.
+-->
+<resources>
+
+    <!-- ===== Gemeinsame Aktionen ===== -->
+
+    <string name="action_cancel">Abbrechen</string>
+    <string name="action_save">Speichern</string>
+    <string name="action_got_it">Verstanden</string>
+
+    <!-- ===== Benennen und Notizen ===== -->
+
+    <string name="note_add_title">Notiz hinzufügen</string>
+    <string name="note_title">Notiz</string>
+    <string name="note_placeholder">Akkorde, Text, worum es ging …</string>
+
+    <!-- ===== Kurzhilfe ===== -->
+
+    <string name="help_title">Kurzhilfe</string>
+
+    <string name="help_level_title">Pegel einstellen</string>
+    <string name="help_level_body">Aufnahme gedrückt halten und das Lauteste spielen, was kommen wird. Die App schlägt einen Gain vor, der dem Take noch Luft nach oben lässt.</string>
+
+    <string name="help_click_title">Den Klick im Take hören</string>
+    <string name="help_click_body">Metronom in der Aufnahmezeile lange drücken. Nur für Kopfhörer — über Lautsprecher hört das Mikrofon ihn mit, und er landet endgültig im Take.</string>
+
+    <string name="help_replay_title">Einen Take noch einmal hören</string>
+    <string name="help_replay_body">Doppeltippen auf Wiedergabe startet von vorn; ein einzelner Tipp macht dort weiter, wo du aufgehört hast.</string>
+
+    <string name="help_loop_title">Einen Take loopen</string>
+    <string name="help_loop_body">Wiedergabe gedrückt halten. Der ganze Take wiederholt sich, bis du ihn stoppst — die Lemniskate auf dem Knopf zeigt, dass es läuft.</string>
+
+    <string name="help_trim_title">Einen Schnittgriff verschieben</string>
+    <string name="help_trim_body">Auf Schneiden tippen, dann einen Griff ruhig halten, bis er greift, und ziehen. Das kurze Halten verhindert, dass ein Griff daneben stattdessen spult.</string>
+
+    <string name="help_select_title">Mehrere Takes auswählen</string>
+    <string name="help_select_body">Einen Take in der Bibliothek lange drücken. Die Leiste gehört dann der Auswahl, zum Verschieben oder Löschen im Ganzen.</string>
+
+    <!-- ===== Einstellungen ===== -->
+
+    <string name="settings_tab_recording">Aufnahme</string>
+    <string name="settings_tab_system">System</string>
+    <string name="settings_tab_about">Über</string>
+
+    <string name="settings_section_microphone">Mikrofon</string>
+    <string name="setting_listen_title">Vor der Aufnahme mithören</string>
+    <string name="setting_listen_detail">Pegel prüfen und Übersteuern bemerken, bevor du spielst, nicht danach. Hält das Mikrofon offen, seine Anzeige bleibt also an.</string>
+
+    <string name="settings_section_time_signature">Taktart</string>
+    <string name="settings_time_signature_detail">Schläge pro Takt, für Einzähler und Metronom.</string>
+
+    <string name="settings_section_metronome">Metronom</string>
+    <string name="setting_click_title">Klick während der Aufnahme</string>
+    <string name="setting_click_detail">Für Aufnahmen über Kopfhörer.</string>
+
+    <string name="settings_section_saving">Speichern</string>
+    <string name="setting_prompt_name_title">Nach einem Dateinamen fragen</string>
+    <string name="setting_prompt_name_detail">Aus: Takes werden sofort gespeichert, benannt nach Datum und Uhrzeit.</string>
+
+    <string name="settings_section_folder">Aufnahmeordner</string>
+    <string name="settings_folder_none">Noch keiner gewählt</string>
+    <string name="settings_folder_detail">Takes landen hier als 44,1 kHz Mono-WAV, mit Tempo.</string>
+    <string name="action_choose_folder">Ordner wählen …</string>
+    <string name="action_change_folder">Ordner ändern …</string>
+
+    <string name="settings_section_library">Bibliothek</string>
+    <string name="setting_starred_first_title">Markierte Takes zuerst</string>
+    <string name="setting_starred_first_detail">Aus: Jeder Ordner bleibt nach Datum sortiert. Der Tab „Markiert“ sammelt sie trotzdem.</string>
+
+    <string name="settings_section_display">Anzeige</string>
+    <string name="setting_keep_screen_on_title">Bildschirm anlassen</string>
+    <string name="setting_keep_screen_on_detail">Deine Hände sind am Instrument. Kostet Akku.</string>
+
+    <string name="setting_theme">Design</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Hell</string>
+    <string name="theme_dark">Dunkel</string>
+
+    <string name="setting_language">Sprache</string>
+    <string name="language_system">Systemsprache</string>
+
+    <!-- ===== Über ===== -->
+
+    <string name="about_version">v%1$s</string>
+    <string name="about_version_copied">Version kopiert</string>
+
+    <string name="about_section_about">Über</string>
+    <string name="about_body">Ein Rekorder für Instrumente, nicht für Sprachnotizen. Ich habe Title Track vor allem für mich selbst gebaut — vielleicht ist er dir ja genauso nützlich wie mir.</string>
+
+    <string name="about_section_website">Website</string>
+    <string name="about_website_body">Die App wohnt hier:</string>
+
+    <string name="about_section_bugs">Fehler</string>
+    <string name="about_bugs_body">Etwas hakt? Sag mir Bescheid:</string>
+
+    <string name="about_section_support">Unterstützen</string>
+    <string name="about_support_body">Wenn du magst, unterstütze die Entwicklung:</string>
+
+    <string name="about_section_license">Lizenz</string>
+
+    <!-- ===== Unterstützen-Dialog ===== -->
+
+    <string name="support_title">Die App am Leben erhalten</string>
+    <string name="support_intro">Diese App trackt nicht. Gar nicht.\nDer Nachteil: Ich habe keine Ahnung, ob und wie oft sie benutzt oder heruntergeladen wird.\nKönnte null sein, es könnten bereits Tattoos davon existieren. Ich weiß es nicht.</string>
+    <string name="support_question">Lohnt sich der Aufwand, sie zu veröffentlichen? Sag es mir.</string>
+    <string name="support_ways">Es gibt (mindestens) drei Wege, mich zu motivieren:</string>
+
+    <string name="support_easy_title">Der einfache Weg</string>
+    <string name="support_easy_action">App bewerten</string>
+    <string name="support_easy_note">Öffnet eine Seite auf meiner Website mit einem Like-Button. Gezählt wird erst, wenn du ihn drückst — nur der Klick und eine anonymisierte IP.</string>
+
+    <string name="support_nerdy_title">Der nerdige Weg</string>
+    <string name="support_nerdy_action">GitHub Stern</string>
+    <string name="support_nerdy_note">Ein Stern ist eine Zahl, die ich sehen kann, und er hilft anderen, die App zu finden.</string>
+
+    <string name="support_generous_title">Der großzügige Weg</string>
+    <string name="support_generous_action">Auf Ko-fi unterstützen</string>
+    <string name="support_generous_note">Völlig freiwillig. Die App ist und bleibt kostenlos.</string>
+
+    <string name="action_close">Schließen</string>
+    <string name="error_no_browser">Kein Browser gefunden</string>
+
+    <!-- ===== Verschieben ===== -->
+
+    <string name="move_title_one">Verschieben nach …</string>
+    <plurals name="move_title_many">
+        <item quantity="one">%1$d verschieben nach …</item>
+        <item quantity="other">%1$d verschieben nach …</item>
+    </plurals>
+    <string name="move_up_one_level">Eine Ebene höher</string>
+    <string name="move_no_subfolders">Hier gibt es keine Unterordner.</string>
+    <string name="action_move_here">Hierher verschieben</string>
+
+    <!-- ===== Wiedergabeleiste ===== -->
+
+    <string name="cd_play">Wiedergabe</string>
+    <string name="cd_stop">Stopp</string>
+    <string name="cd_close_player">Player schließen</string>
+
+    <!-- ===== Markiert ===== -->
+
+    <string name="starred_empty">Noch nichts markiert. Tippe den Stern auf einem Take an, um ihn hier zu behalten.</string>
+
+    <!-- ===== Bibliothek ===== -->
+
+    <string name="library_tab_all">Alle Dateien</string>
+    <string name="library_tab_starred">Markiert</string>
+
+    <string name="cd_new_subfolder">Neuer Unterordner</string>
+    <string name="library_no_folder">Wähle einen Ordner für deine Aufnahmen.</string>
+    <string name="library_empty">Hier ist noch nichts. Aufgenommene Takes erscheinen in diesem Ordner.</string>
+
+    <string name="folder_new_title">Neuer Unterordner</string>
+    <string name="action_create">Anlegen</string>
+    <string name="rename_title">Umbenennen</string>
+    <string name="action_rename">Umbenennen</string>
+
+    <string name="delete_one_title">Löschen?</string>
+    <string name="delete_one_message">„%1$s“ wird aus deinem Speicher entfernt. Das lässt sich nicht rückgängig machen.</string>
+    <string name="action_delete">Löschen</string>
+
+    <string name="cd_has_note">Hat eine Notiz</string>
+    <string name="cd_starred">Markiert</string>
+    <string name="cd_not_starred">Nicht markiert</string>
+    <string name="cd_selected">Ausgewählt</string>
+    <string name="cd_not_selected">Nicht ausgewählt</string>
+    <string name="cd_more">Mehr</string>
+
+    <string name="action_move_to">Verschieben nach …</string>
+    <string name="action_share">Teilen</string>
+
+    <!-- ===== Speicherfehler ===== -->
+
+    <string name="error_no_folder_chosen">Noch kein Ordner gewählt.</string>
+    <string name="error_folder_unreachable">Dieser Ordner ist nicht erreichbar.</string>
+    <string name="error_folder_unreadable">Dieser Ordner konnte nicht gelesen werden.</string>
+
+    <string name="error_cannot_create_file">In diesem Ordner konnte keine Datei angelegt werden.</string>
+    <string name="error_cannot_open_new_file">Die neue Datei konnte nicht zum Schreiben geöffnet werden.</string>
+    <string name="error_cannot_write_into_folder">In diesen Ordner konnte nichts geschrieben werden.</string>
+    <string name="error_cannot_write_file">Diese Datei konnte nicht geschrieben werden.</string>
+
+    <string name="error_cannot_read_file">Diese Datei konnte nicht gelesen werden.</string>
+    <string name="error_file_truncated">Diese Datei endet früher, als ihr Header angibt.</string>
+    <string name="error_file_has_no_audio">In dieser Datei ist kein Audio.</string>
+    <string name="error_no_decoder">Auf diesem Gerät kann nichts diese Datei dekodieren.</string>
+    <string name="error_decoded_to_silence">Diese Datei ergab dekodiert kein Audio.</string>
+
+    <string name="error_copy_not_created">Die Kopie konnte nicht angelegt werden.</string>
+    <string name="error_copy_not_written">Die Kopie konnte nicht geschrieben werden.</string>
+    <string name="error_copy_unreadable">Die Kopie wurde geschrieben, ließ sich aber nicht zurücklesen.</string>
+    <string name="error_original_not_removed">Das Original konnte nicht entfernt werden.</string>
+    <string name="error_folders_cannot_move">Ordner lassen sich hier nicht verschieben.</string>
+
+    <string name="error_nothing_selected">Nichts zum Behalten ausgewählt.</string>
+    <string name="error_selection_too_short">Diese Auswahl ist zu kurz, um sie zu behalten.</string>
+    <string name="error_trim_wav_only">Nur WAV-Takes lassen sich direkt schneiden. Speichere stattdessen eine Kopie.</string>
+    <string name="error_normalise_wav_only">Nur WAV-Takes lassen sich überschreiben. Speichere stattdessen eine normalisierte Kopie.</string>
+
+    <!-- ===== Meldungen ===== -->
+
+    <string name="msg_folder_not_kept">Dieser Ordner ließ sich nicht behalten — bitte wähle ihn erneut.</string>
+    <string name="msg_folder_not_created">Der Ordner konnte nicht angelegt werden.</string>
+    <string name="msg_not_renamed">Das ließ sich nicht umbenennen.</string>
+    <string name="msg_not_deleted">Das ließ sich nicht löschen.</string>
+    <string name="msg_not_moved">Das ließ sich nicht verschieben.</string>
+    <string name="msg_choose_folder_first">Wähle zuerst einen Ordner für deine Aufnahmen.</string>
+    <string name="msg_choose_record_folder_first">Wähle zuerst einen Ordner zum Aufnehmen.</string>
+
+    <plurals name="msg_moved_partly">
+        <item quantity="one">%1$d verschoben — der Rest ließ sich nicht verschieben.</item>
+        <item quantity="other">%1$d verschoben — der Rest ließ sich nicht verschieben.</item>
+    </plurals>
+    <string name="msg_moved_one">Nach %1$s verschoben.</string>
+    <plurals name="msg_moved_many">
+        <item quantity="one">%1$d Take nach %2$s verschoben.</item>
+        <item quantity="other">%1$d Takes nach %2$s verschoben.</item>
+    </plurals>
+
+    <string name="msg_needs_microphone">%1$s braucht das Mikrofon, um den Pegel zu messen.</string>
+
+    <string name="msg_saved_as">Gespeichert als %1$s</string>
+    <string name="msg_not_saved">Der Take konnte nicht gespeichert werden.</string>
+    <string name="msg_take_gone">Diesen Take gibt es nicht mehr.</string>
+    <string name="msg_nowhere_for_copy">Es gibt keinen Ort für eine Kopie.</string>
+
+    <string name="msg_already_level">Schon auf Pegel — nichts anzuheben.</string>
+    <string name="msg_saved_copy_with_gain">%1$s gespeichert, %2$s dB.</string>
+    <string name="msg_normalised">Normalisiert, %1$s dB.</string>
+    <string name="msg_not_normalised">Dieser Take ließ sich nicht normalisieren.</string>
+
+    <string name="msg_saved_copy">%1$s gespeichert.</string>
+    <string name="msg_trimmed">Geschnitten.</string>
+    <string name="msg_not_trimmed">Dieser Take ließ sich nicht schneiden.</string>
+
+    <string name="msg_not_played">Diese Datei ließ sich nicht abspielen.</string>
+
+    <string name="msg_looping">Loop läuft.</string>
+    <string name="msg_loop_off">Loop aus.</string>
+
+    <!-- ===== Bildschirme und App-Leiste ===== -->
+
+    <string name="screen_record">Aufnahme</string>
+    <string name="screen_library">Bibliothek</string>
+    <string name="screen_settings">Einstellungen</string>
+    <string name="screen_player">Take</string>
+
+    <string name="cd_menu">Menü</string>
+    <string name="cd_back_to_library">Zurück zur Bibliothek</string>
+    <string name="cd_cancel_selection">Auswahl aufheben</string>
+    <string name="cd_move_selected">Auswahl verschieben</string>
+    <string name="cd_delete_selected">Auswahl löschen</string>
+    <string name="cd_star">Markieren</string>
+    <string name="cd_unstar">Markierung entfernen</string>
+    <string name="cd_screen_kept_on">Bildschirm bleibt an</string>
+
+    <plurals name="selection_count">
+        <item quantity="one">%1$d ausgewählt</item>
+        <item quantity="other">%1$d ausgewählt</item>
+    </plurals>
+
+    <!-- ===== Seitenleiste ===== -->
+
+    <string name="drawer_support">%1$s unterstützen</string>
+    <string name="drawer_recently_opened">ZULETZT GEÖFFNET</string>
+
+    <!-- ===== Hinweis zum wachen Bildschirm ===== -->
+
+    <string name="keep_awake_title">Bildschirm bleibt an</string>
+    <string name="keep_awake_body">„Bildschirm anlassen“ ist eingeschaltet, der Bildschirm dimmt und sperrt also nicht, solange %1$s offen ist. Praktisch mit einem Instrument in den Händen, kostet aber mehr Akku.</string>
+
+    <!-- ===== Mehrere löschen ===== -->
+
+    <plurals name="delete_many_title">
+        <item quantity="one">%1$d löschen?</item>
+        <item quantity="other">%1$d löschen?</item>
+    </plurals>
+    <plurals name="count_takes">
+        <item quantity="one">%1$d Take</item>
+        <item quantity="other">%1$d Takes</item>
+    </plurals>
+    <plurals name="count_folders">
+        <item quantity="one">%1$d Ordner</item>
+        <item quantity="other">%1$d Ordner</item>
+    </plurals>
+    <string name="delete_many_takes">%1$s werden aus deinem Speicher entfernt. Das lässt sich nicht rückgängig machen.</string>
+    <string name="delete_many_folders">%1$s werden mit allem darin aus deinem Speicher entfernt. Das lässt sich nicht rückgängig machen.</string>
+    <string name="delete_many_both">%1$s und %2$s werden mit allem darin aus deinem Speicher entfernt. Das lässt sich nicht rückgängig machen.</string>
+
+    <!-- ===== Aufnahmeordner wählen ===== -->
+
+    <string name="folder_missing_title">Aufnahmeordner fehlt</string>
+    <string name="folder_choose_title">Wohin sollen die Takes?</string>
+    <string name="folder_missing_body">Der Ordner, in den %1$s aufgenommen hat, ist nicht mehr erreichbar — vielleicht wurde er entfernt oder die Berechtigung zurückgezogen. Wähle ihn erneut oder nimm einen anderen.</string>
+    <string name="folder_choose_body">Wähle einen Ordner zum Aufnehmen. Takes werden dort als schlichte WAV-Dateien abgelegt und lassen sich wie jede andere Datei per USB kopieren.</string>
+    <string name="action_not_now">Jetzt nicht</string>
+
+    <string name="share_take_title">Take teilen</string>
+
+    <!-- ===== Aufnahmebildschirm ===== -->
+
+    <string name="record_counting_in">Zählt ein …</string>
+    <string name="record_recording">Nimmt auf</string>
+    <string name="record_take_ready">Take bereit</string>
+
+    <string name="action_record">Aufnahme</string>
+    <string name="action_done">Fertig</string>
+    <string name="action_restart">Neu starten</string>
+    <string name="action_discard">Verwerfen</string>
+    <string name="record_choose_folder_prompt">Ordner zum Aufnehmen wählen …</string>
+
+    <string name="cell_tempo">Tempo</string>
+    <string name="cell_count_in">Einzähler</string>
+    <string name="cell_metronome">Metronom</string>
+    <string name="cell_input">Eingang</string>
+
+    <string name="count_in_off">Aus</string>
+    <plurals name="count_in_bars">
+        <item quantity="one">%1$d Takt</item>
+        <item quantity="other">%1$d Takte</item>
+    </plurals>
+
+    <string name="metronome_on_and_click">An + Klick</string>
+    <string name="metronome_on">An</string>
+    <string name="metronome_click">Klick</string>
+    <string name="metronome_off">Aus</string>
+
+    <string name="click_dialog_title">Klick während der Aufnahme</string>
+    <string name="click_dialog_body">Für Kopfhörer. Über Lautsprecher hört das Mikrofon den Klick mit, und er landet endgültig im Take.</string>
+    <string name="click_through_take">Klick während der Aufnahme</string>
+    <string name="click_count_in_only">Klick nur zum Einzählen</string>
+
+    <string name="time_signature_title">Taktart</string>
+
+    <string name="tempo_title">Tempo</string>
+    <string name="tempo_preview_on">Vorhören: an</string>
+    <string name="tempo_preview_off">Vorhören: aus</string>
+
+    <string name="save_take_title">Take speichern</string>
+    <string name="save_take_name_label">Name</string>
+    <string name="save_take_detail">%1$s · nach %2$s</string>
+
+    <string name="level_title">Pegel einstellen</string>
+    <string name="level_body">Spiel das Lauteste, was du spielen wirst.</string>
+    <string name="level_listening">Hört zu …</string>
+    <string name="level_nothing_heard">Noch nichts gehört.</string>
+    <string name="level_loud_enough">Schon laut genug.</string>
+    <string name="level_very_quiet">Sehr leise — geh mit dem Telefon näher ran.</string>
+    <string name="level_quiet">Leise. Takes lassen sich um +%1$d dB anheben.</string>
+    <string name="level_measure_again">Erneut messen</string>
+    <string name="level_keep_zero">Bei 0 dB bleiben</string>
+    <string name="level_record_at">Mit +%1$d dB aufnehmen</string>
+
+    <!-- ===== Player ===== -->
+
+    <string name="player_no_waveform">Keine Wellenform für diese Datei — auf diesem Gerät konnte sie nichts dekodieren.</string>
+
+    <string name="tool_trim">Schneiden</string>
+    <string name="tool_level">Pegel</string>
+    <string name="tool_note">Notiz</string>
+
+    <string name="normalise_title">Normalisieren</string>
+    <string name="normalise_body">Einen leisen Take auf einen brauchbaren Pegel heben.</string>
+    <string name="normalise_peak">Peak — der lauteste Moment stößt oben an</string>
+    <string name="normalise_loudness">Lautheit — insgesamt lauter, Spitzen gerundet</string>
+    <string name="normalise_wav_warning_before">Überschreiben schreibt die Aufnahme selbst neu: Es gibt </string>
+    <string name="warning_no_undo">kein Zurück</string>
+    <string name="normalise_wav_warning_after">. Bei einer Kopie bleibt dieser Take unverändert.</string>
+    <string name="normalise_other_body">Dieser hier wird dekodiert und als neue Datei gespeichert; das Original bleibt unangetastet.</string>
+    <string name="action_overwrite_take">Diesen Take überschreiben</string>
+    <string name="action_save_normalised">Normalisiertes %1$s speichern</string>
+
+    <string name="hint_long_press_handle">Griff lange drücken zum Verschieben</string>
+
+    <string name="trim_title">Schneiden</string>
+    <string name="trim_start">Anfang</string>
+    <string name="trim_end">Ende</string>
+    <string name="trim_keep">Auswahl behalten</string>
+    <string name="trim_wav_warning_before">%1$s werden entfernt. Beim Überschreiben dieses Takes gibt es </string>
+    <string name="trim_wav_warning_after">; bei einer Kopie bleibt er unverändert.</string>
+    <string name="trim_other_body">%1$s werden entfernt. Dieser hier wird dekodiert und als neue Datei gespeichert; das Original bleibt unangetastet.</string>
+    <string name="action_save_trimmed">Geschnittenes %1$s speichern</string>
+
+    <string name="cd_nudge_earlier">%1$s früher</string>
+    <string name="cd_nudge_later">%1$s später</string>
+
+</resources>

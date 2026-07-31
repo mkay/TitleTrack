@@ -44,7 +44,8 @@ data class Listing(
     val folder: Uri,
     val folders: List<Folder> = emptyList(),
     val takes: List<Take> = emptyList(),
-    val error: String? = null,
+    /** Why there is nothing to show, if there isn't. Rendered by the UI — see [StorageFailure]. */
+    val error: StorageFailure? = null,
 )
 
 /**
@@ -109,12 +110,12 @@ class RecordingStore(context: Context) {
 
     /** Everything in [folder]: sub-folders first, then takes, newest take first. */
     suspend fun list(folder: Uri): Listing = withContext(Dispatchers.IO) {
-        val tree = root ?: return@withContext Listing(folder, error = "No folder chosen yet.")
+        val tree = root ?: return@withContext Listing(folder, error = StorageFailure.NO_FOLDER_CHOSEN)
         val children = runCatching {
             DocumentsContract.buildChildDocumentsUriUsingTree(
                 tree, DocumentsContract.getDocumentId(folder),
             )
-        }.getOrNull() ?: return@withContext Listing(folder, error = "That folder is unreachable.")
+        }.getOrNull() ?: return@withContext Listing(folder, error = StorageFailure.FOLDER_UNREACHABLE)
 
         val folders = ArrayList<Folder>()
         val takes = ArrayList<Take>()
@@ -126,7 +127,7 @@ class RecordingStore(context: Context) {
             DocumentsContract.Document.COLUMN_LAST_MODIFIED,
         )
         val cursor = runCatching { resolver.query(children, columns, null, null, null) }.getOrNull()
-            ?: return@withContext Listing(folder, error = "That folder could not be read.")
+            ?: return@withContext Listing(folder, error = StorageFailure.FOLDER_UNREADABLE)
 
         cursor.use {
             while (it.moveToNext()) {
@@ -213,12 +214,12 @@ class RecordingStore(context: Context) {
         val uri = runCatching {
             DocumentsContract.createDocument(resolver, folder, MIME_WAV, fileName)
         }.getOrNull() ?: return@withContext Result.failure(
-            IllegalStateException("Could not create a file in that folder."),
+            StorageException(StorageFailure.CANNOT_CREATE_FILE),
         )
 
         val result = runCatching {
             resolver.openOutputStream(uri, "w")?.use(write)
-                ?: throw IllegalStateException("Could not open the new file for writing.")
+                ?: throw StorageException(StorageFailure.CANNOT_OPEN_NEW_FILE)
         }
         if (result.isFailure) {
             runCatching { DocumentsContract.deleteDocument(resolver, uri) }
@@ -333,23 +334,23 @@ class RecordingStore(context: Context) {
             resolver.query(uri, columns, null, null, null)?.use {
                 if (it.moveToFirst()) (it.getString(0) ?: "") to (it.getString(1) ?: "") else null
             }
-        }.getOrNull() ?: return Result.failure(IllegalStateException("That file could not be read."))
+        }.getOrNull() ?: return Result.failure(StorageException(StorageFailure.CANNOT_READ_FILE))
         val (name, mime) = row
         if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
-            return Result.failure(IllegalStateException("Folders cannot be moved here."))
+            return Result.failure(StorageException(StorageFailure.FOLDERS_CANNOT_MOVE))
         }
 
         val copy = runCatching {
             DocumentsContract.createDocument(resolver, destination, mime.ifEmpty { MIME_WAV }, name)
         }.getOrNull() ?: return Result.failure(
-            IllegalStateException("Nothing could be written into that folder."),
+            StorageException(StorageFailure.CANNOT_WRITE_INTO_FOLDER),
         )
 
         val written = runCatching {
             resolver.openInputStream(uri)?.use { input ->
                 resolver.openOutputStream(copy, "w")?.use { input.copyTo(it) }
-                    ?: throw IllegalStateException("The copy could not be written.")
-            } ?: throw IllegalStateException("That file could not be read.")
+                    ?: throw StorageException(StorageFailure.COPY_NOT_WRITTEN)
+            } ?: throw StorageException(StorageFailure.CANNOT_READ_FILE)
         }
         if (written.isFailure) {
             runCatching { DocumentsContract.deleteDocument(resolver, copy) }
@@ -359,7 +360,7 @@ class RecordingStore(context: Context) {
         val gone = runCatching { DocumentsContract.deleteDocument(resolver, uri) }.getOrDefault(false)
         if (!gone) {
             runCatching { DocumentsContract.deleteDocument(resolver, copy) }
-            return Result.failure(IllegalStateException("The original could not be removed."))
+            return Result.failure(StorageException(StorageFailure.ORIGINAL_NOT_REMOVED))
         }
         return Result.success(copy)
     }
@@ -439,7 +440,7 @@ class RecordingStore(context: Context) {
             resolver.openInputStream(take.uri)?.use { input ->
                 input.skipExactly(info.dataStart)
                 forEachBlock(input, info.dataBytes) { buf, n -> meter.add(buf, 0, n) }
-            } ?: throw IllegalStateException("That file could not be read.")
+            } ?: throw StorageException(StorageFailure.CANNOT_READ_FILE)
         }
         measured.exceptionOrNull()?.let { return@withContext Result.failure(it) }
 
@@ -489,9 +490,7 @@ class RecordingStore(context: Context) {
     ): Result<Normalized> {
         if (copyInto == null) {
             return Result.failure(
-                IllegalStateException(
-                    "Only WAV takes can be overwritten. Save a normalised copy instead.",
-                ),
+                StorageException(StorageFailure.NORMALISE_WAV_ONLY),
             )
         }
 
@@ -500,7 +499,7 @@ class RecordingStore(context: Context) {
             scratch.outputStream().buffered(BLOCK).use { out ->
                 val sink = MeasuringPcmWriter(out)
                 if (!AudioDecoder.decode(appContext, take.uri, sink)) {
-                    throw IllegalStateException("Nothing on this device can decode that file.")
+                    throw StorageException(StorageFailure.NO_DECODER)
                 }
                 sink
             }
@@ -511,7 +510,7 @@ class RecordingStore(context: Context) {
         }
         if (scratch.length() <= 0 || sink.sampleRate <= 0) {
             scratch.delete()
-            return Result.failure(IllegalStateException("That file decoded to no audio."))
+            return Result.failure(StorageException(StorageFailure.DECODED_TO_SILENCE))
         }
 
         val gain = Gain.linearFor(mode, sink.meter.peak, sink.meter.rms)
@@ -528,7 +527,7 @@ class RecordingStore(context: Context) {
             DocumentsContract.createDocument(resolver, copyInto, copyAs.mime, name)
         }.getOrNull() ?: run {
             scratch.delete()
-            return Result.failure(IllegalStateException("The copy could not be created."))
+            return Result.failure(StorageException(StorageFailure.COPY_NOT_CREATED))
         }
 
         val written = runCatching {
@@ -547,7 +546,7 @@ class RecordingStore(context: Context) {
                     bpm = take.bpm,
                     title = base,
                 )
-            } ?: throw IllegalStateException("The copy could not be written.")
+            } ?: throw StorageException(StorageFailure.COPY_NOT_WRITTEN)
         }
         scratch.delete()
         if (written.isFailure) {
@@ -556,7 +555,7 @@ class RecordingStore(context: Context) {
         }
 
         val copy = describe(uri) ?: return Result.failure(
-            IllegalStateException("The copy was written but could not be read back."),
+            StorageException(StorageFailure.COPY_UNREADABLE),
         )
         return Result.success(Normalized(copy, gainDb))
     }
@@ -623,7 +622,7 @@ class RecordingStore(context: Context) {
         val name = "$base normalised.${copyAs.extension}"
         val uri = runCatching { DocumentsContract.createDocument(resolver, folder, copyAs.mime, name) }
             .getOrNull()
-            ?: return Result.failure(IllegalStateException("The copy could not be created."))
+            ?: return Result.failure(StorageException(StorageFailure.COPY_NOT_CREATED))
 
         val written = runCatching {
             resolver.openOutputStream(uri, "w")?.use { out ->
@@ -637,10 +636,10 @@ class RecordingStore(context: Context) {
                             resolver.openInputStream(take.uri)?.use { input ->
                                 input.skipExactly(info.dataStart)
                                 applyGain(input, enc, info.dataBytes, gain, softClip)
-                            } ?: throw IllegalStateException("That file could not be read.")
+                            } ?: throw StorageException(StorageFailure.CANNOT_READ_FILE)
                         }
                 }
-            } ?: throw IllegalStateException("The copy could not be written.")
+            } ?: throw StorageException(StorageFailure.COPY_NOT_WRITTEN)
         }
         if (written.isFailure) {
             runCatching { DocumentsContract.deleteDocument(resolver, uri) }
@@ -648,7 +647,7 @@ class RecordingStore(context: Context) {
         }
 
         val copy = describe(uri) ?: return Result.failure(
-            IllegalStateException("The copy was written but could not be read back."),
+            StorageException(StorageFailure.COPY_UNREADABLE),
         )
         return Result.success(Normalized(copy, gainDb))
     }
@@ -736,7 +735,7 @@ class RecordingStore(context: Context) {
             applyGain(input, out, info.dataBytes, gain, softClip)
             // Anything after the payload (a trailing INFO chunk, say) is not audio.
             input.copyTo(out)
-        } ?: throw IllegalStateException("That file could not be read.")
+        } ?: throw StorageException(StorageFailure.CANNOT_READ_FILE)
     }
 
     /**
@@ -764,7 +763,7 @@ class RecordingStore(context: Context) {
         copyAs: AudioFormat = AudioFormat.FLAC,
     ): Result<Take> = withContext(Dispatchers.IO) {
         if (endFrac <= startFrac) {
-            return@withContext Result.failure(IllegalStateException("Nothing selected to keep."))
+            return@withContext Result.failure(StorageException(StorageFailure.NOTHING_SELECTED))
         }
 
         val wav = readHeader(take.uri, take.sizeBytes)
@@ -776,7 +775,7 @@ class RecordingStore(context: Context) {
             val frameBytes = (wav.channels * wav.bitsPerSample / 8).coerceAtLeast(1)
             val cut = cut(wav.dataBytes, frameBytes, startFrac, endFrac)
                 ?: return@withContext Result.failure(
-                    IllegalStateException("That selection is too short to keep."),
+                    StorageException(StorageFailure.SELECTION_TOO_SHORT),
                 )
             // Overwriting stays in the format it is overwriting, whatever a copy would have been.
             val format = if (copyInto == null) AudioFormat.WAV else copyAs
@@ -795,7 +794,7 @@ class RecordingStore(context: Context) {
                     resolver.openInputStream(take.uri)?.use { input ->
                         input.skipExactly(wav.dataStart + cut.offset)
                         copyExactly(input, pcm, cut.bytes)
-                    } ?: throw IllegalStateException("That file could not be read.")
+                    } ?: throw StorageException(StorageFailure.CANNOT_READ_FILE)
                 }
             }
         }
@@ -803,7 +802,7 @@ class RecordingStore(context: Context) {
         // Not PCM WAV: decode it once into the cache, then cut the cache.
         if (copyInto == null) {
             return@withContext Result.failure(
-                IllegalStateException("Only WAV takes can be trimmed in place. Save a copy instead."),
+                StorageException(StorageFailure.TRIM_WAV_ONLY),
             )
         }
         val scratch = File(appContext.cacheDir, "trim.pcm")
@@ -811,7 +810,7 @@ class RecordingStore(context: Context) {
             scratch.outputStream().buffered(BLOCK).use { out ->
                 val sink = MeasuringPcmWriter(out)
                 if (!AudioDecoder.decode(appContext, take.uri, sink)) {
-                    throw IllegalStateException("Nothing on this device can decode that file.")
+                    throw StorageException(StorageFailure.NO_DECODER)
                 }
                 sink
             }
@@ -825,7 +824,7 @@ class RecordingStore(context: Context) {
         if (cut == null || sink.sampleRate <= 0) {
             scratch.delete()
             return@withContext Result.failure(
-                IllegalStateException("That selection is too short to keep."),
+                StorageException(StorageFailure.SELECTION_TOO_SHORT),
             )
         }
         val result = writeTrimmed(take, copyInto, copyAs) { out ->
@@ -916,11 +915,11 @@ class RecordingStore(context: Context) {
             val uri = runCatching {
                 DocumentsContract.createDocument(resolver, copyInto, format.mime, name)
             }.getOrNull()
-                ?: return Result.failure(IllegalStateException("The copy could not be created."))
+                ?: return Result.failure(StorageException(StorageFailure.COPY_NOT_CREATED))
 
             val written = runCatching {
                 resolver.openOutputStream(uri, "w")?.use { out -> write(out) }
-                    ?: throw IllegalStateException("The copy could not be written.")
+                    ?: throw StorageException(StorageFailure.COPY_NOT_WRITTEN)
             }
             if (written.isFailure) {
                 runCatching { DocumentsContract.deleteDocument(resolver, uri) }
@@ -928,7 +927,7 @@ class RecordingStore(context: Context) {
             }
             return Result.success(
                 describe(uri) ?: return Result.failure(
-                    IllegalStateException("The copy was written but could not be read back."),
+                    StorageException(StorageFailure.COPY_UNREADABLE),
                 ),
             )
         }
@@ -973,7 +972,7 @@ class RecordingStore(context: Context) {
     private fun openTruncating(uri: Uri): OutputStream =
         runCatching { resolver.openOutputStream(uri, "wt") }.getOrNull()
             ?: resolver.openOutputStream(uri, "w")
-            ?: throw IllegalStateException("That file could not be written.")
+            ?: throw StorageException(StorageFailure.CANNOT_WRITE_FILE)
 
     /** Feed [bytes] bytes of [input] to [block], in whatever sized pieces it arrives in. */
     private inline fun forEachBlock(input: InputStream, bytes: Long, block: (ByteArray, Int) -> Unit) {
@@ -1028,7 +1027,7 @@ class RecordingStore(context: Context) {
         val buf = ByteArray(BLOCK)
         while (remaining > 0) {
             val n = input.read(buf, 0, minOf(buf.size.toLong(), remaining).toInt())
-            if (n <= 0) throw IllegalStateException("That file ended sooner than its header says.")
+            if (n <= 0) throw StorageException(StorageFailure.FILE_TRUNCATED)
             out.write(buf, 0, n)
             remaining -= n
         }
@@ -1042,7 +1041,7 @@ class RecordingStore(context: Context) {
             if (skipped > 0) {
                 remaining -= skipped
             } else {
-                if (read() < 0) throw IllegalStateException("That file has no audio in it.")
+                if (read() < 0) throw StorageException(StorageFailure.FILE_HAS_NO_AUDIO)
                 remaining--
             }
         }

@@ -23,9 +23,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.singular.recorder.MovePicker
+import de.singular.recorder.R
 import de.singular.recorder.storage.Folder
 
 /**
@@ -48,7 +51,13 @@ fun MoveDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(if (picker.uris.size == 1) "Move to…" else "Move ${picker.uris.size} to…")
+            Text(
+                if (picker.uris.size == 1) {
+                    stringResource(R.string.move_title_one)
+                } else {
+                    pluralStringResource(R.plurals.move_title_many, picker.uris.size, picker.uris.size)
+                },
+            )
         },
         text = {
             Column(Modifier.fillMaxWidth()) {
@@ -66,7 +75,7 @@ fun MoveDialog(
                         item {
                             PickerRow(
                                 icon = { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, Modifier.size(20.dp)) },
-                                label = "Up one level",
+                                label = stringResource(R.string.move_up_one_level),
                                 onClick = onUp,
                             )
                         }
@@ -88,7 +97,7 @@ fun MoveDialog(
                     if (!picker.loading && picker.folders.isEmpty()) {
                         item {
                             Text(
-                                "No sub-folders here.",
+                                stringResource(R.string.move_no_subfolders),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                 modifier = Modifier.padding(vertical = 12.dp),
@@ -98,8 +107,12 @@ fun MoveDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onConfirm) { Text("Move here") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text(stringResource(R.string.action_move_here)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
     )
 }
 

@@ -2,6 +2,7 @@
 
 package de.singular.recorder.ui
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
@@ -12,7 +13,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import de.singular.recorder.R
 
 /**
  * The things a screen cannot say for itself.
@@ -29,49 +32,30 @@ import androidx.compose.ui.unit.dp
 fun QuickHelpDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Quick help") },
+        title = { Text(stringResource(R.string.help_title)) },
         text = {
             Column(
                 Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                HelpItem(
-                    "Set your level",
-                    "Hold Record and play the loudest thing you are going to play. It offers a " +
-                        "gain that leaves the take room to be louder than the rehearsal.",
-                )
-                HelpItem(
-                    "Hear the click through the take",
-                    "Long-press Metronome on the record row. For headphones only — on a speaker " +
-                        "the microphone hears it too, and it lands in the take for good.",
-                )
-                HelpItem(
-                    "Play a take again",
-                    "Double-tap Play to start it from the beginning; a single tap picks up where " +
-                        "you left it.",
-                )
-                HelpItem(
-                    "Loop a take",
-                    "Hold Play. The whole take repeats until you stop it — the lemniscate on the " +
-                        "button says it is on.",
-                )
-                HelpItem(
-                    "Pick out several takes",
-                    "Long-press a take in the library. The bar becomes the selection's, for " +
-                        "moving or deleting the lot.",
-                )
+                HelpItem(R.string.help_level_title, R.string.help_level_body)
+                HelpItem(R.string.help_click_title, R.string.help_click_body)
+                HelpItem(R.string.help_replay_title, R.string.help_replay_body)
+                HelpItem(R.string.help_loop_title, R.string.help_loop_body)
+                HelpItem(R.string.help_trim_title, R.string.help_trim_body)
+                HelpItem(R.string.help_select_title, R.string.help_select_body)
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Got it") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_got_it)) } },
     )
 }
 
 @Composable
-private fun HelpItem(title: String, body: String) {
+private fun HelpItem(@StringRes title: Int, @StringRes body: Int) {
     Column {
-        Text(title, style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(title), style = MaterialTheme.typography.titleSmall)
         Text(
-            body,
+            stringResource(body),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
         )

@@ -27,6 +27,7 @@ import de.singular.recorder.storage.Notes
 import de.singular.recorder.storage.Recents
 import de.singular.recorder.storage.RecordingStore
 import de.singular.recorder.storage.Stars
+import de.singular.recorder.storage.StorageFailure
 import de.singular.recorder.storage.Take
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -370,8 +371,8 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     val playback: StateFlow<PlaybackState> = _playback.asStateFlow()
 
     /** One-shot user-facing notices ("Saved as …", "Could not create the folder"). */
-    private val _message = MutableStateFlow<String?>(null)
-    val message: StateFlow<String?> = _message.asStateFlow()
+    private val _message = MutableStateFlow<Message?>(null)
+    val message: StateFlow<Message?> = _message.asStateFlow()
 
     /**
      * The take a save just produced, for the UI to open. A one-shot, cleared once acted on, in the
@@ -397,7 +398,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     /** Remember the folder the system picker just handed back, and show it. */
     fun onFolderPicked(uri: Uri) {
         if (!store.setRoot(uri)) {
-            _message.value = "That folder could not be kept — please pick it again."
+            _message.value = Message.Text(R.string.msg_folder_not_kept)
             return
         }
         openRoot()
@@ -465,7 +466,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         if (name.isBlank()) return
         viewModelScope.launch {
             val created = store.createFolder(parent.uri, name)
-            if (created == null) _message.value = "The folder could not be created."
+            if (created == null) _message.value = Message.Text(R.string.msg_folder_not_created)
             refresh()
         }
     }
@@ -476,7 +477,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
             val before = starKey(uri)
             val renamed = store.rename(uri, newName)
             if (renamed == null) {
-                _message.value = "That could not be renamed."
+                _message.value = Message.Text(R.string.msg_not_renamed)
             } else {
                 // A star is kept against the document id, which is the path — so renaming moves it.
                 // Folders matter more than takes here: renaming one changes the id of everything
@@ -504,7 +505,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     fun startMove(uris: List<Uri>) {
         if (uris.isEmpty()) return
         val root = _library.value.path.firstOrNull() ?: run {
-            _message.value = "Choose a folder to keep your recordings in first."
+            _message.value = Message.Text(R.string.msg_choose_folder_first)
             return
         }
         _movePicker.value = MovePicker(uris, path = listOf(root))
@@ -555,7 +556,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         val destination = picker.destination
         viewModelScope.launch {
             var moved = 0
-            var failure: String? = null
+            var failure: Message? = null
             picker.uris.forEach { uri ->
                 val before = starKey(uri)
                 store.move(uri, destination.uri)
@@ -574,14 +575,18 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
                             }
                         }
                     }
-                    .onFailure { failure = it.message ?: "That could not be moved." }
+                    .onFailure { failure = Message.of(it, R.string.msg_not_moved) }
             }
             val failed = failure
             _message.value = when {
                 failed != null && moved == 0 -> failed
-                failed != null -> "Moved $moved — the rest could not be moved."
-                moved == 1 -> "Moved to ${destination.name}."
-                else -> "Moved $moved takes to ${destination.name}."
+                failed != null -> Message.Quantity(R.plurals.msg_moved_partly, moved)
+                moved == 1 -> Message.Text(R.string.msg_moved_one, listOf(destination.name))
+                else -> Message.Quantity(
+                    R.plurals.msg_moved_many,
+                    moved,
+                    listOf(destination.name),
+                )
             }
             refresh()
             if (_starredTakes.value != null) loadStarred()
@@ -592,7 +597,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             if (uri == _playback.value.uri) stopPlayback()
             if (!store.delete(uri)) {
-                _message.value = "That could not be deleted."
+                _message.value = Message.Text(R.string.msg_not_deleted)
             } else {
                 // Deleting a folder takes the stars inside it with it, which is what [Stars.remove]
                 // does with a prefix — otherwise they would sit in the index forever, pointing at
@@ -659,7 +664,10 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     @SuppressLint("MissingPermission") // startMonitoring does the check
     fun startLevelTest() {
         if (!hasMicPermission) {
-            _message.value = "Title Track needs the microphone to measure the level."
+            _message.value = Message.Text(
+                R.string.msg_needs_microphone,
+                listOf(getApplication<Application>().getString(R.string.app_name)),
+            )
             return
         }
         if (_levelTest.value != null) return
@@ -715,7 +723,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
      */
     fun saveTake(name: String, folder: Folder? = null) {
         val target = folder ?: _library.value.current ?: run {
-            _message.value = "Choose a folder to record into first."
+            _message.value = Message.Text(R.string.msg_choose_record_folder_first)
             return
         }
         val s = _settings.value
@@ -733,11 +741,11 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
             result
                 .onSuccess { take ->
                     recorder.discard()
-                    _message.value = "Saved as ${take.name}"
+                    _message.value = Message.Text(R.string.msg_saved_as, listOf(take.name))
                     _justSaved.value = take
                     refresh()
                 }
-                .onFailure { _message.value = it.message ?: "The take could not be saved." }
+                .onFailure { _message.value = Message.of(it, R.string.msg_not_saved) }
         }
     }
 
@@ -761,7 +769,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
             val take = store.takeAt(key)
             if (take == null) {
                 _recents.value = recentStore.remove(key)
-                _message.value = "That take is no longer there."
+                _message.value = Message.Text(R.string.msg_take_gone)
                 return@launch
             }
             openTake(take)
@@ -800,7 +808,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             val renamed = store.rename(take.uri, newName)
             if (renamed == null) {
-                _message.value = "That could not be renamed."
+                _message.value = Message.Text(R.string.msg_not_renamed)
                 return@launch
             }
             // The file the player has open is the file that moved; drop it rather than leave the
@@ -824,7 +832,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         val folder = _library.value.current
         if (_busy.value) return
         if (asCopy && folder == null) {
-            _message.value = "There is nowhere to write a copy."
+            _message.value = Message.Text(R.string.msg_nowhere_for_copy)
             return
         }
         viewModelScope.launch {
@@ -834,14 +842,17 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
                 .onSuccess { result ->
                     val db = String.format(Locale.US, "%+.1f", result.gainDb)
                     _message.value = when {
-                        result.gainDb <= 0f -> "Already at level — nothing to lift."
-                        asCopy -> "Saved ${result.take.name}, $db dB."
-                        else -> "Normalised, $db dB."
+                        result.gainDb <= 0f -> Message.Text(R.string.msg_already_level)
+                        asCopy -> Message.Text(
+                            R.string.msg_saved_copy_with_gain,
+                            listOf(result.take.name, db),
+                        )
+                        else -> Message.Text(R.string.msg_normalised, listOf(db))
                     }
                     if (result.gainDb > 0f) openTake(result.take)
                     refresh()
                 }
-                .onFailure { _message.value = it.message ?: "That take could not be normalised." }
+                .onFailure { _message.value = Message.of(it, R.string.msg_not_normalised) }
             _busy.value = false
         }
     }
@@ -862,7 +873,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         val folder = _library.value.current
         if (_busy.value) return
         if (asCopy && folder == null) {
-            _message.value = "There is nowhere to write a copy."
+            _message.value = Message.Text(R.string.msg_nowhere_for_copy)
             return
         }
         viewModelScope.launch {
@@ -876,11 +887,15 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
                 copyAs = copyAs,
             )
                 .onSuccess { trimmed ->
-                    _message.value = if (asCopy) "Saved ${trimmed.name}." else "Trimmed."
+                    _message.value = if (asCopy) {
+                        Message.Text(R.string.msg_saved_copy, listOf(trimmed.name))
+                    } else {
+                        Message.Text(R.string.msg_trimmed)
+                    }
                     openTake(trimmed)
                     refresh()
                 }
-                .onFailure { _message.value = it.message ?: "That take could not be trimmed." }
+                .onFailure { _message.value = Message.of(it, R.string.msg_not_trimmed) }
             _busy.value = false
         }
     }
@@ -954,7 +969,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
             val app = getApplication<Application>()
             val decodable = withContext(Dispatchers.IO) { AudioDecoder.canDecode(app, take.uri) }
             if (!decodable) {
-                _message.value = "Nothing on this device can decode that file."
+                _message.value = Message.of(StorageFailure.NO_DECODER)
                 return@launch
             }
             val mp = MediaPlayer()
@@ -971,7 +986,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
             }
             if (!started) {
                 runCatching { mp.release() }
-                _message.value = "That file could not be played."
+                _message.value = Message.Text(R.string.msg_not_played)
                 return@launch
             }
             // A second press while the first was still opening: that press owns the transport now,
@@ -1023,7 +1038,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         _looping.value = on
         // Takes effect on what is already playing, not only on the next press.
         player?.let { runCatching { it.isLooping = on } }
-        _message.value = if (on) "Looping." else "Loop off."
+        _message.value = Message.Text(if (on) R.string.msg_looping else R.string.msg_loop_off)
     }
 
     /** Play [take] from its first sample, whatever it was doing before. */

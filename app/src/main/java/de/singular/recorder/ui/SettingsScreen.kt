@@ -2,6 +2,9 @@
 
 package de.singular.recorder.ui
 
+import androidx.annotation.StringRes
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -11,27 +14,40 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringArrayResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.os.LocaleListCompat
 import de.singular.recorder.R
+import java.util.Locale
 import de.singular.recorder.Settings
 import de.singular.recorder.ThemeMode
 
@@ -59,10 +75,10 @@ import de.singular.recorder.ThemeMode
  * available, being already the mini player and the app's own tabs. Between a slightly mixed tab row
  * and a slightly upside-down page, the tab row is the one that stays legible as it grows.
  */
-enum class SettingsTab(val title: String) {
-    RECORDING("Recording"),
-    SYSTEM("System"),
-    ABOUT("About"),
+enum class SettingsTab(@StringRes val title: Int) {
+    RECORDING(R.string.settings_tab_recording),
+    SYSTEM(R.string.settings_tab_system),
+    ABOUT(R.string.settings_tab_about),
 }
 
 @Composable
@@ -89,7 +105,7 @@ fun SettingsScreen(
                 Tab(
                     selected = tab == entry,
                     onClick = { tab = entry },
-                    text = { Text(entry.title) },
+                    text = { Text(stringResource(entry.title)) },
                 )
             }
         }
@@ -144,56 +160,54 @@ private fun RecordingSettings(
     onSetListenBeforeRecording: (Boolean) -> Unit,
     onSetPromptForFilename: (Boolean) -> Unit,
 ) {
-    Section("Microphone")
+    Section(R.string.settings_section_microphone)
     SwitchRow(
-        title = "Listen before recording",
-        detail = "Check levels and catch clipping before you play, not after. Keeps the " +
-            "microphone open, so its indicator stays lit.",
+        title = R.string.setting_listen_title,
+        detail = R.string.setting_listen_detail,
         checked = settings.listenBeforeRecording,
         onCheckedChange = onSetListenBeforeRecording,
     )
 
     Spacer(Modifier.height(24.dp))
-    Section("Time signature")
+    Section(R.string.settings_section_time_signature)
     Text(
-        "Beats to the bar, for the count-in and the metronome.",
+        stringResource(R.string.settings_time_signature_detail),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
     )
     Spacer(Modifier.height(8.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         for (beats in listOf(3, 4, 6)) {
+            val label = stringResource(R.string.time_signature_over_four, beats)
             if (settings.beatsPerBar == beats) {
                 Button(
                     onClick = {},
                     shape = ControlShape,
                     colors = brandButtonColors(),
-                ) { Text("$beats/4") }
+                ) { Text(label) }
             } else {
                 OutlinedButton(
                     onClick = { onSetBeatsPerBar(beats) },
                     shape = ControlShape,
-                ) { Text("$beats/4") }
+                ) { Text(label) }
             }
         }
     }
 
     Spacer(Modifier.height(24.dp))
-    Section("Metronome")
+    Section(R.string.settings_section_metronome)
     SwitchRow(
-        title = "Click while recording",
-        detail = "For headphones. On a speaker the microphone hears the click too, and it lands " +
-            "in the take for good. The count-in clicks either way, and the beat on screen is " +
-            "always silent.",
+        title = R.string.setting_click_title,
+        detail = R.string.setting_click_detail,
         checked = settings.audioMetronome,
         onCheckedChange = onSetAudioMetronome,
     )
 
     Spacer(Modifier.height(24.dp))
-    Section("Saving")
+    Section(R.string.settings_section_saving)
     SwitchRow(
-        title = "Prompt for a filename",
-        detail = "Off: takes are saved at once, named by date and time. Rename them later.",
+        title = R.string.setting_prompt_name_title,
+        detail = R.string.setting_prompt_name_detail,
         checked = settings.promptForFilename,
         onCheckedChange = onSetPromptForFilename,
     )
@@ -208,32 +222,37 @@ private fun SystemSettings(
     onSetKeepScreenOn: (Boolean) -> Unit,
     onSetThemeMode: (ThemeMode) -> Unit,
 ) {
-    Section("Recordings folder")
+    Section(R.string.settings_section_folder)
     Text(
-        folderLabel ?: "Not chosen yet",
+        folderLabel ?: stringResource(R.string.settings_folder_none),
         style = MaterialTheme.typography.bodyMedium,
     )
     Text(
-        "Takes land here as 44.1 kHz mono WAV, tempo included.",
+        stringResource(R.string.settings_folder_detail),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
     )
     Spacer(Modifier.height(8.dp))
     OutlinedButton(onClick = onChooseFolder, shape = ControlShape) {
-        Text(if (folderLabel == null) "Choose folder…" else "Change folder…")
+        Text(
+            stringResource(
+                if (folderLabel == null) R.string.action_choose_folder
+                else R.string.action_change_folder,
+            ),
+        )
     }
 
     Spacer(Modifier.height(24.dp))
-    Section("Library")
+    Section(R.string.settings_section_library)
     SwitchRow(
-        title = "Starred takes first",
-        detail = "Off: every folder stays in date order. The Starred tab still gathers them.",
+        title = R.string.setting_starred_first_title,
+        detail = R.string.setting_starred_first_detail,
         checked = settings.starredFirst,
         onCheckedChange = onSetStarredFirst,
     )
 
     Spacer(Modifier.height(24.dp))
-    Section("Display")
+    Section(R.string.settings_section_display)
     Row(
         Modifier.fillMaxWidth().padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -245,9 +264,12 @@ private fun SystemSettings(
             Modifier.padding(end = 16.dp),
         )
         Column(Modifier.weight(1f)) {
-            Text("Keep the screen on", style = MaterialTheme.typography.bodyLarge)
             Text(
-                "Your hands are on the instrument. Costs battery.",
+                stringResource(R.string.setting_keep_screen_on_title),
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Text(
+                stringResource(R.string.setting_keep_screen_on_detail),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             )
@@ -260,11 +282,11 @@ private fun SystemSettings(
     }
 
     Spacer(Modifier.height(12.dp))
-    Text("Theme", style = MaterialTheme.typography.bodyLarge)
+    Text(stringResource(R.string.setting_theme), style = MaterialTheme.typography.bodyLarge)
     Spacer(Modifier.height(8.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         for (mode in ThemeMode.entries) {
-            val label = mode.name.lowercase().replaceFirstChar { it.uppercase() }
+            val label = stringResource(mode.label)
             if (settings.themeMode == mode) {
                 Button(
                     onClick = {},
@@ -279,13 +301,24 @@ private fun SystemSettings(
             }
         }
     }
+
+    Spacer(Modifier.height(24.dp))
+    LanguageSetting()
 }
+
+/** What each [ThemeMode] is called on screen. The enum's own name is an identifier, not a label. */
+private val ThemeMode.label: Int
+    @StringRes get() = when (this) {
+        ThemeMode.SYSTEM -> R.string.theme_system
+        ThemeMode.LIGHT -> R.string.theme_light
+        ThemeMode.DARK -> R.string.theme_dark
+    }
 
 /** A setting that is on or off, with the sentence that says what off means. */
 @Composable
 private fun SwitchRow(
-    title: String,
-    detail: String,
+    @StringRes title: Int,
+    @StringRes detail: Int,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
@@ -295,9 +328,9 @@ private fun SwitchRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(title), style = MaterialTheme.typography.bodyLarge)
             Text(
-                detail,
+                stringResource(detail),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             )
@@ -307,7 +340,128 @@ private fun SwitchRow(
 }
 
 @Composable
-private fun Section(title: String) {
-    Text(title, style = MaterialTheme.typography.titleMedium)
+private fun Section(@StringRes title: Int) {
+    Text(stringResource(title), style = MaterialTheme.typography.titleMedium)
     Spacer(Modifier.height(4.dp))
+}
+
+/**
+ * One offered language: its BCP-47 [tag], or null for "follow the device".
+ *
+ * [label] is deliberately the language's name *in that language* — Deutsch, not German. Someone who
+ * has landed in a language they can't read needs to find their way out, and the only word on the
+ * screen they are sure to recognise is their own language's name for itself.
+ */
+private data class LanguageChoice(val tag: String?, val label: String)
+
+/**
+ * The languages on offer: the device default, then everything listed in `supported_locales`,
+ * sorted by how each names itself.
+ */
+@Composable
+private fun rememberLanguageChoices(): List<LanguageChoice> {
+    val systemLabel = stringResource(R.string.language_system)
+    val tags = stringArrayResource(R.array.supported_locales)
+    return remember(systemLabel, tags) {
+        val offered = tags.map { tag ->
+            val locale = Locale.forLanguageTag(tag)
+            // Ask the locale to name itself, then fix the case: several languages write their own
+            // name lowercase mid-sentence (français, español) but expect a capital when it stands
+            // alone as a label.
+            val own = locale.getDisplayName(locale).replaceFirstChar { it.titlecase(locale) }
+            LanguageChoice(tag, own)
+        }.sortedBy { it.label }
+        listOf(LanguageChoice(null, systemLabel)) + offered
+    }
+}
+
+/** The current app language as a BCP-47 tag, or null when it is following the device. */
+private fun currentLanguageTag(): String? =
+    AppCompatDelegate.getApplicationLocales().toLanguageTags().takeIf { it.isNotEmpty() }
+        ?.substringBefore(',')
+
+/**
+ * The language row and its picker.
+ *
+ * Applying a choice goes through [AppCompatDelegate], not a preference of our own: on Android 13+
+ * that writes through to the system's per-app language, so this picker and the one in Android's own
+ * Settings agree with each other instead of quietly disagreeing. Selecting recreates the activity,
+ * which is what re-reads the resources — so there is nothing to do afterwards.
+ */
+@Composable
+private fun LanguageSetting() {
+    val choices = rememberLanguageChoices()
+    // Read once per composition rather than held in state: the activity is recreated on change, so
+    // this is re-read with the new value on the way back up.
+    val currentTag = currentLanguageTag()
+    val current = choices.firstOrNull { it.tag == currentTag } ?: choices.first()
+    var picking by remember { mutableStateOf(false) }
+
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(ControlShape)
+            .clickable { picking = true }
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Default.Language,
+            contentDescription = null,
+            Modifier.padding(end = 16.dp),
+        )
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.setting_language), style = MaterialTheme.typography.bodyLarge)
+            Text(
+                current.label,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            )
+        }
+    }
+
+    if (picking) {
+        AlertDialog(
+            onDismissRequest = { picking = false },
+            title = { Text(stringResource(R.string.setting_language)) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    choices.forEach { choice ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(ControlShape)
+                                .clickable {
+                                    picking = false
+                                    AppCompatDelegate.setApplicationLocales(
+                                        if (choice.tag == null) {
+                                            LocaleListCompat.getEmptyLocaleList()
+                                        } else {
+                                            LocaleListCompat.forLanguageTags(choice.tag)
+                                        },
+                                    )
+                                }
+                                .padding(horizontal = 8.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = choice.tag == current.tag,
+                                onClick = null, // the whole row is the target
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = MaterialTheme.colorScheme.brandFill,
+                                ),
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(choice.label, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { picking = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+        )
+    }
 }

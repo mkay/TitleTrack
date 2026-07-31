@@ -52,6 +52,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -128,7 +130,7 @@ fun RecordScreen(
             }
 
             RecordPhase.COUNT_IN -> Text(
-                "Counting in…",
+                stringResource(R.string.record_counting_in),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             )
@@ -142,7 +144,9 @@ fun RecordScreen(
                     else MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    if (running) "Recording" else "Take ready",
+                    stringResource(
+                        if (running) R.string.record_recording else R.string.record_take_ready,
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 )
@@ -192,7 +196,7 @@ fun RecordScreen(
                 )
                 Spacer(Modifier.height(16.dp))
                 BigButton(
-                    text = "Record",
+                    text = stringResource(R.string.action_record),
                     icon = Icons.Default.Mic,
                     onClick = onRecord,
                     // Press to play, hold to find out how loud you are: the level test is a
@@ -205,25 +209,35 @@ fun RecordScreen(
                 )
                 if (folderLabel == null) {
                     TextButton(onClick = onChooseFolder) {
-                        Text("Choose a folder to record into…")
+                        Text(stringResource(R.string.record_choose_folder_prompt))
                     }
                 }
             }
 
             RecordPhase.COUNT_IN -> {
-                BigButton("Cancel", icon = null, onClick = onDiscard, outlined = true)
+                BigButton(
+                    stringResource(R.string.action_cancel),
+                    icon = null,
+                    onClick = onDiscard,
+                    outlined = true,
+                )
             }
 
             RecordPhase.RECORDING -> {
                 // The two that have to be hittable without looking.
-                BigButton("Done", Icons.Default.Stop, onFinish)
+                BigButton(stringResource(R.string.action_done), Icons.Default.Stop, onFinish)
                 Spacer(Modifier.height(12.dp))
-                BigButton("Restart", Icons.Default.Replay, onRestart, outlined = true)
+                BigButton(
+                    stringResource(R.string.action_restart),
+                    Icons.Default.Replay,
+                    onRestart,
+                    outlined = true,
+                )
             }
 
             RecordPhase.PAUSED -> {
                 BigButton(
-                    "Save", Icons.Default.Save,
+                    stringResource(R.string.action_save), Icons.Default.Save,
                     onClick = {
                         // Unless the user asked to be asked, Save means saved: the generated name
                         // is the one the dialog would have offered anyway.
@@ -240,11 +254,11 @@ fun RecordScreen(
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     BigButton(
-                        "Restart", Icons.Default.Replay, onRestart,
+                        stringResource(R.string.action_restart), Icons.Default.Replay, onRestart,
                         modifier = Modifier.weight(1f), outlined = true,
                     )
                     BigButton(
-                        "Discard", null, onDiscard,
+                        stringResource(R.string.action_discard), null, onDiscard,
                         modifier = Modifier.weight(1f), outlined = true,
                     )
                 }
@@ -323,15 +337,15 @@ private fun TakeSettings(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SettingCell(
-            label = "Tempo",
-            value = "${settings.bpm} bpm",
+            label = stringResource(R.string.cell_tempo),
+            value = stringResource(R.string.cell_tempo_value, settings.bpm),
             onClick = { tempoOpen = true },
             modifier = Modifier.weight(1f),
         )
         CellDivider()
         Box(Modifier.weight(1f)) {
             SettingCell(
-                label = "Count-in",
+                label = stringResource(R.string.cell_count_in),
                 value = countInLabel(settings.countInBars),
                 onClick = { countInOpen = true },
                 onLongClick = { timeSignatureOpen = true },
@@ -353,13 +367,17 @@ private fun TakeSettings(
         // the exception behind the hold: it is a decision about the room you are in rather than
         // about the take, and it does damage if switched on by accident on a speaker.
         SettingCell(
-            label = "Metronome",
-            value = when {
-                settings.visualMetronome && settings.audioMetronome -> "On + click"
-                settings.visualMetronome -> "On"
-                settings.audioMetronome -> "Click"
-                else -> "Off"
-            },
+            label = stringResource(R.string.cell_metronome),
+            value = stringResource(
+                when {
+                    settings.visualMetronome && settings.audioMetronome ->
+                        R.string.metronome_on_and_click
+
+                    settings.visualMetronome -> R.string.metronome_on
+                    settings.audioMetronome -> R.string.metronome_click
+                    else -> R.string.metronome_off
+                },
+            ),
             onClick = { onSetVisualMetronome(!settings.visualMetronome) },
             onLongClick = { clickOpen = true },
             dimValue = !settings.visualMetronome && !settings.audioMetronome,
@@ -369,8 +387,12 @@ private fun TakeSettings(
         // The gain is on the row rather than only behind a long-press: a boost applies to every
         // take until it is changed, and state that loud has to be visible.
         SettingCell(
-            label = "Input",
-            value = if (settings.inputGainDb == 0) "0 dB" else "+${settings.inputGainDb} dB",
+            label = stringResource(R.string.cell_input),
+            value = if (settings.inputGainDb == 0) {
+                stringResource(R.string.gain_none)
+            } else {
+                stringResource(R.string.gain_boost, settings.inputGainDb)
+            },
             onClick = onLevelTest,
             dimValue = settings.inputGainDb == 0,
             modifier = Modifier.weight(1f),
@@ -403,11 +425,10 @@ private fun TakeSettings(
     }
 }
 
-private fun countInLabel(bars: Int): String = when (bars) {
-    0 -> "Off"
-    1 -> "1 bar"
-    else -> "$bars bars"
-}
+@Composable
+private fun countInLabel(bars: Int): String =
+    if (bars == 0) stringResource(R.string.count_in_off)
+    else pluralStringResource(R.plurals.count_in_bars, bars, bars)
 
 /** One third of the settings row: what it is, and what it currently says. */
 @Composable
@@ -465,13 +486,10 @@ private fun CellDivider() {
 private fun AudioMetronomeDialog(on: Boolean, onSet: (Boolean) -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Click while recording") },
+        title = { Text(stringResource(R.string.click_dialog_title)) },
         text = {
             Column {
-                Text(
-                    "For headphones. On a speaker the microphone hears the click too, and it " +
-                        "lands in the take for good.",
-                )
+                Text(stringResource(R.string.click_dialog_body))
                 Spacer(Modifier.height(16.dp))
                 Row(
                     Modifier.fillMaxWidth(),
@@ -479,14 +497,19 @@ private fun AudioMetronomeDialog(on: Boolean, onSet: (Boolean) -> Unit, onDismis
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        if (on) "Clicking through the take" else "Count-in only",
+                        stringResource(
+                            if (on) R.string.click_through_take
+                            else R.string.click_count_in_only,
+                        ),
                         style = MaterialTheme.typography.bodyLarge,
                     )
                     Switch(checked = on, onCheckedChange = onSet, colors = brandSwitchColors())
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) }
+        },
     )
 }
 
@@ -504,26 +527,29 @@ private fun TimeSignatureDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Time signature") },
+        title = { Text(stringResource(R.string.time_signature_title)) },
         text = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (beats in listOf(3, 4, 6)) {
+                    val label = stringResource(R.string.time_signature_over_four, beats)
                     if (beatsPerBar == beats) {
                         Button(
                             onClick = {},
                             shape = ControlShape,
                             colors = brandButtonColors(),
-                        ) { Text("$beats/4") }
+                        ) { Text(label) }
                     } else {
                         OutlinedButton(
                             onClick = { onSetBeatsPerBar(beats) },
                             shape = ControlShape,
-                        ) { Text("$beats/4") }
+                        ) { Text(label) }
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) }
+        },
     )
 }
 
@@ -570,7 +596,7 @@ private fun TempoDialog(
 
     AlertDialog(
         onDismissRequest = ::leave,
-        title = { Text("Tempo") },
+        title = { Text(stringResource(R.string.tempo_title)) },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(
@@ -584,7 +610,7 @@ private fun TempoDialog(
                             onSetBpm(bpm - 1)
                         },
                         shape = ControlShape,
-                    ) { Text("−") }
+                    ) { Text(stringResource(R.string.button_decrement)) }
                     if (typing) {
                         OutlinedTextField(
                             value = typed,
@@ -604,7 +630,7 @@ private fun TempoDialog(
                         )
                     } else {
                         Text(
-                            "$bpm bpm",
+                            stringResource(R.string.cell_tempo_value, bpm),
                             style = MaterialTheme.typography.headlineSmall,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
@@ -624,7 +650,7 @@ private fun TempoDialog(
                             onSetBpm(bpm + 1)
                         },
                         shape = ControlShape,
-                    ) { Text("+") }
+                    ) { Text(stringResource(R.string.button_increment)) }
                 }
                 Slider(
                     value = bpm.toFloat(),
@@ -648,10 +674,17 @@ private fun TempoDialog(
                     previewing = !previewing
                     onSetPreview(previewing)
                 },
-            ) { Text(if (previewing) "Prelisten: on" else "Prelisten: off") }
+            ) {
+                Text(
+                    stringResource(
+                        if (previewing) R.string.tempo_preview_on
+                        else R.string.tempo_preview_off,
+                    ),
+                )
+            }
         },
         confirmButton = {
-            TextButton(onClick = ::leave) { Text("Done") }
+            TextButton(onClick = ::leave) { Text(stringResource(R.string.action_done)) }
         },
     )
 }
@@ -667,25 +700,33 @@ private fun SaveDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Save take") },
+        title = { Text(stringResource(R.string.save_take_title)) },
         text = {
             Column {
                 OutlinedTextField(
                     value = name,
                     onValueChange = onName,
-                    label = { Text("Name") },
+                    label = { Text(stringResource(R.string.save_take_name_label)) },
                     singleLine = true,
                     shape = ControlShape,
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "${formatDuration(durationMs)} · into $folderLabel",
+                    stringResource(
+                        R.string.save_take_detail,
+                        formatDuration(durationMs),
+                        folderLabel,
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
         },
-        confirmButton = { TextButton(onClick = onConfirm) { Text("Save") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text(stringResource(R.string.action_save)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
     )
 }
 
@@ -710,45 +751,63 @@ private fun LevelTestDialog(
     val suggested = test.suggestedGainDb
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Set the level") },
+        title = { Text(stringResource(R.string.level_title)) },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    "Play the loudest thing you are going to play.",
+                    stringResource(R.string.level_body),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(20.dp))
                 LevelMeter(test.heard)
                 Spacer(Modifier.height(20.dp))
                 Text(
-                    test.peakDb?.let { String.format(Locale.US, "Peak %.0f dBFS", it) }
-                        ?: "Listening…",
+                    test.peakDb
+                        ?.let {
+                            stringResource(
+                                R.string.level_peak,
+                                String.format(Locale.getDefault(), "%.0f", it),
+                            )
+                        }
+                        ?: stringResource(R.string.level_listening),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
                     when {
-                        suggested == null -> "Nothing heard yet."
-                        suggested == 0 -> "Loud enough already."
-                        suggested >= MAX_INPUT_GAIN_DB -> "Very quiet — move the phone closer."
-                        else -> "Quiet. Takes can be lifted by +$suggested dB."
+                        suggested == null -> stringResource(R.string.level_nothing_heard)
+                        suggested == 0 -> stringResource(R.string.level_loud_enough)
+                        suggested >= MAX_INPUT_GAIN_DB ->
+                            stringResource(R.string.level_very_quiet)
+
+                        else -> stringResource(R.string.level_quiet, suggested)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     textAlign = TextAlign.Center,
                 )
                 if (test.peakDb != null) {
-                    TextButton(onClick = onAgain) { Text("Measure again") }
+                    TextButton(onClick = onAgain) {
+                        Text(stringResource(R.string.level_measure_again))
+                    }
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = onAccept, enabled = suggested != null) {
-                Text(if (suggested == null || suggested == 0) "Keep 0 dB" else "Record at +$suggested dB")
+                Text(
+                    if (suggested == null || suggested == 0) {
+                        stringResource(R.string.level_keep_zero)
+                    } else {
+                        stringResource(R.string.level_record_at, suggested)
+                    },
+                )
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
     )
 }
 

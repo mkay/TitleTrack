@@ -29,8 +29,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import de.singular.recorder.PlaybackState
+import de.singular.recorder.R
 
 /**
  * The take being listened to, wherever you happen to be.
@@ -74,14 +76,16 @@ fun MiniPlayer(
                         style = MaterialTheme.typography.bodyMedium,
                         maxLines = 1,
                     )
+                    val separator = stringResource(R.string.mini_player_separator)
+                    val of = stringResource(R.string.mini_player_of)
                     Text(
                         buildString {
                             formatKind(take.name).takeIf { it.isNotEmpty() }?.let {
                                 append(it)
-                                append(" · ")
+                                append(separator)
                             }
                             append(formatDuration(playback.positionMs))
-                            append(" / ")
+                            append(of)
                             append(formatDuration(playback.durationMs))
                         },
                         style = MaterialTheme.typography.bodySmall,
@@ -92,7 +96,9 @@ fun MiniPlayer(
                 IconButton(onClick = onToggle) {
                     Icon(
                         if (playback.playing) Icons.Default.Stop else Icons.Default.PlayArrow,
-                        contentDescription = if (playback.playing) "Stop" else "Play",
+                        contentDescription = stringResource(
+                            if (playback.playing) R.string.cd_stop else R.string.cd_play,
+                        ),
                         tint = MaterialTheme.colorScheme.brandFill,
                     )
                 }
@@ -103,7 +109,7 @@ fun MiniPlayer(
                 IconButton(onClick = onDismiss) {
                     Icon(
                         Icons.Default.Close,
-                        contentDescription = "Close the player",
+                        contentDescription = stringResource(R.string.cd_close_player),
                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = DismissTint),
                     )
                 }
