@@ -160,13 +160,8 @@ app/src/main/java/de/singular/recorder/
 ## Known limitations
 
 - Recording stops if the app leaves the foreground — Android takes the microphone away from
-  background apps. A foreground service is the fix, and is planned.
-- Mono only. Phone microphones are effectively mono; stereo would double the file size for nothing
-  until there is an interface to record from.
-- The accent is not legible as *text* on the light theme: it reads 3.2:1 on a white page, where body
-  text wants 4.5:1. Buttons, chips, switches and icons are unaffected — they take a brighter step
-  that carries its own dark content. The step that would fix the text sits too close to the record
-  red and reads brown on a white page, so this is a known trade rather than an oversight.
+  background apps. So keep your hands on the guitar. 
+- Mono only. Phone microphones are effectively mono. 
 
 ## License
 
