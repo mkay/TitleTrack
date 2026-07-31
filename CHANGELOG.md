@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1 — unreleased
+## 0.2 — unreleased
 
 First cut: recording and take management.
 
