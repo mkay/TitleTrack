@@ -15,3 +15,6 @@ PLAN.md
 
 # Local Claude Code settings (machine paths, not shared)
 .claude/settings.local.json
+
+# Local wordmark iteration helper (paths to a working copy outside the repo)
+/tools/wordmark.sh
