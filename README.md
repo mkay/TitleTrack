@@ -166,6 +166,11 @@ app/src/main/java/de/singular/recorder/
   background apps. So keep your hands on the guitar. 
 - Mono only. Phone microphones are effectively mono. 
 
+## Support
+
+The app is free and has no ads, no accounts and no network access at all. If it earns its keep,
+[ko-fi.com/s1ngular](https://ko-fi.com/s1ngular) is where to say so.
+
 ## License
 
 GPL-3.0-**only** — version 3 of the GNU General Public License, and not "or any later version".
