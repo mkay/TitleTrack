@@ -1,0 +1,1 @@
+A recorder for instruments, not voice memos. Count in, play, keep the take.

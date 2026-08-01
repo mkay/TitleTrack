@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import de.singular.recorder.R
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlin.math.log10
@@ -107,9 +108,27 @@ fun formatSize(bytes: Long): String = when {
 fun formatKind(name: String): String =
     name.substringAfterLast('.', "").takeIf { it.isNotEmpty() && it.length <= 5 }?.uppercase() ?: ""
 
-fun formatDate(epochMs: Long): String =
-    if (epochMs <= 0) "" else SimpleDateFormat("d MMM yyyy, HH:mm", Locale.getDefault())
-        .format(Date(epochMs))
+/**
+ * `1 Aug, 23:27` for a take from this year, `2 Jun 2025, 13:26` for one from any other.
+ *
+ * The year is written only where it says something. Within the current year the date is already
+ * unambiguous without it, and a library is mostly this year's takes, so carrying it on every row
+ * costs five characters on the row that can least afford them to repeat what the calendar says.
+ *
+ * It is a convention rather than a statement — a reader who does not know the rule cannot tell
+ * `2 Jun` from the same date last year. What makes it safe is that the exception is visible: any
+ * take from another year carries its year, so a folder spanning years teaches the pattern on sight,
+ * and a folder that does not span years has only one year to mean.
+ */
+fun formatDate(epochMs: Long): String {
+    if (epochMs <= 0) return ""
+    val date = Date(epochMs)
+    val takeYear = Calendar.getInstance().apply { time = date }.get(Calendar.YEAR)
+    val pattern =
+        if (takeYear == Calendar.getInstance().get(Calendar.YEAR)) "d MMM, HH:mm"
+        else "d MMM yyyy, HH:mm"
+    return SimpleDateFormat(pattern, Locale.getDefault()).format(date)
+}
 
 /** One text field and two buttons: what naming a folder, a take or a rename all come down to. */
 @Composable

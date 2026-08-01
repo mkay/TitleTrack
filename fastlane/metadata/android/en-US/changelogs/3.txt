@@ -1,0 +1,7 @@
+The app speaks German, and can be told which language to speak.
+
+Around 240 strings moved out of the Kotlin into resources, and a Language row in Settings → System offers the system language, Deutsch and English. On Android 13 and up that is the per-app language in Android's own Settings.
+
+Library rows no longer cut the date off the end: the tempo moves to the player, where a take is opened rather than scanned.
+
+Pressing Trim now hints that a handle moves on a long press.

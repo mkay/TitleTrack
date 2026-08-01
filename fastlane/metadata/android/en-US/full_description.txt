@@ -1,0 +1,47 @@
+An Android recorder for instruments rather than for voice memos. Count yourself in at a tempo you choose, play, and if the third bar goes wrong hit Restart without looking. Takes are written as plain WAV files into a folder you pick, so they are on your phone's storage where you can easily manage them — not locked inside the app.
+
+Early-stage release — expect rough edges. Feedback and bug reports welcome via Issues.
+
+<b>While a take is being made</b>
+
+* Two buttons that matter — full-width, thumb-height Done and Restart. Done ends the take and saves it; Restart wipes it and counts you swiftly back in.
+* Count-in — off, one bar or two, at a tempo you set, with an accented downbeat.
+* A live waveform while you play — the last eight seconds as a scrolling peak envelope, the same shape the player draws for a finished take. Anything near full scale draws red, so clipping is visible as it happens.
+* Silent visual metronome — one dot per beat under the buttons, the lit one walking the bar. Silent, and on by default for that reason: an audible click on a phone speaker ends up inside the take. It starts with the count-in.
+* A click through the take (optional, off) — for headphones, where there is nothing for the microphone to pick up.
+* Listen before recording (optional, off) — draws what the microphone hears before you press Record, so clipping and mic distance are settled while it still costs nothing.
+* A level test, not a guess — hold Record and play the loudest thing you will play. It reports the peak in dBFS and offers a gain that puts it at −9 dBFS, leaving room for the take to be louder than the rehearsal.
+* Recorded honestly — the least-processed microphone source the device offers, and unlike voice recorders no filtering of any kind on the way to disk.
+
+<b>Your folder, your files</b>
+
+Pick any folder once — Music/Recording, an SD card, a synced folder; takes land there as 44.1 kHz mono WAV. Browse it in the app, make sub-folders, rename, move, star, share, delete, play back. The bpm you played to is written into the WAV itself as a LIST/INFO comment, so it survives being copied to a computer.
+
+<b>The player</b>
+
+Every take is drawn as a peak envelope in decibels — the same shape the record screen drew while you were playing, so a take looks the same afterwards as it did being made. Touch anywhere on it to seek, drag to scrub, pinch to zoom in. WAV is read straight through; anything else the device can play — an m4a from the stock recorder, an mp3 dropped in from a desktop — is decoded and drawn just the same.
+
+* Trim puts two handles on the waveform. A WAV cut to a WAV never decodes: the header is rebuilt for the new length and the selected bytes copied straight through, so what survives is exactly what was recorded.
+* Level normalizes a quiet take in the file — Peak, which cannot distort, or Loudness, which aims at an average level of −14 dBFS RMS.
+* Note attaches whatever the take needs saying about it: the chords, the words, what the idea was.
+
+Both edits offer a choice when saving: overwrite the take, or save a lossless copy beside it as FLAC or WAV. Either way the take's tempo goes with it.
+
+Playback outlives the screen it started from — a mini player sits above the tabs wherever you are.
+
+<b>Languages</b>
+
+English and German, with a Language row in Settings. On Android 13 and up that is the per-app language in Android's own Settings rather than a second setting that quietly disagrees with it.
+
+<b>Known limitations</b>
+
+* Recording stops if the app leaves the foreground — Android takes the microphone away from background apps. So keep your hands on the guitar.
+* Mono only. Phone microphones are effectively mono.
+
+<b>Permissions</b>
+
+The microphone. No internet permission at all — the Support dialog's links open in your browser, which fetches in its own process.
+
+<b>License</b>
+
+GPL-3.0-only. The wordmark and the icon are CC BY 4.0; the name is not licensed, so a fork needs its own.

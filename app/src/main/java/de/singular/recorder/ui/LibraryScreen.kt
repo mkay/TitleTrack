@@ -66,6 +66,7 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import de.singular.recorder.LibraryState
 import de.singular.recorder.R
@@ -305,6 +306,7 @@ private fun Breadcrumb(path: List<Folder>, onJump: (Int) -> Unit, modifier: Modi
                     .clickable(enabled = index != path.lastIndex) { onJump(index) }
                     .padding(vertical = 12.dp, horizontal = 2.dp),
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -399,14 +401,13 @@ internal fun TakeRow(
                 take.name.substringBeforeLast('.'),
                 style = MaterialTheme.typography.bodyLarge,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             val separator = stringResource(R.string.take_meta_separator)
-            // Resolved before the builder rather than inside it: buildString's lambda is ordinary
-            // Kotlin, not a composable scope, so stringResource cannot be called from within it.
-            val bpmText = take.bpm?.let {
-                val n = if (it == it.toInt().toFloat()) "${it.toInt()}" else "$it"
-                stringResource(R.string.take_meta_bpm, n)
-            }
+            // No tempo here, unlike the player: five facts did not fit the width of a phone. It is
+            // the one of the five that is read when a take is opened rather than while a list is
+            // scanned, so it is the one that waits there — and the width it frees is what keeps the
+            // date from being clipped rather than what buys a fifth column back.
             Text(
                 buildString {
                     formatKind(take.name).takeIf { it.isNotEmpty() }?.let {
@@ -414,10 +415,6 @@ internal fun TakeRow(
                         append(separator)
                     }
                     append(formatDuration(take.durationMs))
-                    bpmText?.let {
-                        append(separator)
-                        append(it)
-                    }
                     append(separator)
                     append(formatSize(take.sizeBytes))
                     val date = formatDate(take.modifiedAt)
@@ -435,6 +432,7 @@ internal fun TakeRow(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         // A mark, not a control: it says there is something written here, and the player is where it

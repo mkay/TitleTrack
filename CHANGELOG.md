@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3 — unreleased
+## 0.3 — 2026-08-01
 
 The app speaks German, and can be told which language to speak.
 
@@ -27,6 +27,12 @@ The app speaks German, and can be told which language to speak.
 - Pressing **Trim** now says *Long-press a handle to move it* over the waveform for a moment. The
   hold is the one gesture on that screen nothing can show, and the hint goes on its own — sooner if
   a handle is grabbed, since it sits where the drag happens. Quick help gained the same item.
+- **The library row gave up its tempo and got its time back.** Five facts did not fit the width of a
+  phone, so the date was being cut mid-string — with `maxLines = 1` and no overflow set, it simply
+  stopped, and nothing on the row said anything was missing. The bpm moves to the player, which is
+  where a take is opened rather than scanned; the date drops its year for takes from this year and
+  keeps it for older ones, so the year is written exactly where it says something; and the three
+  single-line texts that can still run long end in an ellipsis rather than mid-character.
 - The trim button reads **Keep selection** rather than the length being kept. A button whose width
   moves as you drag the handles under it reads as a different button each time; the length is on the
   Start and End readouts beside it, which is where a number belongs.
@@ -34,7 +40,7 @@ The app speaks German, and can be told which language to speak.
   nothing to say about `Text("Cancel")` — which is the only way this app writes UI. Without it the
   next screen written would silently be English-only and nothing would complain.
 
-## 0.2 — unreleased
+## 0.2 — 2026-07-31
 
 First cut: recording and take management.
 

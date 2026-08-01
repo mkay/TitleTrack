@@ -31,9 +31,12 @@ Early-stage release — expect rough edges. Feedback and bug reports welcome via
   it at −9 dBFS, leaving room for the take to be louder than the rehearsal. 
 - **Your folder, your files** — pick any folder once (`Music/Recording`, an SD card, a synced
   folder); takes land there as 44.1 kHz mono WAV. Browse it in the app, make sub-folders, rename,
-  delete, share, play back.
+  move, star, delete, share, play back. A **Starred** tab gathers the takes worth coming back to.
 - **Settings that stay out of the way** — tempo, count-in and the metronome sit on one row of the
   record screen as values to read.. The settings screen itself is two tabs, split into **Recording** which is everything that shapes the next take and **System** which is the app's own set-up. 
+- **English and German** — a **Language** row in Settings → System, offering the system language,
+  Deutsch and English, each named in its own language. On Android 13 and up the choice *is* the
+  per-app language in Android's own Settings rather than a second setting that disagrees with it.
 - **Takes remember their tempo** — the bpm you played to is written into the WAV itself as a
   `LIST/INFO` comment, so it survives being copied to a computer.
 - **Recorded honestly** — the least-processed microphone source the device offers
