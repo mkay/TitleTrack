@@ -38,11 +38,11 @@
     <string name="help_loop_title">Einen Take loopen</string>
     <string name="help_loop_body">Wiedergabe gedrückt halten. Der ganze Take wiederholt sich, bis du ihn stoppst — die Lemniskate auf dem Knopf zeigt, dass es läuft.</string>
 
-    <string name="help_trim_title">Einen Schnittgriff verschieben</string>
-    <string name="help_trim_body">Auf Schneiden tippen, dann einen Griff ruhig halten, bis er greift, und ziehen. Das kurze Halten verhindert, dass ein Griff daneben stattdessen spult.</string>
+    <string name="help_trim_title">Einen Schnittmarker verschieben</string>
+    <string name="help_trim_body">Auf Schneiden tippen, dann einen Marker lange halten und ziehen.</string>
 
     <string name="help_select_title">Mehrere Takes auswählen</string>
-    <string name="help_select_body">Einen Take in der Bibliothek lange drücken. Die Leiste gehört dann der Auswahl, zum Verschieben oder Löschen im Ganzen.</string>
+    <string name="help_select_body">Einen Take in der Bibliothek lange drücken. Die Leiste gehört dann der Auswahl, zum Verschieben oder mehrfachen Löschen.</string>
 
     <!-- ===== Einstellungen ===== -->
 
@@ -52,10 +52,10 @@
 
     <string name="settings_section_microphone">Mikrofon</string>
     <string name="setting_listen_title">Vor der Aufnahme mithören</string>
-    <string name="setting_listen_detail">Pegel prüfen und Übersteuern bemerken, bevor du spielst, nicht danach. Hält das Mikrofon offen, seine Anzeige bleibt also an.</string>
+    <string name="setting_listen_detail">Pegel prüfen und Übersteuern bemerken, bevor du spielst. nicht danach. Das Mikrofon bleibt an.</string>
 
     <string name="settings_section_time_signature">Taktart</string>
-    <string name="settings_time_signature_detail">Schläge pro Takt, für Einzähler und Metronom.</string>
+    <string name="settings_time_signature_detail">Klicks pro Takt, für Einzähler und Metronom.</string>
 
     <string name="settings_section_metronome">Metronom</string>
     <string name="setting_click_title">Klick während der Aufnahme</string>
@@ -77,7 +77,7 @@
 
     <string name="settings_section_display">Anzeige</string>
     <string name="setting_keep_screen_on_title">Bildschirm anlassen</string>
-    <string name="setting_keep_screen_on_detail">Deine Hände sind am Instrument. Kostet Akku.</string>
+    <string name="setting_keep_screen_on_detail">Das Display dimmt und sperrt nicht, solange die App offen ist. Praktisch mit Gitarre in der Hand, kostet aber Akku.</string>
 
     <string name="setting_theme">Design</string>
     <string name="theme_system">System</string>
@@ -93,7 +93,7 @@
     <string name="about_version_copied">Version kopiert</string>
 
     <string name="about_section_about">Über</string>
-    <string name="about_body">Ein Rekorder für Instrumente, nicht für Sprachnotizen. Ich habe Title Track vor allem für mich selbst gebaut — vielleicht ist er dir ja genauso nützlich wie mir.</string>
+    <string name="about_body">Title Track ist in erster Linie eine App für mich selbst  — aber vielleicht findest du sie ja ähnlich nützlich wie ich.</string>
 
     <string name="about_section_website">Website</string>
     <string name="about_website_body">Die App wohnt hier:</string>
@@ -102,7 +102,7 @@
     <string name="about_bugs_body">Etwas hakt? Sag mir Bescheid:</string>
 
     <string name="about_section_support">Unterstützen</string>
-    <string name="about_support_body">Wenn du magst, unterstütze die Entwicklung:</string>
+    <string name="about_support_body">Falls du kannst, unterstütze die Entwicklung:</string>
 
     <string name="about_section_license">Lizenz</string>
 
@@ -349,10 +349,10 @@
     <string name="save_take_detail">%1$s · nach %2$s</string>
 
     <string name="level_title">Pegel einstellen</string>
-    <string name="level_body">Spiel das Lauteste, was du spielen wirst.</string>
+    <string name="level_body">Spiel so laut, wie du bei der Aufnahme spielen wirst.</string>
     <string name="level_listening">Hört zu …</string>
     <string name="level_nothing_heard">Noch nichts gehört.</string>
-    <string name="level_loud_enough">Schon laut genug.</string>
+    <string name="level_loud_enough">OK, laut genug.</string>
     <string name="level_very_quiet">Sehr leise — geh mit dem Telefon näher ran.</string>
     <string name="level_quiet">Leise. Takes lassen sich um +%1$d dB anheben.</string>
     <string name="level_measure_again">Erneut messen</string>
