@@ -97,6 +97,7 @@ import de.singular.recorder.ui.QuickHelpDialog
 import de.singular.recorder.ui.PlayerOverflowAction
 import de.singular.recorder.ui.RecordScreen
 import de.singular.recorder.ui.SettingsScreen
+import de.singular.recorder.ui.SettingsTab
 import de.singular.recorder.ui.SupportDialog
 import de.singular.recorder.ui.TitleTrackTheme
 import de.singular.recorder.ui.brandFill
@@ -241,6 +242,16 @@ class MainActivity : AppCompatActivity() {
                     scope.launch { drawerState.close() }
                 }
 
+                // Which half of the settings to show. It lives here rather than inside the settings
+                // because one route in has a destination in mind: the screen-awake notice sends you
+                // to the toggle it is about, not to the front of a screen you then have to search.
+                var settingsTab by rememberSaveable { mutableStateOf(SettingsTab.RECORDING) }
+
+                fun goToSettings(tab: SettingsTab) {
+                    settingsTab = tab
+                    go(Screen.SETTINGS)
+                }
+
                 // A drawer item that opens a dialog rather than a screen has to shut the drawer
                 // first, or the dialog arrives over a panel that is still sliding.
                 fun closeThen(action: () -> Unit) {
@@ -279,7 +290,7 @@ class MainActivity : AppCompatActivity() {
                             TextButton(
                                 onClick = {
                                     showKeepAwakeInfo = false
-                                    screen = Screen.SETTINGS
+                                    goToSettings(SettingsTab.SYSTEM)
                                 },
                             ) { Text(stringResource(R.string.screen_settings)) }
                         },
@@ -512,7 +523,7 @@ class MainActivity : AppCompatActivity() {
                                     label = { Text(stringResource(Screen.SETTINGS.title)) },
                                     icon = { Icon(Icons.Default.Settings, null) },
                                     selected = screen == Screen.SETTINGS,
-                                    onClick = { go(Screen.SETTINGS) },
+                                    onClick = { goToSettings(SettingsTab.RECORDING) },
                                     modifier = Modifier.padding(horizontal = 12.dp),
                                 )
                                 // Above the recents rather than below them: the list underneath
@@ -873,6 +884,8 @@ class MainActivity : AppCompatActivity() {
 
                                 Screen.SETTINGS -> SettingsScreen(
                                     settings = settings,
+                                    tab = settingsTab,
+                                    onTabChange = { settingsTab = it },
                                     folderLabel = library.path.firstOrNull()?.name,
                                     onChooseFolder = { folderPicker.launch(null) },
                                     onSetBeatsPerBar = vm::setBeatsPerBar,

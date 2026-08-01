@@ -35,7 +35,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -84,6 +83,8 @@ enum class SettingsTab(@StringRes val title: Int) {
 @Composable
 fun SettingsScreen(
     settings: Settings,
+    tab: SettingsTab,
+    onTabChange: (SettingsTab) -> Unit,
     folderLabel: String?,
     onChooseFolder: () -> Unit,
     onSetBeatsPerBar: (Int) -> Unit,
@@ -95,16 +96,12 @@ fun SettingsScreen(
     onSetThemeMode: (ThemeMode) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Local, unlike the library's tab: back from here leaves the settings altogether, so there is
-    // no back chain a level up that needs to know which half is showing.
-    var tab by rememberSaveable { mutableStateOf(SettingsTab.RECORDING) }
-
     Column(modifier.fillMaxSize()) {
         PrimaryTabRow(selectedTabIndex = tab.ordinal, containerColor = Color.Transparent) {
             SettingsTab.entries.forEach { entry ->
                 Tab(
                     selected = tab == entry,
-                    onClick = { tab = entry },
+                    onClick = { onTabChange(entry) },
                     text = { Text(stringResource(entry.title)) },
                 )
             }
