@@ -272,7 +272,12 @@ fun RecordScreen(
             // the take's own clock takes over without the walk breaking step. Playing in is the
             // hard part, and by the time it matters you have already watched a bar of it.
             val countingIn = state.phase == RecordPhase.COUNT_IN
-            val ticking = countingIn || state.phase == RecordPhase.RECORDING
+            // Still until the downbeat is known. Over Bluetooth the output latency is not readable
+            // for the best part of a second, and it moves the downbeat by as much — dots walking
+            // before then would only have to lurch back. Nothing is audible in that window either,
+            // so a bar sitting ready is both the honest picture and the useful one.
+            val ticking = (countingIn && state.countInSettled) ||
+                state.phase == RecordPhase.RECORDING
             BeatDots(
                 beats = rememberBeatPosition(
                     elapsedMs = if (countingIn) -state.countInRemainingMs else state.elapsedMs,

@@ -290,6 +290,7 @@
     <string name="msg_needs_microphone">%1$s needs the microphone to measure the level.</string>
 
     <!-- %1$s is the filename the take was saved under. -->
+    <string name="msg_click_timing_unknown">The Bluetooth delay could not be measured. This take may sit off the beat.</string>
     <string name="msg_saved_as">Saved as %1$s</string>
     <string name="msg_not_saved">The take could not be saved.</string>
     <!-- The take was opened from the recents list, but the file is no longer in the folder. -->

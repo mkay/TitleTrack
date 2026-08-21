@@ -227,6 +227,7 @@
 
     <string name="msg_needs_microphone">%1$s braucht das Mikrofon, um den Pegel zu messen.</string>
 
+    <string name="msg_click_timing_unknown">Die Bluetooth-Verzögerung ließ sich nicht messen. Dieser Take liegt vielleicht nicht auf dem Beat.</string>
     <string name="msg_saved_as">Gespeichert als %1$s</string>
     <string name="msg_not_saved">Der Take konnte nicht gespeichert werden.</string>
     <string name="msg_take_gone">Diesen Take gibt es nicht mehr.</string>

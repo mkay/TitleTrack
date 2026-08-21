@@ -62,6 +62,26 @@ data class RecorderState(
     val countInRemainingMs: Long = 0,
     /** Set when the microphone could not be opened at all. */
     val error: String? = null,
+    /**
+     * Whether the downbeat the count-in is walking towards is known yet.
+     *
+     * False for the first fraction of a count-in while the output latency is still being measured,
+     * because until it is there is no honest answer: the downbeat moves by however far behind the
+     * output turns out to be. On a speaker that is ~100 ms and nobody sees it. Over Bluetooth the
+     * answer took 834 ms and moved the downbeat by 875 — nearly two beats at 120 bpm — so the dots
+     * would have walked off confidently and then lurched backwards. They wait instead.
+     *
+     * It is also the truthful thing to draw: over Bluetooth the first click is not *heard* until
+     * one output latency in, which is the same moment this becomes true.
+     */
+    val countInSettled: Boolean = true,
+    /**
+     * Set when the clicks went out over a wireless route and the latency could not be measured, so
+     * no compensation was applied and this take is off its own grid by however far behind the
+     * earbuds are. Rare — but silent otherwise, and a take that does not line up with nothing said
+     * about it is the worst version of this bug.
+     */
+    val clickTimingUnknown: Boolean = false,
 ) {
     val hasTake: Boolean get() = elapsedMs > 0
 }
@@ -340,20 +360,28 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
             fun beginCountIn() {
                 countingIn = true
                 val nominal = metronome.countInMs(bpm, beatsPerBar, countInBars)
-                countInEndsAt = SystemClock.elapsedRealtime() + nominal
+                // Zero means "not known yet", not "now" — the screen holds the dots still until
+                // this says where the downbeat actually is. See [RecorderState.countInSettled].
+                countInEndsAt = 0L
+                val startedAt = SystemClock.elapsedRealtime()
                 countIn = scope.launch(Dispatchers.Default) {
                     if (audioMetronome) {
                         // The clicks come from the through-take stream when that is running, so this
                         // is only the wait: sounding the count-in here too would double every click.
-                        val startedAt = SystemClock.elapsedRealtime()
                         val late = metronome.awaitTakeClickLatency()
-                        countInEndsAt += late
+                        countInEndsAt = startedAt + nominal + late
                         val waited = SystemClock.elapsedRealtime() - startedAt
                         delay((nominal + late - waited).coerceAtLeast(1))
                     } else {
                         // The static count-in measures its own latency and waits it out; this only
                         // has to move the countdown to match.
-                        metronome.countIn(bpm, beatsPerBar, countInBars) { countInEndsAt += it }
+                        val late = metronome.countIn(bpm, beatsPerBar, countInBars) {
+                            countInEndsAt = startedAt + nominal + it
+                        }
+                        // A latency of zero never fires the callback — settle it here so a count-in
+                        // that measured nothing still ends, rather than waiting on a downbeat that
+                        // is never announced.
+                        if (countInEndsAt == 0L) countInEndsAt = startedAt + nominal + late
                     }
                     countingIn = false
                 }
@@ -369,11 +397,11 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
              */
             fun beginLatencyHold() {
                 countingIn = true
-                countInEndsAt = SystemClock.elapsedRealtime() + Metronome.LEAD_MS
+                countInEndsAt = 0L
+                val startedAt = SystemClock.elapsedRealtime()
                 countIn = scope.launch(Dispatchers.Default) {
-                    val startedAt = SystemClock.elapsedRealtime()
                     val late = metronome.awaitTakeClickLatency()
-                    countInEndsAt += late
+                    countInEndsAt = startedAt + Metronome.LEAD_MS + late
                     val waited = SystemClock.elapsedRealtime() - startedAt
                     delay((Metronome.LEAD_MS + late - waited).coerceAtLeast(1))
                     countingIn = false
@@ -430,14 +458,24 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
                     // first fraction of a second, and — since the latency is added to the total as
                     // soon as it is measured, part-way through — flickered back to 5 again after
                     // reaching 4. A one-bar count-in counts 4, 3, 2, 1, whatever the wait is doing.
-                    val untilDownbeat = countInEndsAt - SystemClock.elapsedRealtime()
-                    val musical = untilDownbeat.coerceIn(0, countInMusicalMs)
+                    // Zero is "the downbeat is not known yet", not "it is now": show the count-in
+                    // whole and still until the latency measurement lands. Falling through to the
+                    // arithmetic below would read it as a downbeat long past and count zero beats
+                    // left — the count-in emptied before a single click had been heard.
+                    val settled = countInEndsAt != 0L
+                    val musical = if (settled) {
+                        (countInEndsAt - SystemClock.elapsedRealtime())
+                            .coerceIn(0, countInMusicalMs)
+                    } else {
+                        countInMusicalMs
+                    }
                     val left = (musical + beatMs - 1) / beatMs
                     _state.value = _state.value.copy(
                         phase = RecordPhase.COUNT_IN,
                         level = peak,
                         countInBeatsLeft = left.toInt().coerceAtLeast(0),
                         countInRemainingMs = musical,
+                        countInSettled = settled,
                     )
                     continue // the clicks are not part of the take
                 }
@@ -470,6 +508,11 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
                     level = peak,
                     countInBeatsLeft = 0,
                     countInRemainingMs = 0,
+                    countInSettled = true,
+                    // A measurement that never arrived on a wireless route is the one case where
+                    // this take's grid cannot be trusted — see [Metronome.lastOutputWasWireless].
+                    clickTimingUnknown = !metronome.latencyMeasured &&
+                        metronome.lastOutputWasWireless == true,
                 )
             }
         } finally {

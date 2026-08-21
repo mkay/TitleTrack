@@ -37,6 +37,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
@@ -391,6 +394,23 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     init {
         recorder.setInputGain(_settings.value.inputGainDb)
         openRoot()
+        warnWhenClickTimingUnknown()
+    }
+
+    /**
+     * Say so when a take was recorded to a click whose delay could not be measured.
+     *
+     * Once per take, on the edge rather than on the value — the recorder republishes its state
+     * every captured block, and a snackbar re-raised sixty times a second is not a warning.
+     */
+    private fun warnWhenClickTimingUnknown() {
+        viewModelScope.launch {
+            recorderState
+                .map { it.clickTimingUnknown }
+                .distinctUntilChanged()
+                .filter { it }
+                .collect { _message.value = Message.Text(R.string.msg_click_timing_unknown) }
+        }
     }
 
     // ---- storage ----------------------------------------------------------------------------

@@ -3,6 +3,7 @@
 package de.singular.recorder.audio
 
 import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioTimestamp
 import android.media.AudioTrack
@@ -51,12 +52,32 @@ class Metronome(private val sampleRate: Int = Wav.SAMPLE_RATE) {
          */
         const val LEAD_MS = 80L
 
-        /** How long to wait for the device to report a timestamp before giving up on it. */
-        private const val LATENCY_BUDGET_MS = 300L
+        /**
+         * How long to wait for the device to report a timestamp before giving up on it.
+         *
+         * Two seconds, and that is not slack. A Bluetooth device presents its first frame a whole
+         * output latency in — measured at 625-875 ms on AirPods over A2DP across four sessions —
+         * and [latencyMsOf] cannot answer until it has. At the 300 ms this used to be, every
+         * Bluetooth take timed out, took no compensation at all, and landed 244 ms off its own
+         * grid: half a beat at 120 bpm, with the dots on screen pointing at the offbeat.
+         *
+         * Costs nothing when the answer comes early — the poll returns the moment it does, which
+         * on this phone's speaker is about 106 ms. It is only ever spent when it is needed.
+         */
+        private const val LATENCY_BUDGET_MS = 2_000L
         private const val LATENCY_POLL_MS = 10L
 
-        /** No device's output is a quarter of a second behind; past this, the reading is wrong. */
-        private const val MAX_LATENCY_MS = 400L
+        /**
+         * Past this, the reading is wrong and must not hold a take back.
+         *
+         * **1.5 seconds, and the old 400 ms was the quiet half of the Bluetooth bug.** The comment
+         * here used to say no device's output is a quarter of a second behind. That is true of a
+         * speaker and wrong by more than double for A2DP: every measured Bluetooth session reported
+         * 625-875 ms. Clamped at 400 the compensation would have looked correct and been silently
+         * capped hundreds of milliseconds short — the harder failure to spot of the two, because
+         * nothing about it looks like a timeout.
+         */
+        private const val MAX_LATENCY_MS = 1_500L
     }
 
     /**
@@ -112,7 +133,7 @@ class Metronome(private val sampleRate: Int = Wav.SAMPLE_RATE) {
             // downbeat after the last one — in the track's own time. On the wall clock it ends a
             // whole output latency later, and it is the wall clock the recorder starts on.
             val nominalMs = (buffer.size.toLong() * 1_000 / sampleRate).coerceAtLeast(1)
-            val late = awaitLatency(t, startNanos, budgetMs = minOf(LATENCY_BUDGET_MS, nominalMs / 3))
+            val late = awaitLatency(t, startNanos, budgetMs = latencyBudgetWithin(nominalMs))
             if (late > 0) onLatency(late)
             val waited = (System.nanoTime() - startNanos) / 1_000_000
             delay((nominalMs + late - waited).coerceAtLeast(1))
@@ -121,6 +142,53 @@ class Metronome(private val sampleRate: Int = Wav.SAMPLE_RATE) {
             stop()
         }
     }
+
+    /**
+     * Whether the last latency measurement got an answer, rather than running out of budget.
+     *
+     * False means no compensation was applied and the take is off its grid by however far behind
+     * the output actually is — which on a wireless route is most of a beat. Worth telling the user
+     * about rather than leaving them to wonder why the take does not line up; see [AudioRecorder].
+     */
+    @Volatile
+    var latencyMeasured: Boolean = true
+        private set
+
+    /**
+     * Whether the last measured track was going out over a wireless route, where a failed
+     * measurement is what puts a take most of a beat off its grid. Null if it could not be told.
+     *
+     * Recorded when the measurement happens rather than asked for afterwards, because the count-in
+     * releases its track the moment it finishes and the question would have no track left to ask
+     * of. That path is the *default* — the audible click is off unless someone turns it on — so a
+     * warning that only worked with clicks running through the take would miss the common case.
+     *
+     * Asked of the playing track rather than of [android.media.AudioManager]'s device list: the
+     * list says what is *connected*, which on a phone with earbuds paired, a headset plugged in and
+     * a car nearby is not the same question as where this stream is *going*.
+     */
+    @Volatile
+    var lastOutputWasWireless: Boolean? = null
+        private set
+
+    private fun noteRoute(t: AudioTrack) {
+        lastOutputWasWireless = runCatching { t.routedDevice }.getOrNull()?.let {
+            it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                it.type == AudioDeviceInfo.TYPE_BLE_HEADSET ||
+                it.type == AudioDeviceInfo.TYPE_BLE_BROADCAST
+        }
+    }
+
+    /**
+     * The budget for a measurement that has to finish inside a count-in of [nominalMs].
+     *
+     * Four fifths of it, so the reading lands with time left to act on, rather than the third this
+     * used to allow. A third is 693 ms of a one-bar count-in at 120 bpm — less than the 834 ms a
+     * Bluetooth device took to answer, so the count-in path would have gone on timing out after the
+     * budget elsewhere was raised. The two are easy to fix apart and pointless fixed apart.
+     */
+    internal fun latencyBudgetWithin(nominalMs: Long): Long =
+        minOf(LATENCY_BUDGET_MS, nominalMs * 4 / 5)
 
     /**
      * How far behind the wall clock the through-take clicks actually are, once the audio device has
@@ -147,8 +215,16 @@ class Metronome(private val sampleRate: Int = Wav.SAMPLE_RATE) {
     private suspend fun awaitLatency(t: AudioTrack, startNanos: Long, budgetMs: Long): Long {
         val deadline = System.nanoTime() + budgetMs.coerceAtLeast(0) * 1_000_000
         while (true) {
-            latencyMsOf(t, startNanos)?.let { return it }
-            if (System.nanoTime() >= deadline) return 0
+            latencyMsOf(t, startNanos)?.let {
+                latencyMeasured = true
+                noteRoute(t)
+                return it
+            }
+            if (System.nanoTime() >= deadline) {
+                latencyMeasured = false
+                noteRoute(t)
+                return 0
+            }
             delay(LATENCY_POLL_MS)
         }
     }
