@@ -89,10 +89,14 @@ class TunerEngine(context: Context, private val scope: CoroutineScope) {
         const val SMOOTHING_READINGS = 5
 
         /**
-         * Readings with nothing in them before the display goes quiet. Half a second, so that the
-         * tail of a decaying note does not blink the note name out and back.
+         * Readings with nothing in them before the display goes quiet — about two seconds.
+         *
+         * Long, because a plucked note stops being nameable well before it stops being tunable: the
+         * search wants a clear window and a decaying string stops offering one, while the strobe can
+         * still follow the note for seconds afterwards. Half a second here took the note name off
+         * the screen while the string was plainly still ringing.
          */
-        const val MISSES_BEFORE_SILENCE = 10
+        const val MISSES_BEFORE_SILENCE = 40
     }
 
     private val recentHz = ArrayDeque<Double>()

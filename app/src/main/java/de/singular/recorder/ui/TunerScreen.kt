@@ -3,10 +3,17 @@
 package de.singular.recorder.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -15,83 +22,107 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import de.singular.recorder.R
+import de.singular.recorder.TunerDisplay
 import de.singular.recorder.audio.TunerState
 
 /**
- * The tuner, as bare numbers.
+ * The tuner: one of two faces, and a line of text when there is nothing to show on either.
  *
- * Scaffolding, and meant to be read as such: it exists so that what [de.singular.recorder.audio
- * .Pitch] and [de.singular.recorder.audio.Strobe] say can be checked against a known reference on a
- * real phone, in a real room, before either display is drawn on top of them. The needle and the
- * strobe replace this wholesale.
+ * **Both faces read the same two measurements**, and which is on show changes nothing about what is
+ * measured — see [de.singular.recorder.audio.TunerEngine]. The choice sits on this screen rather
+ * than in Settings because the moment you want to change it is while a string is still ringing and
+ * you are deciding which of the two you can actually read.
+ *
+ * A note on comparing this against a pedal tuner, since it will come up: this reports **equal
+ * temperament**, where a note's frequency is exactly what the arithmetic says. Several well-regarded
+ * tuners default to *sweetened* presets, which deliberately stretch a guitar away from that — flat
+ * at the bottom, sharp at the top — because it sounds better in first position. A guitar tuned on
+ * one of those reads several cents out here, most visibly on the low E, and neither tuner is wrong.
+ * There is no sweetening here and no setting for it.
  */
+/** Kept clear for the one line of guidance, so that the face never moves when it appears. */
+private val WaitingLineHeight = 24.dp
+
 @Composable
 fun TunerScreen(
     state: TunerState,
+    display: TunerDisplay,
+    onDisplayChange: (TunerDisplay) -> Unit,
     /** A take has the microphone. The tuner never takes it back — see [TunerState.micUnavailable]. */
     takeInProgress: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val silenced = takeInProgress || state.micUnavailable
+
     Column(
         modifier
             .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        val reading = state.reading
-        when {
-            takeInProgress || state.micUnavailable -> Text(
-                text = stringResource(R.string.tuner_mic_busy),
-                style = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center,
-            )
-
-            reading == null -> Text(
-                text = stringResource(R.string.tuner_waiting),
-                style = MaterialTheme.typography.titleMedium,
-            )
-
-            else -> {
-                // The letter alone. Which octave it is in is not a thing anyone tunes by, and the
-                // octave still does its work out of sight — it is what the strobe is pointed at.
-                Text(
-                    text = reading.note.name,
-                    style = MaterialTheme.typography.displayLarge,
-                    color = if (reading.inTune) {
-                        MaterialTheme.colorScheme.brandFill
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
+        // The face fills everything between the top of the screen and the switch, the same way the
+        // record screen gives the whole middle to its waveform. The instrument inside it keeps its
+        // own size — see [TunerFacePanel].
+        TunerFacePanel(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+        ) {
+            when {
+                silenced -> Text(
+                    text = stringResource(R.string.tuner_mic_busy),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.align(Alignment.Center),
                 )
-                Text(
-                    text = stringResource(R.string.tuner_cents, "%+.1f".format(reading.cents)),
-                    style = MaterialTheme.typography.headlineSmall,
-                )
-                Text(
-                    text = stringResource(
-                        R.string.tuner_hz,
-                        "%.2f".format(reading.hz),
-                        "%.2f".format(reading.note.hz),
-                    ),
-                    style = MaterialTheme.typography.bodyLarge,
+
+                display == TunerDisplay.NEEDLE ->
+                    NeedleTuner(reading = state.reading, modifier = Modifier.fillMaxSize())
+
+                else -> StrobeTuner(
+                    rings = state.rings,
+                    reading = state.reading,
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
         }
 
-        // Units and numbers only, no prose: this line is a probe for checking the strobe against a
-        // reference, and it goes away with the rest of the scaffolding.
-        state.rings?.let { rings ->
-            Text(
-                text = "%.2f / %.2f rad · %+.3f Hz · %.0f%%".format(
-                    rings.fundamental,
-                    rings.octave,
-                    rings.turnsPerSecond,
-                    rings.strength * 100,
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                textAlign = TextAlign.Center,
-            )
+        // Only ever one thing to say, and only while there is nothing on the face to read: with a
+        // note showing, the face is the answer and a line of prose beneath it is noise. The room it
+        // needs is held whether or not it is speaking, so that nothing moves when it appears.
+        Box(Modifier.height(WaitingLineHeight), contentAlignment = Alignment.Center) {
+            if (!silenced && state.reading == null) {
+                Text(
+                    text = stringResource(R.string.tuner_waiting),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth(0.72f)) {
+            TunerDisplay.entries.forEachIndexed { index, option ->
+                SegmentedButton(
+                    selected = option == display,
+                    onClick = { onDisplayChange(option) },
+                    shape = SegmentedButtonDefaults.itemShape(index, TunerDisplay.entries.size),
+                    label = {
+                        Text(
+                            text = stringResource(
+                                when (option) {
+                                    TunerDisplay.NEEDLE -> R.string.tuner_needle
+                                    TunerDisplay.STROBE -> R.string.tuner_strobe
+                                },
+                            ),
+                        )
+                    },
+                )
+            }
         }
     }
 }

@@ -327,6 +327,9 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
             themeMode = runCatching {
                 ThemeMode.valueOf(prefs.getString(KEY_THEME_MODE, null) ?: "")
             }.getOrDefault(ThemeMode.SYSTEM),
+            tunerDisplay = runCatching {
+                TunerDisplay.valueOf(prefs.getString(KEY_TUNER_DISPLAY, null) ?: "")
+            }.getOrDefault(TunerDisplay.NEEDLE),
         ),
     )
     val settings: StateFlow<Settings> = _settings.asStateFlow()
@@ -1175,6 +1178,11 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         prefs.edit { putBoolean(KEY_PROMPT_FOR_FILENAME, on) }
     }
 
+    fun setTunerDisplay(display: TunerDisplay) {
+        _settings.value = _settings.value.copy(tunerDisplay = display)
+        prefs.edit { putString(KEY_TUNER_DISPLAY, display.name) }
+    }
+
     fun setThemeMode(mode: ThemeMode) {
         _settings.value = _settings.value.copy(themeMode = mode)
         prefs.edit { putString(KEY_THEME_MODE, mode.name) }
@@ -1213,6 +1221,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         const val KEY_STARRED_FIRST = "starred_first"
         const val KEY_PROMPT_FOR_FILENAME = "prompt_for_filename"
         const val KEY_THEME_MODE = "theme_mode"
+        const val KEY_TUNER_DISPLAY = "tuner_display"
         const val KEY_INPUT_GAIN_DB = "input_gain_db"
     }
 }

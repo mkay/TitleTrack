@@ -56,8 +56,12 @@ class Strobe(private val sampleRate: Int = Wav.SAMPLE_RATE) {
         /** How long the reported rate is averaged over. Long enough to be still, short to follow. */
         const val RATE_TIME_CONSTANT_SECONDS = 0.15
 
-        /** Below this there is no note to take a rate from, and the angle is only noise. */
-        const val MIN_STRENGTH_FOR_RATE = 0.002f
+        /**
+         * Below this there is no note to take a rate from, and the angle is only noise. Low for the
+         * same reason as the display's own floor: this is the fundamental's level at the
+         * microphone, not the loudness of the note, and it is small for a low string on a phone.
+         */
+        const val MIN_STRENGTH_FOR_RATE = 0.0001f
     }
 
     private val fundamental = Detector(sampleRate)
@@ -218,11 +222,20 @@ class Strobe(private val sampleRate: Int = Wav.SAMPLE_RATE) {
             const val MIN_TIME_CONSTANT_SECONDS = 0.04
 
             /**
-             * Periods of the note held onto. Twelve is what brings the wobble under a degree and a
-             * half everywhere; fewer showed at the bottom of the range, and many more would make a
-             * bass sluggish to answer the peg for a steadiness no eye can see.
+             * Periods of the note held onto.
+             *
+             * This is the lever that decides how long a decaying string keeps the rings turning,
+             * and it does it by setting the detector's bandwidth: remembering N periods listens in
+             * a band about 1/N of the note wide, and everything outside that band — the room, the
+             * hiss, the other strings — is rejected. So a longer memory does not merely smooth, it
+             * lets the rings follow a note far below the level at which anything wideband could
+             * still find it. Eighteen roughly halves that floor against twelve.
+             *
+             * The cost is answering the peg: at the bottom of the range this is a quarter of a
+             * second of lag, which is a slow hand's worth and no more. Twelve was already enough to
+             * hold the ripple under a degree and a half; this is quieter still.
              */
-            const val PERIODS_REMEMBERED = 12.0
+            const val PERIODS_REMEMBERED = 18.0
         }
     }
 }

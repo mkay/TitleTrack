@@ -259,8 +259,8 @@
 
     <string name="tuner_mic_busy">Das Mikrofon ist von einer Aufnahme belegt.</string>
     <string name="tuner_waiting">Spiel eine Saite.</string>
-    <string name="tuner_cents">%1$s Cent</string>
-    <string name="tuner_hz">%1$s Hz, soll %2$s</string>
+    <string name="tuner_needle">Zeiger</string>
+    <string name="tuner_strobe">Strobo</string>
 
     <string name="cd_menu">Menü</string>
     <string name="cd_back_to_library">Zurück zur Bibliothek</string>

@@ -922,6 +922,8 @@ class MainActivity : AppCompatActivity() {
 
                                 Screen.TUNER -> TunerScreen(
                                     state = tunerState,
+                                    display = settings.tunerDisplay,
+                                    onDisplayChange = vm::setTunerDisplay,
                                     takeInProgress =
                                         recorderState.phase != RecordPhase.IDLE,
                                     modifier = content,

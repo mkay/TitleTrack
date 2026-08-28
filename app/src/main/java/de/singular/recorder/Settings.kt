@@ -5,6 +5,16 @@ package de.singular.recorder
 /** How the app picks its light/dark colours: follow the OS, or force one. */
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/**
+ * Which face the tuner shows.
+ *
+ * Two ways of reading the same measurement, not two levels of accuracy. [NEEDLE] answers "how far
+ * off, and which way" at a glance and stops being useful within a cent or two of the note; [STROBE]
+ * answers "is it moving", which stays readable far past where a needle has run out of resolution
+ * but tells you nothing at a glance about how far you have to go.
+ */
+enum class TunerDisplay { NEEDLE, STROBE }
+
 /** User preferences, persisted across launches. */
 data class Settings(
     /** Tempo for the count-in, the visual metronome, and the tempo stamped into saved takes. */
@@ -52,6 +62,8 @@ data class Settings(
      */
     val promptForFilename: Boolean = false,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    /** Needle by default: it is the one that reads at a glance from across a room. */
+    val tunerDisplay: TunerDisplay = TunerDisplay.NEEDLE,
     /**
      * Digital gain applied to every take as it is captured, in whole decibels.
      *

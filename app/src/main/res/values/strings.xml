@@ -329,10 +329,9 @@
 
     <string name="tuner_mic_busy">The microphone is busy with a take.</string>
     <string name="tuner_waiting">Play a string.</string>
-    <!-- Cents sharp or flat, already signed: "+3.4 cents". -->
-    <string name="tuner_cents">%1$s cents</string>
-    <!-- What was heard, and what the note should be: "82.41 Hz, wants 82.41". -->
-    <string name="tuner_hz">%1$s Hz, wants %2$s</string>
+    <!-- The two faces of the tuner, named for what they look like rather than how they work. -->
+    <string name="tuner_needle">Needle</string>
+    <string name="tuner_strobe">Strobe</string>
 
     <string name="cd_menu">Menu</string>
     <string name="cd_back_to_library">Back to the library</string>
