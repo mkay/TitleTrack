@@ -11,10 +11,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -33,7 +36,9 @@ import androidx.compose.ui.unit.sp
 import de.singular.recorder.audio.Strobe
 import de.singular.recorder.audio.Tuning
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.min
 import kotlin.math.sin
 
 /**
@@ -92,21 +97,26 @@ fun StrobeTuner(
                 when {
                     r == null -> Unit
 
-                    // A fresh measurement: take its angles outright. Corrections are tiny and
-                    // forty times a second, so this reads as the ring simply being where the
-                    // audio says it is rather than as a jump.
-                    r !== anchored -> {
+                    // A fresh measurement, slow enough to draw honestly: take its angles
+                    // outright. Corrections are tiny and forty times a second, so this reads as
+                    // the ring being where the audio says it is rather than as a jump.
+                    r !== anchored && abs(r.turnsPerSecond) <= limitFor(last, now) -> {
                         outer = r.fundamental
                         inner = r.octave
                         anchored = r
                     }
 
-                    // Between measurements, carry the rings at the rate that was measured.
+                    // Otherwise carry the rings at the measured rate, held to what the screen can
+                    // actually show. Both are scaled by the same factor, so the inner ring stays
+                    // exactly twice the outer: that relationship is the vernier, and a clamp that
+                    // broke it would leave two rings whose difference meant nothing.
                     last != 0L -> {
                         val seconds = (now - last) / 1_000_000_000f
-                        val rate = r.turnsPerSecond.coerceIn(-MAX_TURNS_PER_SECOND, MAX_TURNS_PER_SECOND)
+                        val limit = limitFor(last, now)
+                        val rate = r.turnsPerSecond.coerceIn(-limit, limit)
                         outer += rate * TAU * seconds
                         inner += rate * 2f * TAU * seconds
+                        anchored = r
                     }
                 }
                 last = now
@@ -117,7 +127,18 @@ fun StrobeTuner(
     val scheme = MaterialTheme.colorScheme
     val accent = scheme.primary
     val dim = scheme.onSurfaceVariant
-    val inTune = reading?.inTune == true
+    // The same holding and fading as the needle, so the two faces end a note the same way — see
+    // [NeedleTuner]. The rings have their own resting state and stay drawn; it is the note over
+    // them that would otherwise blink out.
+    var held by remember { mutableStateOf<Tuning.Reading?>(null) }
+    if (reading != null) held = reading
+    val shown = reading ?: held
+    val presence by animateFloatAsState(
+        targetValue = if (reading != null) 1f else 0f,
+        animationSpec = tween(durationMillis = if (reading != null) 180 else 650),
+        label = "presence",
+    )
+    val inTune = shown?.inTune == true
 
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
@@ -148,10 +169,10 @@ fun StrobeTuner(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = reading?.note?.name ?: "—",
+                text = shown?.note?.name.orEmpty(),
                 fontSize = 88.sp,
                 fontWeight = FontWeight.Light,
-                color = if (inTune) accent else scheme.onSurface,
+                color = (if (inTune) accent else scheme.onSurface).copy(alpha = presence),
                 textAlign = TextAlign.Center,
             )
         }
@@ -222,8 +243,34 @@ private const val INNER_DUTY = 0.5f
 private const val MIN_STRENGTH = 0.0001f
 
 /**
- * The fastest the rings are allowed to turn. Beyond this a ring stops reading as rotation and starts
- * reading as flicker, and the magnitude it would have been conveying is the needle's job.
+ * The fastest the rings may turn and still be read, in turns per second, given a frame [from]..[to].
+ *
+ * A ring of blocks is a sampled thing, and past a certain speed it aliases: the blocks advance far
+ * enough between frames that the eye pairs each one with its neighbour and the ring appears to slow,
+ * stop, or run backwards. A strobe whose direction cannot be trusted is worse than no strobe, since
+ * direction is the half of the reading that tells you which way to turn the peg.
+ *
+ * So the limit is derived rather than picked: no ring may advance more than [READABLE_BLOCK_STEP] of
+ * one block per frame. **The binding ring is the inner one** — it has more blocks and turns at twice
+ * the rate, so it aliases at well under half the speed the outer one could manage, and a single
+ * fixed cap chosen for the outer ring would have left the inner one reversing.
+ *
+ * Derived per frame, from the frame actually delivered, so a 120 Hz screen is allowed twice what a
+ * 60 Hz one is instead of both being held to a guess.
  */
-private const val MAX_TURNS_PER_SECOND = 1.5f
+private fun limitFor(from: Long, to: Long): Float {
+    val seconds = (to - from) / 1_000_000_000f
+    if (from == 0L || seconds <= 0f) return Float.MAX_VALUE
+    val outer = READABLE_BLOCK_STEP / (OUTER_BLOCKS * seconds)
+    val inner = READABLE_BLOCK_STEP / (INNER_BLOCKS * 2f * seconds)
+    return min(outer, inner)
+}
+
+/**
+ * How far a ring may turn between frames, as a fraction of one block.
+ *
+ * A third is comfortably under the half where direction becomes ambiguous, and leaves the motion
+ * reading as motion rather than as a sequence of positions.
+ */
+private const val READABLE_BLOCK_STEP = 1f / 3f
 

@@ -329,6 +329,15 @@
 
     <string name="tuner_mic_busy">The microphone is busy with a take.</string>
     <string name="tuner_waiting">Play a string.</string>
+    <!-- The tuner's row of cells, in the shape the record screen uses: a label over a value. -->
+    <string name="cell_display">Display</string>
+    <string name="cell_reference">Reference</string>
+    <!-- %1$s is the reference pitch in hertz, from Tuning.A4_HZ so the two cannot drift apart. -->
+    <string name="cell_reference_value">A4 %1$s</string>
+    <string name="cell_temperament">Tuning</string>
+    <!-- Equal temperament. The word that explains a disagreement with a sweetened pedal tuner. -->
+    <string name="cell_temperament_value">Equal</string>
+
     <!-- The two faces of the tuner, named for what they look like rather than how they work. -->
     <string name="tuner_needle">Needle</string>
     <string name="tuner_strobe">Strobe</string>

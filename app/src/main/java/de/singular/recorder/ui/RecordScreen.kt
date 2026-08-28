@@ -435,58 +435,6 @@ private fun countInLabel(bars: Int): String =
     if (bars == 0) stringResource(R.string.count_in_off)
     else pluralStringResource(R.plurals.count_in_bars, bars, bars)
 
-/** One third of the settings row: what it is, and what it currently says. */
-@Composable
-private fun SettingCell(
-    label: String,
-    value: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    dimValue: Boolean = false,
-    onLongClick: (() -> Unit)? = null,
-) {
-    Column(
-        modifier
-            .fillMaxWidth()
-            .clip(ControlShape)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-        )
-        Text(
-            value,
-            style = MaterialTheme.typography.titleMedium,
-            color = if (dimValue) {
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-            } else {
-                MaterialTheme.colorScheme.primary
-            },
-        )
-    }
-}
-
-@Composable
-private fun CellDivider() {
-    VerticalDivider(
-        Modifier.height(28.dp),
-        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-    )
-}
-
-/**
- * The audible metronome, behind a hold on the Metronome cell.
- *
- * Behind a hold rather than on the row, because the row is for what you check before every take and
- * this is decided once per set-up: headphones on, click on; and switched on by mistake while
- * recording on the speaker it does real damage — the clicks are in the take, at whatever level the
- * speaker managed, with no way to take them out afterwards. So the warning is the dialog's whole
- * text, and the switch sits under it rather than the other way round.
- */
 @Composable
 private fun AudioMetronomeDialog(on: Boolean, onSet: (Boolean) -> Unit, onDismiss: () -> Unit) {
     AlertDialog(

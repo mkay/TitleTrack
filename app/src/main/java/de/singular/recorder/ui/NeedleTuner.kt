@@ -5,6 +5,7 @@ package de.singular.recorder.ui
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -15,11 +16,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,7 +65,14 @@ fun NeedleTuner(
     reading: Tuning.Reading?,
     modifier: Modifier = Modifier,
 ) {
-    val cents = (reading?.cents ?: 0.0).coerceIn(-HALF_SCALE, HALF_SCALE).toFloat()
+    // Held so the face can fade out still showing the last thing it read. Blanking the note and
+    // dropping the needle the instant a string stops ringing reads as a fault rather than as an
+    // ending — and a decaying note is not an error, it is the normal way every note finishes.
+    var held by remember { mutableStateOf<Tuning.Reading?>(null) }
+    if (reading != null) held = reading
+    val shown = reading ?: held
+
+    val cents = (shown?.cents ?: 0.0).coerceIn(-HALF_SCALE, HALF_SCALE).toFloat()
 
     // Critically damped: no bounce, because overshoot on a tuner is a lie in the wrong direction.
     val swing by animateFloatAsState(
@@ -72,18 +84,25 @@ fun NeedleTuner(
         label = "needle",
     )
 
+    // Out slowly, in briskly: a note arriving should feel immediate, and a note ending should not
+    // feel like something broke.
+    val presence by animateFloatAsState(
+        targetValue = if (reading != null) 1f else 0f,
+        animationSpec = tween(durationMillis = if (reading != null) FADE_IN_MS else FADE_OUT_MS),
+        label = "presence",
+    )
+
     val scheme = MaterialTheme.colorScheme
     val marks = scheme.onSurfaceVariant
     val ink = scheme.onSurface
     val accent = scheme.primary
-    val inTune = reading?.inTune == true
-    val live = reading != null
+    val inTune = shown?.inTune == true
 
     Box(modifier.fillMaxSize()) {
         Canvas(Modifier.fillMaxSize()) {
-            drawFace(marks = marks, accent = accent, inTuneZone = inTune, live = live)
-            if (live) drawNeedle(swing, ink)
-            drawArrows(swing, live, accent, marks)
+            drawFace(marks = marks, accent = accent, inTuneZone = inTune, presence = presence)
+            drawNeedle(swing, ink.copy(alpha = ink.alpha * presence))
+            drawArrows(swing, presence, accent, marks)
         }
 
         // The note, and how far off it is, in the well below the arc where the needle cannot
@@ -94,16 +113,16 @@ fun NeedleTuner(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = reading?.note?.name ?: "\u2014",
+                text = shown?.note?.name.orEmpty(),
                 fontSize = 64.sp,
                 fontWeight = FontWeight.Light,
-                color = if (inTune) accent else ink,
+                color = (if (inTune) accent else ink).copy(alpha = presence),
                 textAlign = TextAlign.Center,
             )
             Text(
-                text = if (reading == null) "" else "%+.1f".format(reading.cents),
+                text = shown?.let { "%+.1f".format(it.cents) }.orEmpty(),
                 style = MaterialTheme.typography.titleMedium,
-                color = if (inTune) accent else scheme.onSurfaceVariant,
+                color = (if (inTune) accent else scheme.onSurfaceVariant).copy(alpha = presence),
             )
         }
     }
@@ -135,6 +154,7 @@ fun TunerFacePanel(modifier: Modifier = Modifier, content: @Composable BoxScope.
                 .aspectRatio(TunerFaceAspect),
             content = content,
         )
+
     }
 }
 
@@ -143,7 +163,7 @@ private fun DrawScope.drawFace(
     marks: Color,
     accent: Color,
     inTuneZone: Boolean,
-    live: Boolean,
+    presence: Float,
 ) {
     val pivot = pivot()
     val radius = radius()
@@ -174,7 +194,7 @@ private fun DrawScope.drawFace(
     }
     drawPath(
         band,
-        if (inTuneZone) accent else marks.copy(alpha = 0.5f),
+        if (inTuneZone) accent.copy(alpha = presence) else marks.copy(alpha = 0.5f),
         style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round),
     )
 
@@ -186,7 +206,7 @@ private fun DrawScope.drawFace(
         val a = pointAt(pivot, radius, at)
         val b = pointAt(pivot, inner, at)
         drawLine(
-            color = if (major) marks else marks.copy(alpha = if (live) 0.7f else 0.45f),
+            color = if (major) marks else marks.copy(alpha = 0.45f + 0.25f * presence),
             start = a,
             end = b,
             strokeWidth = (if (major) 3f else 1.5f).dp.toPx(),
@@ -220,8 +240,8 @@ private fun DrawScope.drawNeedle(cents: Float, ink: Color) {
  * come down. The needle says where you are, the arrows say where to go, and neither repeats the
  * other.
  */
-private fun DrawScope.drawArrows(cents: Float, live: Boolean, accent: Color, marks: Color) {
-    val lit = (abs(cents) / 12f).coerceIn(0f, 1f)
+private fun DrawScope.drawArrows(cents: Float, presence: Float, accent: Color, marks: Color) {
+    val lit = (abs(cents) / 12f).coerceIn(0f, 1f) * presence
     val y = size.height * 0.80f
     val inset = size.width * 0.11f
     val w = size.width * 0.045f
@@ -237,12 +257,13 @@ private fun DrawScope.drawArrows(cents: Float, live: Boolean, accent: Color, mar
         }
         drawPath(
             path,
-            if (on) accent.copy(alpha = 0.35f + 0.65f * lit) else marks.copy(alpha = 0.18f),
+            if (on) accent.copy(alpha = (0.35f + 0.65f * lit) * presence)
+            else marks.copy(alpha = 0.18f),
         )
     }
 
-    triangle(inset, pointingLeft = true, on = live && cents > Tuning.IN_TUNE_CENTS)
-    triangle(size.width - inset, pointingLeft = false, on = live && cents < -Tuning.IN_TUNE_CENTS)
+    triangle(inset, pointingLeft = true, on = cents > Tuning.IN_TUNE_CENTS)
+    triangle(size.width - inset, pointingLeft = false, on = cents < -Tuning.IN_TUNE_CENTS)
 }
 
 /** Where the needle is hinged: below the face, so the sweep across the arc is gentle. */
@@ -268,6 +289,9 @@ private fun pointAt(pivot: Offset, radius: Float, cents: Float): Offset {
  * layout is worth more than either preference.
  */
 const val TunerFaceAspect = 1.2f
+
+private const val FADE_IN_MS = 180
+private const val FADE_OUT_MS = 650
 
 /** Half the scale, in cents: past this the nearest note has changed and the reading is another. */
 private const val HALF_SCALE = 50.0

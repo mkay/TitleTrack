@@ -5,15 +5,14 @@ package de.singular.recorder.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import de.singular.recorder.R
 import de.singular.recorder.TunerDisplay
 import de.singular.recorder.audio.TunerState
+import de.singular.recorder.audio.Tuning
 
 /**
  * The tuner: one of two faces, and a line of text when there is nothing to show on either.
@@ -103,26 +103,51 @@ fun TunerScreen(
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(20.dp))
 
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth(0.72f)) {
-            TunerDisplay.entries.forEachIndexed { index, option ->
-                SegmentedButton(
-                    selected = option == display,
-                    onClick = { onDisplayChange(option) },
-                    shape = SegmentedButtonDefaults.itemShape(index, TunerDisplay.entries.size),
-                    label = {
-                        Text(
-                            text = stringResource(
-                                when (option) {
-                                    TunerDisplay.NEEDLE -> R.string.tuner_needle
-                                    TunerDisplay.STROBE -> R.string.tuner_strobe
-                                },
-                            ),
-                        )
+        // The record screen's row of cells, and deliberately the same object rather than a
+        // lookalike — a label read at a glance over the value it currently has. Two of the three
+        // only report for now; laid out this way they are already the right shape for the day the
+        // reference pitch or the temperament becomes something to choose.
+        Row(
+            Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SettingCell(
+                label = stringResource(R.string.cell_display),
+                value = stringResource(
+                    when (display) {
+                        TunerDisplay.NEEDLE -> R.string.tuner_needle
+                        TunerDisplay.STROBE -> R.string.tuner_strobe
                     },
-                )
-            }
+                ),
+                // A boolean does not need a menu to choose between its two values, as on the
+                // record screen's metronome cell.
+                onClick = {
+                    onDisplayChange(
+                        if (display == TunerDisplay.NEEDLE) TunerDisplay.STROBE
+                        else TunerDisplay.NEEDLE,
+                    )
+                },
+                modifier = Modifier.weight(1f),
+            )
+            CellDivider()
+            SettingCell(
+                label = stringResource(R.string.cell_reference),
+                value = stringResource(
+                    R.string.cell_reference_value,
+                    "%.0f".format(Tuning.A4_HZ),
+                ),
+                dimValue = true,
+                modifier = Modifier.weight(1f),
+            )
+            CellDivider()
+            SettingCell(
+                label = stringResource(R.string.cell_temperament),
+                value = stringResource(R.string.cell_temperament_value),
+                dimValue = true,
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }

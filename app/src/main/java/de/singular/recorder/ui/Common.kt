@@ -10,6 +10,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +29,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -405,3 +408,70 @@ fun BigButton(
         ) { content() }
     }
 }
+
+/**
+ * One cell of a settings row: what it is, and what it currently says.
+ *
+ * The shape the record screen settled on for things checked far more often than they are changed —
+ * a small label over the value, read at a glance, tapped to change. Shared so that the tuner's row
+ * is the same object rather than a lookalike that drifts.
+ *
+ * [onClick] may be null, for a cell that is currently only reporting something. It keeps its place
+ * in the row and simply does not respond, which is what a value that is fixed *for now* should look
+ * like — see the tuner's reference pitch.
+ */
+@Composable
+fun SettingCell(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    dimValue: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
+) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .clip(ControlShape)
+            .then(
+                if (onClick == null) Modifier
+                else Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick),
+            )
+            .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.titleMedium,
+            color = if (dimValue) {
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            } else {
+                MaterialTheme.colorScheme.primary
+            },
+        )
+    }
+}
+
+/** The hairline between two [SettingCell]s. */
+@Composable
+fun CellDivider() {
+    VerticalDivider(
+        Modifier.height(28.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+    )
+}
+
+/**
+ * The audible metronome, behind a hold on the Metronome cell.
+ *
+ * Behind a hold rather than on the row, because the row is for what you check before every take and
+ * this is decided once per set-up: headphones on, click on; and switched on by mistake while
+ * recording on the speaker it does real damage — the clicks are in the take, at whatever level the
+ * speaker managed, with no way to take them out afterwards. So the warning is the dialog's whole
+ * text, and the switch sits under it rather than the other way round.
+ */

@@ -259,6 +259,12 @@
 
     <string name="tuner_mic_busy">Das Mikrofon ist von einer Aufnahme belegt.</string>
     <string name="tuner_waiting">Spiel eine Saite.</string>
+    <string name="cell_display">Anzeige</string>
+    <string name="cell_reference">Referenz</string>
+    <string name="cell_reference_value">A4 %1$s</string>
+    <string name="cell_temperament">Stimmung</string>
+    <string name="cell_temperament_value">Gleichstufig</string>
+
     <string name="tuner_needle">Zeiger</string>
     <string name="tuner_strobe">Strobo</string>
 
