@@ -21,6 +21,8 @@ import de.singular.recorder.audio.MIN_BPM
 import de.singular.recorder.audio.Metronome
 import de.singular.recorder.audio.NormalizeMode
 import de.singular.recorder.audio.RecordPhase
+import de.singular.recorder.audio.TunerEngine
+import de.singular.recorder.audio.TunerState
 import de.singular.recorder.storage.Folder
 import de.singular.recorder.storage.Listing
 import de.singular.recorder.storage.Notes
@@ -193,6 +195,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
 
     private val store = RecordingStore(application)
     private val recorder = AudioRecorder(application, viewModelScope)
+    private val tuner = TunerEngine(application, viewModelScope)
     private val tempoPreviewClick = Metronome()
     private var tempoPreviewing = false
 
@@ -667,6 +670,22 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun stopMonitoring() = recorder.stopMonitoring()
+
+    // ---- the tuner --------------------------------------------------------------------------
+
+    val tunerState: StateFlow<TunerState> = tuner.state
+
+    /**
+     * Listen for pitch. Held only while the Tuner tab is in front, and never during a take — some
+     * devices hand out one input stream, and the take is the one that must have it.
+     */
+    @SuppressLint("MissingPermission") // the line below is the check lint is looking for
+    fun startTuner() {
+        if (!hasMicPermission) return
+        tuner.start()
+    }
+
+    fun stopTuner() = tuner.stop()
 
     // ---- the level test ---------------------------------------------------------------------
 

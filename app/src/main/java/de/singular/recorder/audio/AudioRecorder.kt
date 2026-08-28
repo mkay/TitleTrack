@@ -5,10 +5,7 @@ package de.singular.recorder.audio
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
-import android.media.AudioFormat
-import android.media.AudioManager
 import android.media.AudioRecord
-import android.media.MediaRecorder
 import android.os.SystemClock
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.CoroutineScope
@@ -141,9 +138,6 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
 
         /** Buffer several blocks, so a scheduling hiccup cannot drop audio mid-phrase. */
         const val BUFFER_BLOCKS = 8
-
-        const val CHANNEL = AudioFormat.CHANNEL_IN_MONO
-        const val ENCODING = AudioFormat.ENCODING_PCM_16BIT
     }
 
     /**
@@ -175,9 +169,8 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
     @SuppressLint("MissingPermission") // the caller carries @RequiresPermission
     private suspend fun monitor() {
         val input = openRecorder() ?: return
-        val record = input.record
         try {
-            record.startRecording()
+            input.startRecording()
             val block = ShortArray(BLOCK_FRAMES)
             while (currentCoroutineContext().isActive) {
                 val read = input.read(block, gain())
@@ -191,8 +184,7 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
             // The device refused the stream, or it was taken by something else. Not worth
             // reporting: the meter simply stays where it was, and Record still tries for itself.
         } finally {
-            runCatching { record.stop() }
-            runCatching { record.release() }
+            input.close()
         }
     }
 
@@ -293,13 +285,12 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
             _state.value = RecorderState(error = "The microphone could not be opened.")
             return
         }
-        val record = input.record
         val file = RandomAccessFile(takeFile, "rw")
         file.setLength(0)
 
         var countIn: Job? = null
         try {
-            record.startRecording()
+            input.startRecording()
             val block = ShortArray(BLOCK_FRAMES)
             val bytes = ByteArray(BLOCK_FRAMES * Wav.BYTES_PER_FRAME)
 
@@ -519,90 +510,21 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
             countIn?.cancel()
             metronome.stopAll()
             runCatching { file.close() }
-            // stop() throws if the recorder never initialised; release() is what must always run.
-            runCatching { record.stop() }
-            record.release()
+            input.close()
         }
     }
 
     /**
      * Open the microphone for *recording an instrument*, which wants a different source than
-     * CrystalBall's listener does.
-     *
-     * `UNPROCESSED` first: automatic gain control riding a decaying chord, and noise suppression
-     * deciding a sustained note is background hum, are audible on a recording in a way they are not
-     * on a chromagram that normalises every frame anyway. Where the device does not advertise it,
-     * `VOICE_RECOGNITION` is the usual second best — it skips the AGC and the voice-call
-     * processing on most hardware — and `MIC` is the floor.
+     * CrystalBall's listener does. The choosing of that source, and the float-first read path that
+     * makes the gain free, live in [MicInput] — the tuner needs exactly the same treatment, and one
+     * of the two copies would have drifted.
      */
     @SuppressLint("MissingPermission") // guarded by @RequiresPermission up the call chain
-    private fun openRecorder(): Input? {
-        // Float first, 16-bit as the floor. What the file holds is 16-bit either way; the point of
-        // asking for float is where the gain lands — see [Input.read].
-        for (encoding in intArrayOf(AudioFormat.ENCODING_PCM_FLOAT, ENCODING)) {
-            val minBuffer = AudioRecord.getMinBufferSize(Wav.SAMPLE_RATE, CHANNEL, encoding)
-            if (minBuffer <= 0) continue
-            val bufferBytes = maxOf(minBuffer, BLOCK_FRAMES * Wav.BYTES_PER_FRAME * BUFFER_BLOCKS * 2)
-
-            for (source in preferredSources()) {
-                val record = runCatching {
-                    AudioRecord(source, Wav.SAMPLE_RATE, CHANNEL, encoding, bufferBytes)
-                }.getOrNull() ?: continue
-                if (record.state == AudioRecord.STATE_INITIALIZED) {
-                    return Input(record, float = encoding == AudioFormat.ENCODING_PCM_FLOAT)
-                }
-                record.release()
-            }
-        }
-        return null
-    }
+    private fun openRecorder(): MicInput? =
+        MicInput.open(appContext, BLOCK_FRAMES, BUFFER_BLOCKS)
 
     private fun gain(): Float = Gain.dbToLinear(gainDb.toFloat())
-
-    /**
-     * The microphone, read a block at a time as 16-bit PCM with [gain] already applied.
-     *
-     * Android has no microphone preamp gain to turn up — nothing in `AudioRecord` or
-     * `AudioManager` exposes one — so a quiet instrument can only be lifted by multiplying samples.
-     * Doing that here, while the device is still handing back **float**, is what makes it free: the
-     * boost happens before the reduction to the 16 bits that reach the file, so it costs no
-     * resolution. Multiplying an already-quantised 16-bit sample would spend bits that cannot come
-     * back. Where a device refuses float the 16-bit path does the same arithmetic and simply pays
-     * that price, which is still better than the take being unusable.
-     */
-    private class Input(val record: AudioRecord, private val float: Boolean) {
-
-        private val floats = if (float) FloatArray(BLOCK_FRAMES) else FloatArray(0)
-
-        fun read(into: ShortArray, gain: Float): Int {
-            if (!float) {
-                val read = record.read(into, 0, into.size)
-                if (read > 0 && gain != 1f) {
-                    for (i in 0 until read) into[i] = Gain.applySample(into[i], gain, softClip = false)
-                }
-                return read
-            }
-            val read = record.read(floats, 0, minOf(floats.size, into.size), AudioRecord.READ_BLOCKING)
-            for (i in 0 until read) {
-                // Clamped rather than soft-clipped: a gain that clips is a setting to correct, and
-                // bending the peaks would hide it. The meter is already red up there.
-                into[i] = ((floats[i] * gain).coerceIn(-1f, 1f) * 32_767f).toInt().toShort()
-            }
-            return read
-        }
-    }
-
-    private fun preferredSources(): List<Int> {
-        val audio = appContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-        val unprocessed = audio
-            ?.getProperty(AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED)
-            ?.toBoolean() == true
-        return buildList {
-            if (unprocessed) add(MediaRecorder.AudioSource.UNPROCESSED)
-            add(MediaRecorder.AudioSource.VOICE_RECOGNITION)
-            add(MediaRecorder.AudioSource.MIC)
-        }
-    }
 
     private fun peakOf(block: ShortArray, count: Int): Float {
         var peak = 0

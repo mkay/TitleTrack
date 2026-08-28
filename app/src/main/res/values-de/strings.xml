@@ -251,8 +251,16 @@
 
     <string name="screen_record">Aufnahme</string>
     <string name="screen_library">Bibliothek</string>
+    <string name="screen_tuner">Stimmgerät</string>
     <string name="screen_settings">Einstellungen</string>
     <string name="screen_player">Take</string>
+
+    <!-- ===== Stimmgerät ===== -->
+
+    <string name="tuner_mic_busy">Das Mikrofon ist von einer Aufnahme belegt.</string>
+    <string name="tuner_waiting">Spiel eine Saite.</string>
+    <string name="tuner_cents">%1$s Cent</string>
+    <string name="tuner_hz">%1$s Hz, soll %2$s</string>
 
     <string name="cd_menu">Menü</string>
     <string name="cd_back_to_library">Zurück zur Bibliothek</string>

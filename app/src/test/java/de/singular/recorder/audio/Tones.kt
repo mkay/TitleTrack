@@ -48,6 +48,21 @@ object Tones {
         }
     }
 
+    /**
+     * Mains hum, the thing a bass tuner is really up against: 50 Hz sits between G1 and G♯1, three
+     * semitones above an open low E, and it never decays.
+     */
+    fun hum(seconds: Double, amplitude: Double = 0.01, hz: Double = 50.0): ShortArray =
+        note(hz, seconds, amplitude)
+
+    /** Everything the microphone hears at once, summed and clipped as the converter would. */
+    fun mix(vararg signals: ShortArray): ShortArray {
+        val n = signals.minOf { it.size }
+        return ShortArray(n) { i ->
+            signals.sumOf { it[i].toInt() }.coerceIn(-32768, 32767).toShort()
+        }
+    }
+
     fun silence(seconds: Double): ShortArray = ShortArray((seconds * Wav.SAMPLE_RATE).toInt())
 
     /** Feed a whole signal through in the block size the microphone actually delivers. */

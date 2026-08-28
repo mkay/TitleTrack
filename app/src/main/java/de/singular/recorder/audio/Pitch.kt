@@ -72,11 +72,33 @@ class Pitch(private val sampleRate: Int = Wav.SAMPLE_RATE) {
          */
         const val THRESHOLD = 0.15
 
-        /** Below this, the reading is discarded: a room with no string in it is not a note. */
-        const val CLARITY_FLOOR = 0.6f
+        /**
+         * Below this, the reading is discarded: a room with no string in it is not a note.
+         *
+         * 0.8 rather than the 0.6 YIN's paper suggests, and the difference is measured rather than
+         * taste. Mains hum is the adversary a bass tuner actually has — 50 Hz sits three semitones
+         * above the open E, and a phone's microphone hears far less of a 41 Hz string than of the
+         * wiring in the wall. Given a low string whose partials were attenuated to a few percent
+         * with hum on top, this reported 42.9 Hz — 70 cents out, and confidently enough to tune to.
+         * That reading came with a clarity of 0.62, while every reading that was actually correct
+         * under the same abuse came in at 0.886 or better. The two populations separate cleanly, so
+         * the floor sits between them.
+         *
+         * For a tuner, saying nothing is much cheaper than saying the wrong thing: nothing prompts
+         * you to play the string again, where a wrong note gets tuned to.
+         */
+        const val CLARITY_FLOOR = 0.8f
 
-        /** Below this RMS the input is silence, and silence has no pitch. About -54 dBFS. */
-        const val SILENCE_RMS = 0.002f
+        /**
+         * Below this RMS the input is silence, and silence has no pitch. About -66 dBFS.
+         *
+         * Deliberately low, because this gate is not what keeps a quiet room from reading as a
+         * note — [CLARITY_FLOOR] is, and a room is aperiodic however loud it is. Set for a
+         * comfortable level instead, this throws away exactly the instruments that need the tuner
+         * most: a semi-acoustic or an electric played unplugged is a fraction of the level of a
+         * dreadnought, and at -54 dBFS its note appeared for a moment and vanished.
+         */
+        const val SILENCE_RMS = 0.0005f
 
         /** Anti-alias filter length for the decimation. Odd, so it has a whole-sample delay. */
         private const val FIR_TAPS = 33

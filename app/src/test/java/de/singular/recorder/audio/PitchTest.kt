@@ -81,6 +81,26 @@ class PitchTest {
         }
     }
 
+    /**
+     * A low string heard faintly, with mains hum on top of it — a phone microphone hears little of
+     * a 41 Hz string, and 50 Hz hum never decays. Asked this, the detector once answered 42.9 Hz:
+     * not silence, not the right note, but a plausible-looking reading 70 cents out that a player
+     * would have tuned to. Saying nothing is the only acceptable answer.
+     */
+    @Test
+    fun `a low string buried under mains hum is not reported as the wrong note`() {
+        val buried = Tones.mix(
+            Tones.note(41.2034, 1.0, 0.004, 0.007, 0.006),
+            Tones.hum(1.0),
+            Tones.noise(1.0, amplitude = 0.004),
+        )
+        val result = detect(buried)
+        if (result != null) {
+            val off = Tuning.centsBetween(result.hz, 41.2034)
+            assertTrue("answered ${result.hz} Hz, $off cents out", abs(off) < 5.0)
+        }
+    }
+
     @Test
     fun `silence has no pitch`() {
         assertNull(detect(Tones.silence(0.5)))
@@ -89,6 +109,17 @@ class PitchTest {
     @Test
     fun `hiss has no pitch`() {
         assertNull(detect(Tones.noise(0.5)))
+    }
+
+    /**
+     * An electric or semi-acoustic played unplugged, a foot from the phone. Quiet is not the same
+     * as absent, and this is the level the tuner has to work at rather than the level a dreadnought
+     * offers.
+     */
+    @Test
+    fun `a quietly played instrument is still a note`() {
+        val result = detect(Tones.note(146.8324, 0.5, 0.012, 0.006, 0.003))
+        assertTrue("read ${result!!.hz} Hz", abs(centsOff(result, 146.8324)) < 2.0)
     }
 
     @Test

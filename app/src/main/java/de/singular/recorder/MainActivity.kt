@@ -100,6 +100,7 @@ import de.singular.recorder.ui.SettingsScreen
 import de.singular.recorder.ui.SettingsTab
 import de.singular.recorder.ui.SupportDialog
 import de.singular.recorder.ui.TitleTrackTheme
+import de.singular.recorder.ui.TunerScreen
 import de.singular.recorder.ui.brandFill
 import de.singular.recorder.ui.isDark
 import kotlinx.coroutines.launch
@@ -107,6 +108,7 @@ import kotlinx.coroutines.launch
 private enum class Screen(@StringRes val title: Int) {
     RECORD(R.string.screen_record),
     LIBRARY(R.string.screen_library),
+    TUNER(R.string.screen_tuner),
     // About used to be a screen of its own, reached from a row at the bottom of Settings. It is a
     // tab inside Settings now, so there is nowhere left to navigate *to* — see SettingsTab.
     SETTINGS(R.string.screen_settings),
@@ -115,8 +117,14 @@ private enum class Screen(@StringRes val title: Int) {
     PLAYER(R.string.screen_player),
 }
 
-/** The two halves of the app, side by side in the bottom bar: make one, then listen to it. */
-private val TABS = listOf(Screen.RECORD, Screen.LIBRARY)
+/**
+ * The bottom bar: make a take, listen back to it, and get in tune before either.
+ *
+ * The tuner sits last because it is the thing you reach for before playing rather than while
+ * working — but it is a tab and not a drawer entry because it is reached mid-session, one-handed,
+ * with an instrument in the other hand.
+ */
+private val TABS = listOf(Screen.RECORD, Screen.LIBRARY, Screen.TUNER)
 
 /**
  * An [AppCompatActivity] for one reason: the language row in Settings applies its choice through
@@ -155,6 +163,7 @@ class MainActivity : AppCompatActivity() {
                 val looping by vm.looping.collectAsStateWithLifecycle()
                 val notes by vm.notes.collectAsStateWithLifecycle()
                 val levelTest by vm.levelTest.collectAsStateWithLifecycle()
+                val tunerState by vm.tunerState.collectAsStateWithLifecycle()
                 val starred by vm.starred.collectAsStateWithLifecycle()
                 val starredTakes by vm.starredTakes.collectAsStateWithLifecycle()
                 val movePicker by vm.movePicker.collectAsStateWithLifecycle()
@@ -183,6 +192,13 @@ class MainActivity : AppCompatActivity() {
                 val micPermission = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestPermission(),
                 ) { granted -> if (granted) vm.startRecording() }
+
+                // The tuner asks for the microphone on its own account, for the same reason
+                // Record does: opening a tuner is the moment it becomes obvious what it is for.
+                // Its own launcher, because granting it should start listening, not start a take.
+                val tunerPermission = rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestPermission(),
+                ) { granted -> if (granted) vm.startTuner() }
 
                 val onRecord = {
                     if (vm.hasMicPermission) vm.startRecording()
@@ -235,6 +251,24 @@ class MainActivity : AppCompatActivity() {
                 LifecycleResumeEffect(monitor) {
                     if (monitor) vm.startMonitoring()
                     onPauseOrDispose { vm.stopMonitoring() }
+                }
+
+                // The same manners for the tuner: only its own tab, only in front of a resumed
+                // activity, and never while a take holds the microphone.
+                val tune = screen == Screen.TUNER &&
+                    recorderState.phase == RecordPhase.IDLE &&
+                    vm.hasMicPermission
+                LifecycleResumeEffect(tune) {
+                    if (tune) vm.startTuner()
+                    onPauseOrDispose { vm.stopTuner() }
+                }
+
+                // Asked for once, on arriving at the tab without it. Not retried on every
+                // recomposition: a refusal should leave the tab usable to look at, not nag.
+                LaunchedEffect(screen) {
+                    if (screen == Screen.TUNER && !vm.hasMicPermission) {
+                        tunerPermission.launch(Manifest.permission.RECORD_AUDIO)
+                    }
                 }
 
                 fun go(to: Screen) {
@@ -806,6 +840,10 @@ class MainActivity : AppCompatActivity() {
                                                         Screen.LIBRARY ->
                                                             Icons.Default.LibraryMusic
 
+                                                        Screen.TUNER -> ImageVector.vectorResource(
+                                                            R.drawable.ic_tuning_fork,
+                                                        )
+
                                                         else -> ImageVector.vectorResource(
                                                             R.drawable.ic_graphic_eq,
                                                         )
@@ -879,6 +917,13 @@ class MainActivity : AppCompatActivity() {
                                             selection + uri
                                         }
                                     },
+                                    modifier = content,
+                                )
+
+                                Screen.TUNER -> TunerScreen(
+                                    state = tunerState,
+                                    takeInProgress =
+                                        recorderState.phase != RecordPhase.IDLE,
                                     modifier = content,
                                 )
 
