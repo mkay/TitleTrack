@@ -254,9 +254,11 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 // The same manners for the tuner: only its own tab, only in front of a resumed
-                // activity, and never while a take holds the microphone.
+                // activity, and never while a take holds the microphone. Off during playback too —
+                // it would only be measuring the phone's own speaker.
                 val tune = screen == Screen.TUNER &&
                     recorderState.phase == RecordPhase.IDLE &&
+                    !playback.playing &&
                     vm.hasMicPermission
                 LifecycleResumeEffect(tune) {
                     if (tune) vm.startTuner()
@@ -926,6 +928,7 @@ class MainActivity : AppCompatActivity() {
                                     onDisplayChange = vm::setTunerDisplay,
                                     takeInProgress =
                                         recorderState.phase != RecordPhase.IDLE,
+                                    playbackInProgress = playback.playing,
                                     modifier = content,
                                 )
 

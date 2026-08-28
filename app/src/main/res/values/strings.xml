@@ -328,6 +328,8 @@
     <!-- ===== Tuner ===== -->
 
     <string name="tuner_mic_busy">The microphone is busy with a take.</string>
+    <string name="tuner_busy_recording">Off while a take is recording.</string>
+    <string name="tuner_busy_playback">Off while a take is playing.</string>
     <string name="tuner_waiting">Play a string.</string>
     <!-- The tuner's row of cells, in the shape the record screen uses: a label over a value. -->
     <string name="cell_display">Display</string>

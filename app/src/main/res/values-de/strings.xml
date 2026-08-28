@@ -258,6 +258,8 @@
     <!-- ===== Stimmgerät ===== -->
 
     <string name="tuner_mic_busy">Das Mikrofon ist von einer Aufnahme belegt.</string>
+    <string name="tuner_busy_recording">Aus, solange aufgenommen wird.</string>
+    <string name="tuner_busy_playback">Aus, solange etwas abgespielt wird.</string>
     <string name="tuner_waiting">Spiel eine Saite.</string>
     <string name="cell_display">Anzeige</string>
     <string name="cell_reference">Referenz</string>
