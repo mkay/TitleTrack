@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+A tuner, for the instrument you were about to record.
+
+- **A Tuner tab**, in two faces. The **needle** is a moving-coil meter over a scale of ±50 cents, damped so that it settles rather than twitches — readings arrive twenty times a second and a pointer driven straight off them is unreadable at the one moment it matters, while a peg is turning. Its arrows point the way to *turn*, not the way things are: the needle has already said which side by pointing there, so sharp lights the left arrow, meaning come down.
+- **The strobe** is a different measurement, not a different drawing of the same one. Two rings compare the string's phase against a reference running at the note it should be, so a ring that has stopped has stopped because the frequencies match — which is why it out-resolves a needle: a hundredth of a cent still comes round eventually. The inner ring runs against the second harmonic and so turns at exactly twice the rate, making it a vernier.
+- **No instrument switch**, deliberately. Snapping to six string targets would need to know a guitar from a bass, because E1 and E2 are both called E, and a mode set wrong is silently wrong — the one thing a tuner must never be. It names the nearest semitone from D1 to F♯4 instead, a whole tone past the outermost string either way so a slack string still reads.
+- **Equal temperament, against A4 = 440 Hz**, said on the tuner's own row. A guitar tuned on a pedal's sweetened preset reads several cents out here, most visibly on the low E, and neither tuner is broken.
+- The tuner never competes with a take: recording keeps the microphone, and the tab says so rather than showing a needle that will never move.
+
 ## 0.3 — 2026-08-01
 
 The app speaks German, and can be told which language to speak.

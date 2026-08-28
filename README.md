@@ -29,6 +29,7 @@ Early-stage release — expect rough edges. Feedback and bug reports welcome via
 - **A level test, not a guess** — hold **Record** (or tap **Input** on the settings row) and play
   the loudest thing you are going to play. It reports the peak in dBFS and offers a gain that puts
   it at −9 dBFS, leaving room for the take to be louder than the rehearsal. 
+- **A tuner for guitar and bass** — a third tab, in two faces you can switch between: a **needle**, damped like a moving-coil meter so it settles instead of twitching while a peg is turning, and a **strobe**, two rings that come to a standstill when the string is in tune. There is no guitar/bass switch to forget, and no instrument mode to get wrong — it names the nearest note across the whole range, with its octave, so a bass low E cannot be mistaken for a guitar's. It reports **equal temperament** against A4 = 440 Hz, which is worth knowing if you compare it with a pedal tuner set to a sweetened preset: those deliberately stretch a guitar flat at the bottom and sharp at the top, so the two will disagree by several cents and neither is wrong.
 - **Your folder, your files** — pick any folder once (`Music/Recording`, an SD card, a synced
   folder); takes land there as 44.1 kHz mono WAV. Browse it in the app, make sub-folders, rename,
   move, star, delete, share, play back. A **Starred** tab gathers the takes worth coming back to.
@@ -141,7 +142,12 @@ app/src/main/java/de/singular/recorder/
   Settings.kt            persisted preferences
   audio/
     AudioRecorder.kt     microphone -> PCM cache file; finish / restart / save; level monitoring
+    MicInput.kt          opening the microphone, shared by the recorder and the tuner
     Metronome.kt         the clicks: count-in, and the optional one through a take
+    Pitch.kt             what note is being played, by autocorrelation (YIN)
+    Tuning.kt            notes, frequencies, and the distance between them in cents
+    Strobe.kt            the phase between a string and a reference running at its note
+    TunerEngine.kt       drives both measurements from the microphone
     Wav.kt               RIFF header, with tempo in a LIST/INFO chunk
     Flac.kt              the FLAC container, with the same tempo comment as Wav.kt
     Gain.kt              measuring a take's level, and the maths of lifting it
@@ -152,6 +158,9 @@ app/src/main/java/de/singular/recorder/
   ui/
     RecordScreen.kt      the take in progress
     LiveWaveform.kt      the scrolling input envelope, recording and listening
+    TunerScreen.kt       the tuner, and the switch between its two faces
+    NeedleTuner.kt       the damped needle over a scale in cents
+    StrobeTuner.kt       the two rings, turning on measured phase
     LibraryScreen.kt     browsing the folder tree
     PlayerScreen.kt      one take, its waveform, its transport and its edits
     MiniPlayer.kt        the bar above the tabs, so playback is never orphaned
