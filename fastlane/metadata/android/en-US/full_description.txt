@@ -1,4 +1,4 @@
-An Android recorder for instruments rather than for voice memos. Count yourself in at a tempo you choose, play, and if the third bar goes wrong hit Restart without looking. Takes are written as plain WAV files into a folder you pick, so they are on your phone's storage rather than locked inside the app.
+An Android recorder for music memos. Count yourself in at a tempo you choose, play, and if the third bar goes wrong hit Restart without looking. Takes are written as plain WAV files into a folder you pick, so they are on your phone's storage rather than locked inside the app.
 
 Early-stage release — expect rough edges. Feedback and bug reports welcome via Issues.
 
