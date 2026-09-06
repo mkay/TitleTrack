@@ -369,9 +369,9 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
                         val late = metronome.countIn(bpm, beatsPerBar, countInBars) {
                             countInEndsAt = startedAt + nominal + it
                         }
-                        // A latency of zero never fires the callback — settle it here so a count-in
-                        // that measured nothing still ends, rather than waiting on a downbeat that
-                        // is never announced.
+                        // The callback fires once the measurement resolves *or* gives up, so the
+                        // countdown starts moving either way. This only covers the callback never
+                        // running at all — a cancelled count-in — and then it does no harm.
                         if (countInEndsAt == 0L) countInEndsAt = startedAt + nominal + late
                     }
                     countingIn = false

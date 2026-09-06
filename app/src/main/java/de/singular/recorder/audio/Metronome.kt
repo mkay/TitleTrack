@@ -134,7 +134,10 @@ class Metronome(private val sampleRate: Int = Wav.SAMPLE_RATE) {
             // whole output latency later, and it is the wall clock the recorder starts on.
             val nominalMs = (buffer.size.toLong() * 1_000 / sampleRate).coerceAtLeast(1)
             val late = awaitLatency(t, startNanos, budgetMs = latencyBudgetWithin(nominalMs))
-            if (late > 0) onLatency(late)
+            // Always, even on a measurement that ran out of budget and came back zero: the caller
+            // is waiting on this to know the downbeat is fixed and let the countdown move. Zero
+            // then means "no correction, start from the nominal end" rather than "still unknown".
+            onLatency(late)
             val waited = (System.nanoTime() - startNanos) / 1_000_000
             delay((nominalMs + late - waited).coerceAtLeast(1))
             return late
