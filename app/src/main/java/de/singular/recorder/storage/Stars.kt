@@ -73,6 +73,13 @@ class Stars(context: Context) {
         }.toSet(),
     )
 
+    /**
+     * Fold [keys] into the set, keeping everything already starred. For [LibraryData] import,
+     * which only ever adds — see there.
+     */
+    fun addAll(keys: Collection<String>): Set<String> =
+        if (keys.isEmpty()) all() else write(all() + keys)
+
     private fun write(next: Set<String>): Set<String> {
         // A new set each time: SharedPreferences hands back the same instance it holds, and
         // mutating that one leaves the store and the caller disagreeing until the next process.

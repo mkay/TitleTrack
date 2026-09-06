@@ -93,6 +93,9 @@
     <string name="settings_section_library">Library</string>
     <string name="setting_starred_first_title">Starred takes first</string>
     <string name="setting_starred_first_detail">Off: every folder stays in date order. The Starred tab still gathers them.</string>
+    <string name="settings_library_transfer_detail">Carry your stars and notes to another phone or folder. Import only adds; a note already on this phone is kept.</string>
+    <string name="action_export_stars_notes">Export stars and notes</string>
+    <string name="action_import_stars_notes">Import stars and notes</string>
 
     <string name="settings_section_display">Display</string>
     <string name="setting_keep_screen_on_title">Keep the screen on</string>
@@ -271,6 +274,12 @@
     <string name="msg_not_moved">That could not be moved.</string>
     <string name="msg_choose_folder_first">Choose a folder to keep your recordings in first.</string>
     <string name="msg_choose_record_folder_first">Choose a folder to record into first.</string>
+
+    <string name="msg_library_exported">Stars and notes exported.</string>
+    <string name="msg_library_not_exported">The file could not be written.</string>
+    <string name="msg_library_imported">Stars and notes imported.</string>
+    <string name="msg_library_nothing_new">Those stars and notes are already here.</string>
+    <string name="msg_library_not_imported">That is not a Title Track stars-and-notes file.</string>
 
     <!-- %1$d is how many of the batch did move before the rest failed. -->
     <plurals name="msg_moved_partly">

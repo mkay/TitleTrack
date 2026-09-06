@@ -118,4 +118,7 @@ dependencies {
 
     // Local JVM unit tests (the WAV reader/writer is pure Kotlin — no Android framework needed).
     testImplementation("junit:junit:4.13.2")
+    // The real org.json, because the platform's is a stub that throws under JVM unit tests, and
+    // LibraryDataTest exercises the stars-and-notes export parser.
+    testImplementation("org.json:json:20240303")
 }

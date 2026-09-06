@@ -87,6 +87,8 @@ fun SettingsScreen(
     onTabChange: (SettingsTab) -> Unit,
     folderLabel: String?,
     onChooseFolder: () -> Unit,
+    onExportLibrary: () -> Unit,
+    onImportLibrary: () -> Unit,
     onSetBeatsPerBar: (Int) -> Unit,
     onSetAudioMetronome: (Boolean) -> Unit,
     onSetListenBeforeRecording: (Boolean) -> Unit,
@@ -126,6 +128,8 @@ fun SettingsScreen(
                     settings = settings,
                     folderLabel = folderLabel,
                     onChooseFolder = onChooseFolder,
+                    onExportLibrary = onExportLibrary,
+                    onImportLibrary = onImportLibrary,
                     onSetStarredFirst = onSetStarredFirst,
                     onSetKeepScreenOn = onSetKeepScreenOn,
                     onSetThemeMode = onSetThemeMode,
@@ -215,6 +219,8 @@ private fun SystemSettings(
     settings: Settings,
     folderLabel: String?,
     onChooseFolder: () -> Unit,
+    onExportLibrary: () -> Unit,
+    onImportLibrary: () -> Unit,
     onSetStarredFirst: (Boolean) -> Unit,
     onSetKeepScreenOn: (Boolean) -> Unit,
     onSetThemeMode: (ThemeMode) -> Unit,
@@ -247,6 +253,20 @@ private fun SystemSettings(
         checked = settings.starredFirst,
         onCheckedChange = onSetStarredFirst,
     )
+    Spacer(Modifier.height(12.dp))
+    Text(
+        stringResource(R.string.settings_library_transfer_detail),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+    )
+    Spacer(Modifier.height(8.dp))
+    OutlinedButton(onClick = onExportLibrary, shape = ControlShape) {
+        Text(stringResource(R.string.action_export_stars_notes))
+    }
+    Spacer(Modifier.height(8.dp))
+    OutlinedButton(onClick = onImportLibrary, shape = ControlShape) {
+        Text(stringResource(R.string.action_import_stars_notes))
+    }
 
     Spacer(Modifier.height(24.dp))
     Section(R.string.settings_section_display)

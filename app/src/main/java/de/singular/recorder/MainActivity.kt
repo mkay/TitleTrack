@@ -191,6 +191,16 @@ class MainActivity : AppCompatActivity() {
                     ActivityResultContracts.OpenDocumentTree(),
                 ) { uri -> uri?.let(vm::onFolderPicked) }
 
+                // Stars and notes leave and re-enter as a JSON file the user names and places —
+                // see [RecorderViewModel.exportLibrary]. Import takes any file and checks the
+                // contents rather than trusting a type the picker guessed from an extension.
+                val libraryExport = rememberLauncherForActivityResult(
+                    ActivityResultContracts.CreateDocument("application/json"),
+                ) { uri -> uri?.let(vm::exportLibrary) }
+                val libraryImport = rememberLauncherForActivityResult(
+                    ActivityResultContracts.OpenDocument(),
+                ) { uri -> uri?.let(vm::importLibrary) }
+
                 // Resolved in composition, not in the launcher callback, so the words follow the
                 // language in effect when the snackbar goes up — and so lint's resource-read check
                 // is satisfied.
@@ -974,6 +984,10 @@ class MainActivity : AppCompatActivity() {
                                     onTabChange = { settingsTab = it },
                                     folderLabel = library.path.firstOrNull()?.name,
                                     onChooseFolder = { folderPicker.launch(null) },
+                                    onExportLibrary = {
+                                        libraryExport.launch("titletrack-stars-and-notes.json")
+                                    },
+                                    onImportLibrary = { libraryImport.launch(arrayOf("*/*")) },
                                     onSetBeatsPerBar = vm::setBeatsPerBar,
                                     onSetAudioMetronome = vm::setAudioMetronome,
                                     onSetListenBeforeRecording = vm::setListenBeforeRecording,

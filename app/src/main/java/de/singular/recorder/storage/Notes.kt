@@ -53,6 +53,21 @@ class Notes(context: Context) {
         return all()
     }
 
+    /**
+     * Write each of [incoming] whose key has no note here yet, and leave every existing note
+     * exactly as it stands. This is how a [LibraryData] import folds in: it can fill a gap, never
+     * overwrite. Blank incoming text is skipped, the same as [set] drops it.
+     */
+    fun fillMissing(incoming: Map<String, String>): Map<String, String> {
+        val have = prefs.all.keys
+        val adding = incoming.mapNotNull { (key, text) ->
+            val trimmed = text.trim()
+            if (key.isNotBlank() && trimmed.isNotEmpty() && key !in have) key to trimmed else null
+        }
+        if (adding.isNotEmpty()) prefs.edit { for ((k, v) in adding) putString(k, v) }
+        return all()
+    }
+
     /** Drop [key] and anything beneath it, so deleting a folder takes its notes with it. */
     fun remove(key: String): Map<String, String> {
         val gone = prefs.all.keys.filter { it.under(key) }

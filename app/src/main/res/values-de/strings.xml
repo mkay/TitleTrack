@@ -74,6 +74,9 @@
     <string name="settings_section_library">Bibliothek</string>
     <string name="setting_starred_first_title">Markierte Takes zuerst</string>
     <string name="setting_starred_first_detail">Aus: Jeder Ordner bleibt nach Datum sortiert. Der Tab „Markiert“ sammelt sie trotzdem.</string>
+    <string name="settings_library_transfer_detail">Nimm deine Markierungen und Notizen mit auf ein anderes Telefon oder in einen anderen Ordner. Der Import fügt nur hinzu; eine Notiz, die schon auf diesem Telefon liegt, bleibt.</string>
+    <string name="action_export_stars_notes">Markierungen und Notizen exportieren</string>
+    <string name="action_import_stars_notes">Markierungen und Notizen importieren</string>
 
     <string name="settings_section_display">Anzeige</string>
     <string name="setting_keep_screen_on_title">Bildschirm anlassen</string>
@@ -214,6 +217,12 @@
     <string name="msg_not_moved">Das ließ sich nicht verschieben.</string>
     <string name="msg_choose_folder_first">Wähle zuerst einen Ordner für deine Aufnahmen.</string>
     <string name="msg_choose_record_folder_first">Wähle zuerst einen Ordner zum Aufnehmen.</string>
+
+    <string name="msg_library_exported">Markierungen und Notizen exportiert.</string>
+    <string name="msg_library_not_exported">Die Datei ließ sich nicht schreiben.</string>
+    <string name="msg_library_imported">Markierungen und Notizen importiert.</string>
+    <string name="msg_library_nothing_new">Diese Markierungen und Notizen sind schon da.</string>
+    <string name="msg_library_not_imported">Das ist keine Title-Track-Datei mit Markierungen und Notizen.</string>
 
     <plurals name="msg_moved_partly">
         <item quantity="one">%1$d verschoben — der Rest ließ sich nicht verschieben.</item>

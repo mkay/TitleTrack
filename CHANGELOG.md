@@ -10,6 +10,8 @@ A tuner, for the instrument you were about to record.
 - **Equal temperament, against A4 = 440 Hz**, said on the tuner's own row. A guitar tuned on a pedal's sweetened preset reads several cents out here, most visibly on the low E, and neither tuner is broken.
 - The tuner never competes with a take: recording keeps the microphone, and the tab says so rather than showing a needle that will never move.
 
+- **Export and import stars and notes**, from Settings → System → Library. They live in the app rather than in the takes — instant to set, and they work for an m4a the app never wrote — but that has always meant a new phone started blank. Now they write out to a JSON file you name and place, and reading it back on another phone, or against another folder, folds them in: stars unioned, notes filled where there is none. Import only ever adds. A note already on the phone is kept, and nothing is removed. Takes are matched by their path inside the recordings folder, so it lines up only where both libraries hold the same files.
+
 ## 0.3 — 2026-08-01
 
 The app speaks German, and can be told which language to speak.

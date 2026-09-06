@@ -24,6 +24,7 @@ import de.singular.recorder.audio.RecordPhase
 import de.singular.recorder.audio.TunerEngine
 import de.singular.recorder.audio.TunerState
 import de.singular.recorder.storage.Folder
+import de.singular.recorder.storage.LibraryData
 import de.singular.recorder.storage.Listing
 import de.singular.recorder.storage.Notes
 import de.singular.recorder.storage.Recents
@@ -202,6 +203,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     val recorderState = recorder.state
 
     private val prefs = application.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    private val resolver = application.contentResolver
     private val stars = Stars(application)
     private val noteStore = Notes(application)
     private val recentStore = Recents(application)
@@ -310,6 +312,56 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         // leaving a starless entry sitting in a list of favourites until the screen is reopened.
         _starredTakes.value = _starredTakes.value?.filter { it.key in _starred.value }
         reorderAfterPause()
+    }
+
+    /**
+     * Write every star and note out to [dest] as JSON — see [LibraryData]. The keys are folder-
+     * relative, so the file carries to any phone that points Title Track at a folder holding the
+     * same takes.
+     */
+    fun exportLibrary(dest: Uri) {
+        viewModelScope.launch {
+            val json = LibraryData(stars.all(), noteStore.all()).toJson()
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    resolver.openOutputStream(dest, "wt")?.use { it.write(json.toByteArray()) }
+                        ?: error("no output stream for $dest")
+                }.isSuccess
+            }
+            _message.value = Message.Text(
+                if (ok) R.string.msg_library_exported else R.string.msg_library_not_exported,
+            )
+        }
+    }
+
+    /**
+     * Fold a [LibraryData] file at [src] into what is here: stars unioned in, notes filled where
+     * there is none. Never overwrites a note already on the phone, never removes anything. A file
+     * that is not one of ours is reported and nothing is touched.
+     */
+    fun importLibrary(src: Uri) {
+        viewModelScope.launch {
+            val data = withContext(Dispatchers.IO) {
+                runCatching {
+                    resolver.openInputStream(src)?.use { it.readBytes().decodeToString() }
+                }.getOrNull()?.let(LibraryData::fromJson)
+            }
+            if (data == null) {
+                _message.value = Message.Text(R.string.msg_library_not_imported)
+                return@launch
+            }
+            val added = _starred.value.let { before ->
+                _starred.value = stars.addAll(data.stars)
+                _starred.value.size - before.size
+            } + _notes.value.let { before ->
+                _notes.value = noteStore.fillMissing(data.notes)
+                _notes.value.size - before.size
+            }
+            _orderStars.value = _starred.value
+            _message.value = Message.Text(
+                if (added > 0) R.string.msg_library_imported else R.string.msg_library_nothing_new,
+            )
+        }
     }
 
     private val _settings = MutableStateFlow(
