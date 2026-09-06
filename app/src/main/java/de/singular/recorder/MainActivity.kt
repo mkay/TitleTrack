@@ -3,9 +3,11 @@
 package de.singular.recorder
 
 import android.Manifest
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.webkit.MimeTypeMap
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -48,8 +50,10 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -179,6 +183,7 @@ class MainActivity : AppCompatActivity() {
                 val drawerState = rememberDrawerState(DrawerValue.Closed)
                 val scope = rememberCoroutineScope()
                 val snackbar = remember { SnackbarHostState() }
+                val context = LocalContext.current
 
                 // The folder picker. Only the tree grant is asked for; everything below it is ours
                 // to create and browse without asking again.
@@ -186,12 +191,43 @@ class MainActivity : AppCompatActivity() {
                     ActivityResultContracts.OpenDocumentTree(),
                 ) { uri -> uri?.let(vm::onFolderPicked) }
 
+                // Resolved in composition, not in the launcher callback, so the words follow the
+                // language in effect when the snackbar goes up — and so lint's resource-read check
+                // is satisfied.
+                val micDeniedText = stringResource(R.string.msg_mic_denied)
+                val openSettingsText = stringResource(R.string.action_open_settings)
+
                 // Recording is the whole app, so the microphone is asked for on the first press
                 // rather than at launch — by then it is obvious what it is for. Granting it starts
                 // the take immediately, so one press is enough.
                 val micPermission = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestPermission(),
-                ) { granted -> if (granted) vm.startRecording() }
+                ) { granted ->
+                    if (granted) {
+                        vm.startRecording()
+                    } else if ((context as? Activity)
+                            ?.shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO) == false
+                    ) {
+                        // Denied for good: the system will not show its dialog again, so Record
+                        // would otherwise do nothing at all. Say why, and offer the one place left
+                        // that can turn it back on.
+                        scope.launch {
+                            val picked = snackbar.showSnackbar(
+                                message = micDeniedText,
+                                actionLabel = openSettingsText,
+                                duration = SnackbarDuration.Long,
+                            )
+                            if (picked == SnackbarResult.ActionPerformed) {
+                                context.startActivity(
+                                    Intent(
+                                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                        Uri.fromParts("package", context.packageName, null),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                }
 
                 // The tuner asks for the microphone on its own account, for the same reason
                 // Record does: opening a tuner is the moment it becomes obvious what it is for.

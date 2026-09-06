@@ -227,6 +227,9 @@
 
     <string name="msg_needs_microphone">%1$s braucht das Mikrofon, um den Pegel zu messen.</string>
 
+    <string name="msg_mic_denied">Der Zugriff aufs Mikrofon ist aus. Schalte ihn in den Einstellungen frei, um aufzunehmen.</string>
+    <string name="action_open_settings">Einstellungen</string>
+
     <string name="msg_click_timing_unknown">Die Bluetooth-Verzögerung ließ sich nicht messen. Dieser Take liegt vielleicht nicht auf dem Beat.</string>
     <string name="msg_saved_as">Gespeichert als %1$s</string>
     <string name="msg_not_saved">Der Take konnte nicht gespeichert werden.</string>
@@ -388,7 +391,7 @@
     <string name="normalise_body">Einen leisen Take auf einen brauchbaren Pegel heben.</string>
     <string name="normalise_peak">Peak — der lauteste Moment stößt oben an</string>
     <string name="normalise_loudness">Lautheit — insgesamt lauter, Spitzen gerundet</string>
-    <string name="normalise_wav_warning_before">Überschreiben schreibt die Aufnahme selbst neu: Es gibt </string>
+    <string name="normalise_wav_warning_before">"Überschreiben schreibt die Aufnahme selbst neu: Es gibt "</string>
     <string name="warning_no_undo">kein Zurück</string>
     <string name="normalise_wav_warning_after">. Bei einer Kopie bleibt dieser Take unverändert.</string>
     <string name="normalise_other_body">Dieser hier wird dekodiert und als neue Datei gespeichert; das Original bleibt unangetastet.</string>
@@ -401,7 +404,7 @@
     <string name="trim_start">Anfang</string>
     <string name="trim_end">Ende</string>
     <string name="trim_keep">Auswahl behalten</string>
-    <string name="trim_wav_warning_before">%1$s werden entfernt. Beim Überschreiben dieses Takes gibt es </string>
+    <string name="trim_wav_warning_before">"%1$s werden entfernt. Beim Überschreiben dieses Takes gibt es "</string>
     <string name="trim_wav_warning_after">; bei einer Kopie bleibt er unverändert.</string>
     <string name="trim_other_body">%1$s werden entfernt. Dieser hier wird dekodiert und als neue Datei gespeichert; das Original bleibt unangetastet.</string>
     <string name="action_save_trimmed">Geschnittenes %1$s speichern</string>
