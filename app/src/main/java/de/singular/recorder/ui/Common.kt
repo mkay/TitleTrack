@@ -465,13 +465,3 @@ fun CellDivider() {
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
     )
 }
-
-/**
- * The audible metronome, behind a hold on the Metronome cell.
- *
- * Behind a hold rather than on the row, because the row is for what you check before every take and
- * this is decided once per set-up: headphones on, click on; and switched on by mistake while
- * recording on the speaker it does real damage — the clicks are in the take, at whatever level the
- * speaker managed, with no way to take them out afterwards. So the warning is the dialog's whole
- * text, and the switch sits under it rather than the other way round.
- */

@@ -502,7 +502,11 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
                     countInSettled = true,
                     // A measurement that never arrived on a wireless route is the one case where
                     // this take's grid cannot be trusted — see [Metronome.lastOutputWasWireless].
-                    clickTimingUnknown = !metronome.latencyMeasured &&
+                    // Only a take that actually ran clicks has a grid to be off: without a count-in
+                    // or the audible metronome there is nothing to measure, and the Metronome's
+                    // flags are left over from whenever it last did.
+                    clickTimingUnknown = (audioMetronome || countInBars > 0) &&
+                        !metronome.latencyMeasured &&
                         metronome.lastOutputWasWireless == true,
                 )
             }

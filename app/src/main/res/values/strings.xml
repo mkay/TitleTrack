@@ -294,8 +294,9 @@
     <string name="msg_mic_denied">Microphone access is off. Turn it on in Settings to record.</string>
     <string name="action_open_settings">Settings</string>
 
-    <!-- %1$s is the filename the take was saved under. -->
+    <!-- Shown once when a take was recorded to a click whose output delay could not be measured. -->
     <string name="msg_click_timing_unknown">The Bluetooth delay could not be measured. This take may sit off the beat.</string>
+    <!-- %1$s is the filename the take was saved under. -->
     <string name="msg_saved_as">Saved as %1$s</string>
     <string name="msg_not_saved">The take could not be saved.</string>
     <!-- The take was opened from the recents list, but the file is no longer in the folder. -->
