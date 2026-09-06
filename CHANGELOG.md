@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4 — 2026-09-07
 
 A tuner, for the instrument you were about to record.
 
@@ -11,6 +11,10 @@ A tuner, for the instrument you were about to record.
 - The tuner never competes with a take: recording keeps the microphone, and the tab says so rather than showing a needle that will never move.
 
 - **Export and import stars and notes**, from Settings → System → Library. They live in the app rather than in the takes — instant to set, and they work for an m4a the app never wrote — but that has always meant a new phone started blank. Now they write out to a JSON file you name and place, and reading it back on another phone, or against another folder, folds them in: stars unioned, notes filled where there is none. Import only ever adds. A note already on the phone is kept, and nothing is removed. Takes are matched by their path inside the recordings folder, so it lines up only where both libraries hold the same files.
+
+- **The name on the record screen is redrawn** — the lettering set into a waveform burst, one mark rather than two words with an icon between them — and dropped back to a watermark behind the empty canvas rather than sitting over it. Grey now, not gold, so the one drawing holds on a light page and a dark one alike.
+
+- Smaller repairs, most of them from F-Droid's review of 0.3. The Trim and Normalise warnings no longer run "…has" straight into "no undo". Pressing Record after the microphone was refused twice now says why and offers a way to Settings, instead of doing nothing at all. A take recorded to no click no longer inherits a stale "this take may sit off the beat" from an earlier one that had a click on a wireless output. And the count-in dots keep moving on a device whose audio latency never reports back, rather than standing still until the downbeat.
 
 ## 0.3 — 2026-08-01
 

@@ -1,0 +1,5 @@
+A tuner, for the instrument you were about to record — a damped needle and a strobe, two readings of the same string. No instrument switch to set wrong: it names the nearest note and reports equal temperament.
+
+Stars and notes can now be exported to a file and read back on another phone, or against another folder. Import only ever adds.
+
+The name on the record screen is redrawn and sits back as a watermark. Plus fixes from F-Droid's review of 0.3.
