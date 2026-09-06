@@ -173,7 +173,7 @@ fun RecordScreen(
             // line on the zero line and the two read as one mark. It goes the moment there is a
             // level to draw.
             if (state.phase == RecordPhase.IDLE && !monitoring) {
-                TitleWordmark(Modifier.fillMaxWidth(0.66f))
+                TitleWordmark(Modifier.fillMaxWidth(0.52f))
             }
             // Nothing is being captured during the count-in, so the count borrows the space.
             if (state.phase == RecordPhase.COUNT_IN) {
@@ -774,19 +774,19 @@ private fun LevelTestDialog(
 }
 
 /**
- * The app's name, drawn from `wordmark_both.svg` as a vector rather than set as text: the lettering
- * is a dot-matrix face with its own spacing, and the launcher icon's waveform stands between the
- * two words, neither of which survives being typed out.
+ * The app's name, drawn from `WordMark.svg` as a vector rather than set as text: the lettering has
+ * its own face and spacing, and it sits across the middle of a waveform burst that neither word
+ * survives being typed out around.
  *
- * **One drawing for both themes**, as of 2026-07-29. There was a pair for a while: the mark is a ramp
- * of three tones, and on the cream page the dark theme's three landed between 3.0:1 and 1.6:1, where
- * the depth stops reading and what is left is three washed-out golds beside each other — so the light
- * page got its own export, a step darker. The redrawn mark carries its own answer instead, its
- * darkest tone taken down to amber-600 while the lit ones hold, which reads on white and on
- * near-black alike. Ungoverned by contrast rules either way: a wordmark is a logo, not type.
+ * **A watermark, not a logo.** It sits low behind the empty canvas at [WordmarkAlpha], there to
+ * say the take will appear here without being the thing you look at. Grey rather than gold so the
+ * one drawing works on both themes: it is desaturated at the source to three greys compressed
+ * toward the middle (`#868686`–`#B4B4B4`), which fade the same amount on white and on near-black.
+ * The lettering's own horizontal gradient is dropped in the same move — flat mid-grey behind the
+ * bars reads better than a sheen, and `svg2vector.py` only takes two-stop gradients anyway.
  *
  * Sized by width and left to find its own height, so it keeps its proportions on any screen while
- * its centre line stays on the canvas's zero line.
+ * its centre line — the row the lettering sits on — stays on the canvas's zero line.
  */
 @Composable
 private fun TitleWordmark(modifier: Modifier = Modifier) {
@@ -794,9 +794,13 @@ private fun TitleWordmark(modifier: Modifier = Modifier) {
         painter = painterResource(R.drawable.title_wordmark),
         contentDescription = null, // the app bar already names the screen; this is decoration
         contentScale = ContentScale.Fit,
+        alpha = WordmarkAlpha,
         modifier = modifier.aspectRatio(WordmarkAspect),
     )
 }
 
-/** The wordmark's own proportions, from the source SVG's 659x134 viewBox. */
-private const val WordmarkAspect = 659f / 134f
+/** Faint enough to stay behind the eye, dark enough to survive both themes. */
+private const val WordmarkAlpha = 0.16f
+
+/** The wordmark's own proportions, from the source SVG's 561x682 viewBox. */
+private const val WordmarkAspect = 561f / 682f
