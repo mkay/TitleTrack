@@ -285,19 +285,18 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     private var starredJob: Job? = null
 
     /**
-     * Resolve every starred key into a take, dropping the ones that no longer exist.
+     * Resolve every starred key into a take, skipping the ones that do not resolve.
      *
-     * That dropping is the index's only garbage collection. A star can be orphaned by a rename or
-     * a delete done outside the app, which nothing in here can be told about; going to look is the
-     * only way to find out, and this is the one place that has reason to look at every key at once.
+     * Skipped, never dropped. A key that fails to resolve may name a take deleted outside the app,
+     * but it equally fails when the storage is unavailable or a different folder is picked, and
+     * from here the three look the same — pruning on them once wiped every star on a folder
+     * switch. An orphan costs a string in preferences; Notes keeps its orphans for the same reason.
      */
     fun loadStarred() {
         starredJob?.cancel()
         starredJob = viewModelScope.launch {
             val keys = _starred.value.sorted()
             val found = keys.mapNotNull { key -> store.takeAt(key)?.let { StarredTake(it, key) } }
-            val gone = keys.toSet() - found.map { it.key }.toSet()
-            if (gone.isNotEmpty()) _starred.value = stars.removeAll(gone)
             _starredTakes.value = found.sortedByDescending { it.take.modifiedAt }
         }
     }

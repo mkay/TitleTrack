@@ -50,12 +50,6 @@ class Stars(context: Context) {
     /** Drop [key], and anything beneath it if it names a folder. */
     fun remove(key: String): Set<String> = write(all().filterNot { it.under(key) }.toSet())
 
-    /** Drop several at once — a batch delete, where re-reading the set each time would be waste. */
-    fun removeAll(keys: Collection<String>): Set<String> {
-        val gone = keys.toSet()
-        return write(all().filterNot { k -> gone.any { k.under(it) } }.toSet())
-    }
-
     /**
      * Follow a rename from [from] to [to].
      *
