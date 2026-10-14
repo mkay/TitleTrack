@@ -133,6 +133,7 @@ class RecordingStore(context: Context) {
             while (it.moveToNext()) {
                 val id = it.getString(0) ?: continue
                 val name = it.getString(1) ?: continue
+                if (isHidden(name)) continue
                 val mime = it.getString(2) ?: ""
                 val size = if (it.isNull(3)) 0L else it.getLong(3)
                 val modified = if (it.isNull(4)) 0L else it.getLong(4)
@@ -287,6 +288,7 @@ class RecordingStore(context: Context) {
             while (it.moveToNext()) {
                 val id = it.getString(0) ?: continue
                 val name = it.getString(1) ?: continue
+                if (isHidden(name)) continue
                 if (it.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR) {
                     found += Folder(documentUri(tree, id), name)
                 }
@@ -1106,6 +1108,13 @@ class RecordingStore(context: Context) {
         mime.startsWith("audio/") ||
             mime == "application/octet-stream" && name.endsWith(".wav", ignoreCase = true) ||
             AUDIO_EXTENSIONS.any { name.endsWith(it, ignoreCase = true) }
+
+    /**
+     * Dotfiles are somebody else's bookkeeping — Syncthing's `.stfolder`, a desktop's `.Trash`
+     * — and a folder synced from a computer collects them. Nothing this app shows or records
+     * starts with a dot, so the library skips them the way a file manager does.
+     */
+    private fun isHidden(name: String): Boolean = name.startsWith(".")
 
     private companion object {
         const val KEY_ROOT = "root_tree_uri"
