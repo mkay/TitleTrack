@@ -44,6 +44,7 @@ fun QuickHelpDialog(onDismiss: () -> Unit) {
                 HelpItem(R.string.help_loop_title, R.string.help_loop_body)
                 HelpItem(R.string.help_trim_title, R.string.help_trim_body)
                 HelpItem(R.string.help_select_title, R.string.help_select_body)
+                HelpItem(R.string.help_search_title, R.string.help_search_body)
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_got_it)) } },

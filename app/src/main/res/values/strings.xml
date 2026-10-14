@@ -56,6 +56,9 @@
     <string name="help_select_title">Pick out several takes</string>
     <string name="help_select_body">Long-press a take in the library. The bar becomes the selection\'s, for moving or deleting the lot.</string>
 
+    <string name="help_search_title">Find a take</string>
+    <string name="help_search_body">Pull the library down from the top. It searches names, folders and notes, in this folder and every one inside it.</string>
+
     <!-- ===== Settings ===== -->
 
     <!-- The three tabs. They share the width of the screen between them, so keep these short —
@@ -191,6 +194,11 @@
     <!-- ===== Starred tab ===== -->
 
     <string name="starred_empty">Nothing starred yet. Tap the star on a take to keep it here.</string>
+    <!-- The library search, brought out by pulling the list down. It looks in the folder on
+         screen and every folder under it, at names, folder names and notes. -->
+    <string name="search_hint">Search names and notes</string>
+    <string name="search_no_match">No takes match.</string>
+    <string name="cd_close_search">Close search</string>
 
     <!-- ===== Library ===== -->
 

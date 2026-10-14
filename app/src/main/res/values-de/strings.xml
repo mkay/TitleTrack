@@ -44,6 +44,9 @@
     <string name="help_select_title">Mehrere Takes auswählen</string>
     <string name="help_select_body">Einen Take in der Bibliothek lange drücken. Die Leiste gehört dann der Auswahl, zum Verschieben oder mehrfachen Löschen.</string>
 
+    <string name="help_search_title">Einen Take finden</string>
+    <string name="help_search_body">Zieh die Bibliothek von oben herunter. Gesucht wird in Namen, Ordnern und Notizen — in diesem Ordner und allen darin.</string>
+
     <!-- ===== Einstellungen ===== -->
 
     <string name="settings_tab_recording">Aufnahme</string>
@@ -151,6 +154,9 @@
     <!-- ===== Markiert ===== -->
 
     <string name="starred_empty">Noch nichts markiert. Tippe den Stern auf einem Take an, um ihn hier zu behalten.</string>
+    <string name="search_hint">Namen und Notizen durchsuchen</string>
+    <string name="search_no_match">Keine passenden Takes.</string>
+    <string name="cd_close_search">Suche schließen</string>
 
     <!-- ===== Bibliothek ===== -->
 

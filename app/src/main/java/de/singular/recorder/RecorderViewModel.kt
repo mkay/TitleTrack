@@ -57,13 +57,13 @@ import kotlin.math.roundToInt
 
 /** Where the user is in their recordings folder, and what is in it. */
 /**
- * A starred take, with the key it is starred under.
+ * A take with its key — the path under the root that stars and notes are kept against.
  *
- * The key doubles as the take's whereabouts: it is a path under the root, so its parent is the
- * folder to show beside the name — the whole point of this list being that the takes in it come
- * from all over the tree and the name alone does not say where from.
+ * The key doubles as the take's whereabouts, so its parent is the folder to show beside the name.
+ * That is the point of the two flat lists that carry these, the starred takes and the search
+ * results: their takes come from all over the tree, and the name alone does not say where from.
  */
-data class StarredTake(val take: Take, val key: String) {
+data class KeyedTake(val take: Take, val key: String) {
     /** The folder this sits in, or null at the root, where there is nothing useful to say. */
     val folder: String? get() = key.substringBeforeLast('/', "").takeIf { it.isNotEmpty() }
 }
@@ -279,8 +279,8 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
      * The starred takes, resolved, for the Starred view. Null until they have been looked up once —
      * which is what tells the screen to say "loading" rather than "nothing starred yet".
      */
-    private val _starredTakes = MutableStateFlow<List<StarredTake>?>(null)
-    val starredTakes: StateFlow<List<StarredTake>?> = _starredTakes.asStateFlow()
+    private val _starredTakes = MutableStateFlow<List<KeyedTake>?>(null)
+    val starredTakes: StateFlow<List<KeyedTake>?> = _starredTakes.asStateFlow()
 
     private var starredJob: Job? = null
 
@@ -296,8 +296,59 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         starredJob?.cancel()
         starredJob = viewModelScope.launch {
             val keys = _starred.value.sorted()
-            val found = keys.mapNotNull { key -> store.takeAt(key)?.let { StarredTake(it, key) } }
+            val found = keys.mapNotNull { key -> store.takeAt(key)?.let { KeyedTake(it, key) } }
             _starredTakes.value = found.sortedByDescending { it.take.modifiedAt }
+        }
+    }
+
+    // ---- search ---------------------------------------------------------------------------
+
+    /** What is typed in the library's search field — see [TakeQuery]. Empty when it is closed. */
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    /**
+     * The takes the query finds in the folder on screen and every folder under it, newest first.
+     *
+     * Null while there is no query, and also until the first walk for one returns — the same "not
+     * yet looked" the starred list uses. Typing on does not null it again: the previous answer
+     * stays on screen until the next arrives, rather than the list blanking at every keystroke.
+     */
+    private val _searchResults = MutableStateFlow<List<KeyedTake>?>(null)
+    val searchResults: StateFlow<List<KeyedTake>?> = _searchResults.asStateFlow()
+
+    private var searchJob: Job? = null
+
+    fun setSearchQuery(text: String) {
+        if (text == _searchQuery.value) return
+        _searchQuery.value = text
+        runSearch(settle = true)
+    }
+
+    /**
+     * Walk for the current query, replacing any walk still running.
+     *
+     * Walked afresh each time rather than from an index of the tree. A walk is one provider query
+     * per folder and opens only the takes that match (see [RecordingStore.search]), which is quick
+     * enough per keystroke — and a cached tree would be one more thing that has to hear about every
+     * rename, move and delete, inside the app and out of it. [refresh] re-runs it, so a change made
+     * through the app shows in the results as it would in the folder.
+     *
+     * [settle] holds the walk back while typing is still going on.
+     */
+    private fun runSearch(settle: Boolean) {
+        searchJob?.cancel()
+        val query = TakeQuery.of(_searchQuery.value)
+        val folder = _library.value.current
+        if (query == null || folder == null) {
+            _searchResults.value = null
+            return
+        }
+        searchJob = viewModelScope.launch {
+            if (settle) delay(SEARCH_SETTLE_MS)
+            val notes = _notes.value
+            val found = store.search(folder.uri) { key -> query.matches(key, notes[key]) }
+            _searchResults.value = found.mapNotNull { take -> starKey(take.uri)?.let { KeyedTake(take, it) } }
         }
     }
 
@@ -514,6 +565,9 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
                 loading = false,
                 rootMissing = rootGone,
             )
+            // The search covers this folder and what is under it, so it follows both a move to
+            // another folder and any change that sent the library back to the provider.
+            if (_searchQuery.value.isNotEmpty()) runSearch(settle = false)
         }
     }
 
@@ -1286,6 +1340,9 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
          * settled by the time you look back at the list.
          */
         const val REORDER_DELAY_MS = 1_200L
+
+        /** How long typing has to pause before the tree is walked for what has been typed. */
+        const val SEARCH_SETTLE_MS = 200L
 
         const val KEY_BPM = "bpm"
         const val KEY_BEATS_PER_BAR = "beats_per_bar"

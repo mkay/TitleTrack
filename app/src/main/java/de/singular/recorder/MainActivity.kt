@@ -183,6 +183,8 @@ class MainActivity : AppCompatActivity() {
                 val starredTakes by vm.starredTakes.collectAsStateWithLifecycle()
                 val movePicker by vm.movePicker.collectAsStateWithLifecycle()
                 val recents by vm.recents.collectAsStateWithLifecycle()
+                val searchQuery by vm.searchQuery.collectAsStateWithLifecycle()
+                val searchResults by vm.searchResults.collectAsStateWithLifecycle()
 
                 var screen by rememberSaveable { mutableStateOf(Screen.RECORD) }
                 // Where leaving the player goes back to. The player is reached from three places —
@@ -488,6 +490,20 @@ class MainActivity : AppCompatActivity() {
                 var libraryTab by rememberSaveable { mutableStateOf(LibraryTab.ALL) }
                 val onStarredTab = screen == Screen.LIBRARY && libraryTab == LibraryTab.STARRED
 
+                // The library's search field, brought out by pulling the list down. The query
+                // itself lives in the view model, which walks the tree for it; what is filtered
+                // here is the starred list, which is already in memory and narrows instantly.
+                var searchOpen by rememberSaveable { mutableStateOf(false) }
+                val searching = screen == Screen.LIBRARY && searchOpen
+                fun closeSearch() {
+                    searchOpen = false
+                    vm.setSearchQuery("")
+                }
+                val starredShown = remember(starredTakes, searchQuery, notes) {
+                    val query = TakeQuery.of(searchQuery) ?: return@remember starredTakes
+                    starredTakes?.filter { query.matches(it.key, notes[it.key]) }
+                }
+
                 // A launcher shortcut, arriving at a fresh start or over a running app. It goes
                 // where it says from wherever the app was, as a tab press would, so a take in
                 // progress carries on underneath — see [Shortcut] for why that needs saying.
@@ -621,18 +637,23 @@ class MainActivity : AppCompatActivity() {
                 //
                 // Drop the selection first: while picking, that is what the gesture is for, and
                 // walking up a folder mid-batch is never what was meant. Then out of the player,
-                // then off the starred tab, then up the folder tree, then home.
+                // then the search, then off the starred tab, then up the folder tree, then home.
                 BackHandler(enabled = selecting) { selection = emptySet() }
                 BackHandler(enabled = !selecting && screen == Screen.PLAYER) { leavePlayer() }
                 // Starred is a tab, not a place: leaving it returns to the files beside it, the
                 // same way leaving a sub-folder goes up rather than out.
-                BackHandler(enabled = !selecting && onStarredTab) { libraryTab = LibraryTab.ALL }
+                // An open search goes before any of them: the field is the thing most recently
+                // brought out, and the list under it is still the place you were.
+                BackHandler(enabled = !selecting && searching) { closeSearch() }
+                BackHandler(enabled = !selecting && !searching && onStarredTab) {
+                    libraryTab = LibraryTab.ALL
+                }
                 BackHandler(
-                    enabled = !selecting && !onStarredTab && screen == Screen.LIBRARY &&
-                        library.canGoUp,
+                    enabled = !selecting && !searching && !onStarredTab &&
+                        screen == Screen.LIBRARY && library.canGoUp,
                 ) { vm.goUp() }
                 BackHandler(
-                    enabled = !selecting && !onStarredTab && screen != Screen.RECORD &&
+                    enabled = !selecting && !searching && !onStarredTab && screen != Screen.RECORD &&
                         screen != Screen.PLAYER && !library.canGoUp,
                 ) { screen = Screen.RECORD }
 
@@ -999,10 +1020,16 @@ class MainActivity : AppCompatActivity() {
                                     starKeyOf = vm::starKey,
                                     onToggleStar = { vm.toggleStar(it.uri) },
                                     notedKeys = notes.keys,
-                                    starredTakes = starredTakes,
+                                    starredTakes = starredShown,
                                     onLoadStarred = vm::loadStarred,
                                     tab = libraryTab,
                                     onTabChange = { libraryTab = it },
+                                    searchOpen = searchOpen,
+                                    query = searchQuery,
+                                    searchResults = searchResults,
+                                    onOpenSearch = { searchOpen = true },
+                                    onQueryChange = vm::setSearchQuery,
+                                    onCloseSearch = ::closeSearch,
                                     selection = selection,
                                     onToggleSelect = { uri ->
                                         selection = if (uri in selection) {

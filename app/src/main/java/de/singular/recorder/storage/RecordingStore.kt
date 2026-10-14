@@ -15,11 +15,13 @@ import de.singular.recorder.audio.PcmSink
 import de.singular.recorder.audio.Wav
 import de.singular.recorder.audio.Waveform
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
+import java.util.concurrent.ConcurrentHashMap
 
 /** A sub-folder of the recordings root, for organising takes. */
 data class Folder(val uri: Uri, val name: String)
@@ -67,9 +69,10 @@ class RecordingStore(context: Context) {
 
     /**
      * Header facts keyed by identity-of-content, so re-entering a folder does not re-open every
-     * file. A take is rewritten only by being replaced, and size+mtime catch that.
+     * file. A take is rewritten only by being replaced, and size+mtime catch that. Concurrent
+     * because a search walking the tree and a folder listing can both be reading headers at once.
      */
-    private val headerCache = HashMap<String, Pair<Long, Float?>>()
+    private val headerCache = ConcurrentHashMap<String, Pair<Long, Float?>>()
 
     /** The granted root, or null until the user has picked one. */
     val root: Uri?
@@ -111,14 +114,76 @@ class RecordingStore(context: Context) {
     /** Everything in [folder]: sub-folders first, then takes, newest take first. */
     suspend fun list(folder: Uri): Listing = withContext(Dispatchers.IO) {
         val tree = root ?: return@withContext Listing(folder, error = StorageFailure.NO_FOLDER_CHOSEN)
+        val rows = children(tree, folder).getOrElse {
+            val failure = (it as? StorageException)?.failure ?: StorageFailure.FOLDER_UNREADABLE
+            return@withContext Listing(folder, error = failure)
+        }
+        val folders = ArrayList<Folder>()
+        val takes = ArrayList<Take>()
+        rows.forEach { row ->
+            if (row.isFolder) {
+                folders += Folder(row.uri, row.name)
+            } else if (isAudio(row.name, row.mime)) {
+                takes += row.toTake()
+            }
+        }
+        Listing(
+            folder = folder,
+            folders = folders.sortedBy { f -> f.name.lowercase() },
+            takes = takes.sortedByDescending { t -> t.modifiedAt },
+        )
+    }
+
+    /**
+     * Every take in [folder] or any folder beneath it whose key [matches] accepts, newest first.
+     *
+     * One query per folder, and the names and keys come with it, so the walk itself is cheap. The
+     * expensive part of a take is its header — a file open, two for anything but a WAV — and that
+     * is read only for the takes that match, not for the whole tree on the way past. A folder that
+     * will not list is skipped rather than failing the search: the rest of the tree still answers.
+     */
+    suspend fun search(folder: Uri, matches: (key: String) -> Boolean): List<Take> =
+        withContext(Dispatchers.IO) {
+            val tree = root ?: return@withContext emptyList()
+            val found = ArrayList<Take>()
+            val pending = ArrayDeque(listOf(folder))
+            while (pending.isNotEmpty()) {
+                ensureActive()
+                children(tree, pending.removeFirst()).getOrNull()?.forEach { row ->
+                    if (row.isFolder) {
+                        pending += row.uri
+                    } else if (isAudio(row.name, row.mime)) {
+                        val key = Stars.keyFor(tree, row.uri)
+                        if (key != null && matches(key)) found += row.toTake()
+                    }
+                }
+            }
+            found.sortedByDescending { it.modifiedAt }
+        }
+
+    /** One entry in a folder, as the provider describes it, before anything is opened. */
+    private class Child(
+        val uri: Uri,
+        val name: String,
+        val mime: String,
+        val size: Long,
+        val modified: Long,
+    ) {
+        val isFolder get() = mime == DocumentsContract.Document.MIME_TYPE_DIR
+    }
+
+    private fun Child.toTake(): Take {
+        val (durationMs, bpm) = header(uri, size, modified)
+        return Take(uri, name, size, modified, durationMs, bpm)
+    }
+
+    /** What sits directly in [folder], dotfiles left out, or the [StorageFailure] that stopped it. */
+    private fun children(tree: Uri, folder: Uri): Result<List<Child>> {
         val children = runCatching {
             DocumentsContract.buildChildDocumentsUriUsingTree(
                 tree, DocumentsContract.getDocumentId(folder),
             )
-        }.getOrNull() ?: return@withContext Listing(folder, error = StorageFailure.FOLDER_UNREACHABLE)
-
-        val folders = ArrayList<Folder>()
-        val takes = ArrayList<Take>()
+        }.getOrNull() ?: return Result.failure(StorageException(StorageFailure.FOLDER_UNREACHABLE))
         val columns = arrayOf(
             DocumentsContract.Document.COLUMN_DOCUMENT_ID,
             DocumentsContract.Document.COLUMN_DISPLAY_NAME,
@@ -127,30 +192,23 @@ class RecordingStore(context: Context) {
             DocumentsContract.Document.COLUMN_LAST_MODIFIED,
         )
         val cursor = runCatching { resolver.query(children, columns, null, null, null) }.getOrNull()
-            ?: return@withContext Listing(folder, error = StorageFailure.FOLDER_UNREADABLE)
-
+            ?: return Result.failure(StorageException(StorageFailure.FOLDER_UNREADABLE))
+        val rows = ArrayList<Child>()
         cursor.use {
             while (it.moveToNext()) {
                 val id = it.getString(0) ?: continue
                 val name = it.getString(1) ?: continue
                 if (isHidden(name)) continue
-                val mime = it.getString(2) ?: ""
-                val size = if (it.isNull(3)) 0L else it.getLong(3)
-                val modified = if (it.isNull(4)) 0L else it.getLong(4)
-                val uri = documentUri(tree, id)
-                if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
-                    folders += Folder(uri, name)
-                } else if (isAudio(name, mime)) {
-                    val (durationMs, bpm) = header(uri, size, modified)
-                    takes += Take(uri, name, size, modified, durationMs, bpm)
-                }
+                rows += Child(
+                    uri = documentUri(tree, id),
+                    name = name,
+                    mime = it.getString(2) ?: "",
+                    size = if (it.isNull(3)) 0L else it.getLong(3),
+                    modified = if (it.isNull(4)) 0L else it.getLong(4),
+                )
             }
         }
-        Listing(
-            folder = folder,
-            folders = folders.sortedBy { f -> f.name.lowercase() },
-            takes = takes.sortedByDescending { t -> t.modifiedAt },
-        )
+        return Result.success(rows)
     }
 
     /**

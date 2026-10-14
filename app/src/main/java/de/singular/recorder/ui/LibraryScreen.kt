@@ -22,10 +22,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
@@ -34,6 +39,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarOutline
@@ -63,15 +69,21 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.composed
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import de.singular.recorder.LibraryState
 import de.singular.recorder.R
 import de.singular.recorder.PlaybackState
-import de.singular.recorder.StarredTake
+import de.singular.recorder.KeyedTake
 import de.singular.recorder.storage.Folder
 import de.singular.recorder.storage.Take
 
@@ -105,13 +117,25 @@ fun LibraryScreen(
     /** Which takes have something written against them. Keys, not text — the row only shows that
      *  there is one. */
     notedKeys: Set<String>,
-    starredTakes: List<StarredTake>?,
+    starredTakes: List<KeyedTake>?,
     onLoadStarred: () -> Unit,
     // Hoisted, because back has to be able to leave the starred tab, and the whole back chain
     // lives with the screen state a level up. Handling it here would leave which handler wins to
     // the order the two compositions happen to register in.
     tab: LibraryTab,
     onTabChange: (LibraryTab) -> Unit,
+    /**
+     * The search, hoisted for the same reason as [tab]: Back closes it, and it has to be able to
+     * say so before the starred tab or the folder tree claims the press. [searchOpen] is whether
+     * the field is out; [query] is what is in it. On the starred tab [starredTakes] arrives
+     * already narrowed by the query, and on the files tab [searchResults] replace the folder.
+     */
+    searchOpen: Boolean,
+    query: String,
+    searchResults: List<KeyedTake>?,
+    onOpenSearch: () -> Unit,
+    onQueryChange: (String) -> Unit,
+    onCloseSearch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val selecting = selection.isNotEmpty()
@@ -141,26 +165,46 @@ fun LibraryScreen(
             }
         }
 
+        // Out of the way while picking, like the tabs: a batch belongs to the folder it was made in.
+        // Drawn where the pull opened its gap, directly above the list, so it arrives where the
+        // finger left it — under the folder path on the files tab, not over it.
+        val searching = searchOpen && !selecting
+        val searchHint: @Composable () -> Unit = {
+            Icon(Icons.Default.Search, contentDescription = null)
+        }
+        val matching = searching && query.isNotBlank()
+
         if (tab == LibraryTab.STARRED) {
-            StarredList(
-                takes = starredTakes,
-                playback = playback,
-                onPlay = onPlay,
-                onOpen = onOpen,
-                onToggleStar = onToggleStar,
-                onRename = { take ->
-                    renaming = take.uri.toString()
-                    renamingName = take.name.substringBeforeLast('.')
-                },
-                onDelete = { take ->
-                    deleting = take.uri.toString()
-                    deletingName = take.name
-                },
-                notedKeys = notedKeys,
-                onShare = onShare,
-                onMove = { take -> onMove(listOf(take.uri)) },
+            if (searching) SearchField(query, onQueryChange, onCloseSearch)
+            PullToReveal(
+                enabled = !searchOpen && !selecting,
+                onReveal = onOpenSearch,
+                hint = searchHint,
                 modifier = Modifier.weight(1f),
-            )
+            ) {
+                FlatTakeList(
+                    takes = starredTakes,
+                    empty = stringResource(
+                        if (matching) R.string.search_no_match else R.string.starred_empty,
+                    ),
+                    playback = playback,
+                    onPlay = onPlay,
+                    onOpen = onOpen,
+                    onToggleStar = onToggleStar,
+                    onRename = { take ->
+                        renaming = take.uri.toString()
+                        renamingName = take.name.substringBeforeLast('.')
+                    },
+                    onDelete = { take ->
+                        deleting = take.uri.toString()
+                        deletingName = take.name
+                    },
+                    notedKeys = notedKeys,
+                    onShare = onShare,
+                    onMove = { take -> onMove(listOf(take.uri)) },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
             return@Column
         }
 
@@ -180,61 +224,93 @@ fun LibraryScreen(
         HorizontalDivider()
 
         val listing = state.listing
-        when {
-            state.current == null ->
-                Hint(stringResource(R.string.library_no_folder), Modifier.weight(1f))
+        if (searching) SearchField(query, onQueryChange, onCloseSearch)
+        PullToReveal(
+            enabled = !searchOpen && !selecting,
+            onReveal = onOpenSearch,
+            hint = searchHint,
+            modifier = Modifier.weight(1f),
+        ) {
+            when {
+                state.current == null ->
+                    Hint(stringResource(R.string.library_no_folder))
 
-            listing?.error != null -> Hint(stringResource(listing.error.message), Modifier.weight(1f))
-            listing != null && listing.folders.isEmpty() && listing.takes.isEmpty() ->
-                Hint(stringResource(R.string.library_empty), Modifier.weight(1f))
+                // The breadcrumb above stays, and says where the search starts: this folder and
+                // everything under it. Moving up the crumbs widens it.
+                matching -> FlatTakeList(
+                    takes = searchResults,
+                    empty = stringResource(R.string.search_no_match),
+                    playback = playback,
+                    onPlay = onPlay,
+                    onOpen = onOpen,
+                    onToggleStar = onToggleStar,
+                    onRename = { take ->
+                        renaming = take.uri.toString()
+                        renamingName = take.name.substringBeforeLast('.')
+                    },
+                    onDelete = { take ->
+                        deleting = take.uri.toString()
+                        deletingName = take.name
+                    },
+                    notedKeys = notedKeys,
+                    starredKeys = starredKeys,
+                    onShare = onShare,
+                    onMove = { take -> onMove(listOf(take.uri)) },
+                    modifier = Modifier.fillMaxSize(),
+                )
 
-            listing != null -> LazyColumn(Modifier.weight(1f)) {
-                itemsIndexed(listing.folders, key = { _, it -> it.uri.toString() }) { i, folder ->
-                    if (i > 0) RowDivider()
-                    FolderRow(
-                        folder = folder,
-                        selected = folder.uri.toString() in selection,
-                        selecting = selecting,
-                        onOpen = { onOpenFolder(folder) },
-                        onToggleSelect = { onToggleSelect(folder.uri.toString()) },
-                        onRename = {
-                            renaming = folder.uri.toString()
-                            renamingName = folder.name
-                        },
-                        onDelete = {
-                            deleting = folder.uri.toString()
-                            deletingName = folder.name
-                        },
-                    )
+                listing?.error != null -> Hint(stringResource(listing.error.message))
+                listing != null && listing.folders.isEmpty() && listing.takes.isEmpty() ->
+                    Hint(stringResource(R.string.library_empty))
+
+                listing != null -> LazyColumn(Modifier.fillMaxSize()) {
+                    itemsIndexed(listing.folders, key = { _, it -> it.uri.toString() }) { i, folder ->
+                        if (i > 0) RowDivider()
+                        FolderRow(
+                            folder = folder,
+                            selected = folder.uri.toString() in selection,
+                            selecting = selecting,
+                            onOpen = { onOpenFolder(folder) },
+                            onToggleSelect = { onToggleSelect(folder.uri.toString()) },
+                            onRename = {
+                                renaming = folder.uri.toString()
+                                renamingName = folder.name
+                            },
+                            onDelete = {
+                                deleting = folder.uri.toString()
+                                deletingName = folder.name
+                            },
+                        )
+                    }
+                    itemsIndexed(listing.takes, key = { _, it -> it.uri.toString() }) { i, take ->
+                        if (i > 0 || listing.folders.isNotEmpty()) RowDivider()
+                        TakeRow(
+                            take = take,
+                            playing = playback.uri == take.uri && playback.playing,
+                            selected = take.uri.toString() in selection,
+                            selecting = selecting,
+                            starred = starKeyOf(take.uri) in starredKeys,
+                            hasNote = starKeyOf(take.uri) in notedKeys,
+                            onToggleStar = { onToggleStar(take) },
+                            onPlay = { onPlay(take) },
+                            onOpen = { onOpen(take) },
+                            onToggleSelect = { onToggleSelect(take.uri.toString()) },
+                            onRename = {
+                                renaming = take.uri.toString()
+                                renamingName = take.name.substringBeforeLast('.')
+                            },
+                            onDelete = {
+                                deleting = take.uri.toString()
+                                deletingName = take.name
+                            },
+                            onShare = { onShare(take) },
+                            onMove = { onMove(listOf(take.uri)) },
+                        )
+                    }
                 }
-                itemsIndexed(listing.takes, key = { _, it -> it.uri.toString() }) { i, take ->
-                    if (i > 0 || listing.folders.isNotEmpty()) RowDivider()
-                    TakeRow(
-                        take = take,
-                        playing = playback.uri == take.uri && playback.playing,
-                        selected = take.uri.toString() in selection,
-                        selecting = selecting,
-                        starred = starKeyOf(take.uri) in starredKeys,
-                        hasNote = starKeyOf(take.uri) in notedKeys,
-                        onToggleStar = { onToggleStar(take) },
-                        onPlay = { onPlay(take) },
-                        onOpen = { onOpen(take) },
-                        onToggleSelect = { onToggleSelect(take.uri.toString()) },
-                        onRename = {
-                            renaming = take.uri.toString()
-                            renamingName = take.name.substringBeforeLast('.')
-                        },
-                        onDelete = {
-                            deleting = take.uri.toString()
-                            deletingName = take.name
-                        },
-                        onShare = { onShare(take) },
-                        onMove = { onMove(listOf(take.uri)) },
-                    )
-                }
+
+                else -> Spacer(Modifier.fillMaxSize())
             }
-
-            else -> Spacer(Modifier.weight(1f))
         }
     }
 
@@ -281,6 +357,76 @@ fun LibraryScreen(
                 }
             },
         )
+    }
+}
+
+/**
+ * The search box, once a pull has brought it out. It takes the keyboard on arrival — the pull was
+ * the request to type — and its close button empties it and puts it away in one, as Back does.
+ *
+ * A filled pill rather than Material's outlined field. The outline is drawn in the accent while
+ * focused, and since this field is focused for its whole life that was an amber frame round the
+ * top of the list for as long as a search was open — the loudest thing on the screen, saying only
+ * that there was a box. A step off the page says the same thing quietly, and the accent is left to
+ * the cursor, which is the one part of the field that is news. Built on [BasicTextField] because
+ * the Material fields will not go below 56dp, and this sits between the folder path and the rows.
+ */
+@Composable
+private fun SearchField(query: String, onQueryChange: (String) -> Unit, onClose: () -> Unit) {
+    val focus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    val colors = MaterialTheme.colorScheme
+    val text = MaterialTheme.typography.bodyLarge
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
+            .height(44.dp)
+            .clip(CircleShape)
+            .background(colors.surfaceContainerHigh)
+            .padding(start = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Default.Search,
+            contentDescription = null,
+            tint = colors.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.width(10.dp))
+        BasicTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.weight(1f).focusRequester(focus),
+            singleLine = true,
+            textStyle = text.copy(color = colors.onSurface),
+            cursorBrush = SolidColor(colors.primary),
+            // Results arrive as the words are typed, so the action key has nothing left to do but
+            // get the keyboard off the list.
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
+            decorationBox = { field ->
+                Box(contentAlignment = Alignment.CenterStart) {
+                    if (query.isEmpty()) {
+                        Text(
+                            stringResource(R.string.search_hint),
+                            style = text,
+                            color = colors.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    field()
+                }
+            },
+        )
+        IconButton(onClick = onClose) {
+            Icon(
+                Icons.Default.Close,
+                stringResource(R.string.cd_close_search),
+                tint = colors.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+        }
     }
 }
 

@@ -15,15 +15,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import de.singular.recorder.PlaybackState
-import de.singular.recorder.R
-import de.singular.recorder.StarredTake
+import de.singular.recorder.KeyedTake
 import de.singular.recorder.storage.Take
 import kotlinx.coroutines.delay
 
 /**
- * Every starred take, wherever it lives.
+ * Takes from all over the tree in one flat list: every starred take, or what a search found.
  *
  * The one list in the app that is not a folder. Takes are browsed as the tree they sit in, which is
  * the right way round for finding an afternoon's work but no way at all to find the four keepers
@@ -33,13 +31,19 @@ import kotlinx.coroutines.delay
  * It sits beside the files as a tab rather than off in the drawer. A drawer is for the places you
  * visit occasionally, and if the keepers are worth marking they are worth having a thumb's reach
  * away from the list they were marked in.
+
+A search's results are the same shape — takes from anywhere, each needing its folder named — so
+they are drawn by the same list, with [starredKeys] to say which rows carry a star and [empty] for
+what to say when nothing came back.
  *
  * Rename and delete are raised to the caller rather than handled here, so the two tabs share one
  * set of dialogs and a take renamed in either place is renamed the same way.
  */
 @Composable
-fun StarredList(
-    takes: List<StarredTake>?,
+fun FlatTakeList(
+    takes: List<KeyedTake>?,
+    /** Said in place of the list when it comes back empty. */
+    empty: String,
     playback: PlaybackState,
     onPlay: (Take) -> Unit,
     onOpen: (Take) -> Unit,
@@ -50,6 +54,8 @@ fun StarredList(
     onMove: (Take) -> Unit,
     /** Which takes have a note — matched on the key each row already carries. */
     notedKeys: Set<String> = emptySet(),
+    /** Which rows are starred; null when every row is, as in the starred list itself. */
+    starredKeys: Set<String>? = null,
     modifier: Modifier = Modifier,
 ) {
     when {
@@ -73,7 +79,7 @@ fun StarredList(
                 LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter))
             }
         }
-        takes.isEmpty() -> Hint(stringResource(R.string.starred_empty), modifier)
+        takes.isEmpty() -> Hint(empty, modifier)
         else -> LazyColumn(modifier) {
             itemsIndexed(takes, key = { _, it -> it.key }) { i, starred ->
                 if (i > 0) RowDivider()
@@ -85,7 +91,7 @@ fun StarredList(
                     // deleting from a list of favourites is not what this one is for — unstarring
                     // is, and that is already one tap on the row.
                     selecting = false,
-                    starred = true,
+                    starred = starredKeys == null || starred.key in starredKeys,
                     hasNote = starred.key in notedKeys,
                     onToggleStar = { onToggleStar(starred.take) },
                     onPlay = { onPlay(starred.take) },
