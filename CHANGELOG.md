@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5 — 2026-10-14
+
+Finding a take again, and getting to it from the home screen.
+
+- **Search the library by pulling it down.** At the top of the list, drag further down and a search field comes out, keyboard up; let go early and it slides back with nothing done. Every word you type has to appear somewhere in a take's name, the folders it sits in, or its note — in any order, ignoring case and accents, so "ubung" finds "Übung" and an idea named only in what you wrote about it is found by that. On the files tab it searches the folder on screen and every folder inside it, so going up the folder path widens it; on the Starred tab it narrows the starred takes. Results come as one list, each row naming its folder, and every row action works on them as usual. Back closes it.
+- **Long-press the app icon** for three shortcuts: **Last take** opens the take you saved most recently, straight in the player; **Starred** opens the starred takes; **Tuner** opens the tuner. A take in progress keeps recording when you use one.
+- **Stars no longer delete themselves.** Opening the Starred tab used to drop every star it could not find, which was meant to tidy up after takes deleted from a computer — but a star also cannot be found while the storage is unavailable or another folder is picked, and in either case every star went, for good. A star that cannot be found is now left alone and simply not listed, as notes always were.
+- **Themed icons.** On Android 13 and up, with themed icons switched on, the launcher icon now follows the wallpaper's colours like the others instead of sitting as a plain square.
+- **Dotfiles are hidden** from the library — `.stfolder`, `.Trash` and the like, which a folder synced from a computer collects — as a file manager would.
+
 ## 0.4 — 2026-09-07
 
 A tuner, for the instrument you were about to record.

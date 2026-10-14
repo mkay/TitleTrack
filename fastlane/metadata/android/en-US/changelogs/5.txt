@@ -1,0 +1,5 @@
+Search the library: pull the list down and type. It looks at names, folders and notes, in the folder on screen and every one inside it, and narrows the Starred tab too.
+
+Long-press the app icon to jump straight to your last take, the starred takes or the tuner.
+
+Stars no longer vanish when the storage is unavailable or another folder is picked. Plus a themed icon on Android 13+, and dotfiles hidden from the library.

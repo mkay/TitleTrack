@@ -21,6 +21,8 @@ Early-stage release — expect rough edges. Feedback and bug reports welcome via
 - **A level test, not a guess** — hold **Record** (or tap **Input** on the settings row) and play the loudest thing you are going to play. It reports the peak in dBFS and offers a gain that puts it at −9 dBFS, leaving room for the take to be louder than the rehearsal.
 - **A tuner for guitar and bass** — a third tab, in two faces you can switch between: a **needle**, damped like a moving-coil meter so it settles instead of twitching while a peg is turning, and a **strobe**, two rings that come to a standstill when the string is in tune. There is no guitar/bass switch to forget, and no instrument mode to get wrong — it names the nearest note across the whole range, with its octave, so a bass low E cannot be mistaken for a guitar's. It reports **equal temperament** against A4 = 440 Hz, which is worth knowing if you compare it with a pedal tuner set to a sweetened preset: those deliberately stretch a guitar flat at the bottom and sharp at the top, so the two will disagree by several cents and neither is wrong.
 - **Your folder, your files** — pick any folder once (`Music/Recording`, an SD card, a synced folder); takes land there as 44.1 kHz mono WAV. Browse it in the app, make sub-folders, rename, move, star, delete, share, play back. A **Starred** tab gathers the takes worth coming back to.
+- **Search by pulling the list down** — a field comes out above the library and searches as you type: every word has to appear in a take's name, its folders or its note, in any order and ignoring case and accents. It covers the folder on screen and everything inside it, so going up the folder path widens it; on the Starred tab it narrows the starred takes.
+- **Shortcuts on the app icon** — long-press it for **Last take** (the one you saved most recently, straight in the player), **Starred** and **Tuner**. A take in progress keeps recording when you use one.
 - **Stars and notes travel** — they live in the app rather than in the takes, so they are instant and work for an imported m4a, but that has always meant a new phone starts blank. **Settings → System → Library** exports them to a JSON file you name; importing it on another phone, or against another folder, folds them back in. Import only ever adds — a note already there is kept, and nothing is removed.
 - **Settings that stay out of the way** — tempo, count-in and the metronome sit on one row of the record screen as values to read.. The settings screen itself is two tabs, split into **Recording** which is everything that shapes the next take and **System** which is the app's own set-up.
 - **English and German** — a **Language** row in Settings → System, offering the system language, Deutsch and English, each named in its own language. On Android 13 and up the choice *is* the per-app language in Android's own Settings rather than a second setting that disagrees with it.
@@ -101,6 +103,8 @@ app/src/main/java/de/singular/recorder/
   MainActivity.kt        Compose entry point, tabs and drawer, permission and folder pickers
   RecorderViewModel.kt   app state: settings, folder tree, recording, playback
   Settings.kt            persisted preferences
+  Shortcuts.kt           the launcher shortcuts, published as dynamic so a running take survives them
+  TakeQuery.kt           what a library search matches: names, folders and notes
   audio/
     AudioRecorder.kt     microphone -> PCM cache file; finish / restart / save; level monitoring
     MicInput.kt          opening the microphone, shared by the recorder and the tuner
@@ -115,10 +119,10 @@ app/src/main/java/de/singular/recorder/
     Waveform.kt          WAV -> peak envelope, and the bucketing both paths share
     AudioDecoder.kt      everything else -> PCM, via MediaCodec: peaks, or an edited copy
   storage/
-    RecordingStore.kt    the granted folder: list, create, rename, delete, write, normalise
+    RecordingStore.kt    the granted folder: list, search, create, rename, delete, write, normalise
     Stars.kt             which takes are starred, by a folder-relative path
     Notes.kt             a note kept against a take, keyed the same way as a star
-    Recents.kt           the takes opened most recently, for the drawer
+    Recents.kt           the takes opened most recently, for the drawer, and the last one saved
     LibraryData.kt       the stars-and-notes export — JSON out, and back in
     StorageFailure.kt    why a storage operation gave up, named for the UI to say later
   ui/
@@ -127,7 +131,9 @@ app/src/main/java/de/singular/recorder/
     TunerScreen.kt       the tuner, and the switch between its two faces
     NeedleTuner.kt       the damped needle over a scale in cents
     StrobeTuner.kt       the two rings, turning on measured phase
-    LibraryScreen.kt     browsing the folder tree
+    LibraryScreen.kt     browsing the folder tree, and the search field
+    FlatTakeList.kt      takes from all over the tree: the starred ones, or search results
+    PullToReveal.kt      the pull past the top of a list that brings the search out
     PlayerScreen.kt      one take, its waveform, its transport and its edits
     MiniPlayer.kt        the bar above the tabs, so playback is never orphaned
     VisualMetronome.kt   the beat dots and the count-in
