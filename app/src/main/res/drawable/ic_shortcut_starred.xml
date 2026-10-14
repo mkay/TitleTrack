@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A launcher shortcut's icon — see ic_shortcut_tuner.xml. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground>
+        <inset android:drawable="@drawable/ic_star" android:inset="27.8%" />
+    </foreground>
+</adaptive-icon>

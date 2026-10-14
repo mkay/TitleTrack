@@ -243,6 +243,7 @@
     <string name="msg_saved_as">Gespeichert als %1$s</string>
     <string name="msg_not_saved">Der Take konnte nicht gespeichert werden.</string>
     <string name="msg_take_gone">Diesen Take gibt es nicht mehr.</string>
+    <string name="msg_nothing_recorded">Noch nichts aufgenommen.</string>
     <string name="msg_nowhere_for_copy">Es gibt keinen Ort für eine Kopie.</string>
 
     <string name="msg_already_level">Schon auf Pegel — nichts anzuheben.</string>
@@ -266,6 +267,8 @@
     <string name="screen_tuner">Stimmgerät</string>
     <string name="screen_settings">Einstellungen</string>
     <string name="screen_player">Take</string>
+
+    <string name="shortcut_last_take">Letzter Take</string>
 
     <!-- ===== Stimmgerät ===== -->
 

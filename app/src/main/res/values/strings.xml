@@ -308,8 +308,11 @@
     <!-- %1$s is the filename the take was saved under. -->
     <string name="msg_saved_as">Saved as %1$s</string>
     <string name="msg_not_saved">The take could not be saved.</string>
-    <!-- The take was opened from the recents list, but the file is no longer in the folder. -->
+    <!-- The take was opened from the recents list or the Last take shortcut, but the file is no
+         longer in the folder. -->
     <string name="msg_take_gone">That take is no longer there.</string>
+    <!-- The Last take shortcut, before any take has been saved. -->
+    <string name="msg_nothing_recorded">Nothing recorded yet.</string>
     <string name="msg_nowhere_for_copy">There is nowhere to write a copy.</string>
 
     <!-- Normalising found the take is already as loud as it can safely be made. -->
@@ -339,6 +342,9 @@
     <string name="screen_tuner">Tuner</string>
     <string name="screen_settings">Settings</string>
     <string name="screen_player">Take</string>
+
+    <!-- The launcher's long-press menu. Starred and Tuner reuse the names of the tabs they open. -->
+    <string name="shortcut_last_take">Last take</string>
 
     <!-- ===== Tuner ===== -->
 

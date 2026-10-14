@@ -834,6 +834,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
             result
                 .onSuccess { take ->
                     recorder.discard()
+                    starKey(take.uri)?.let(recentStore::saved)
                     _message.value = Message.Text(R.string.msg_saved_as, listOf(take.name))
                     _justSaved.value = take
                     refresh()
@@ -863,6 +864,30 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
             if (take == null) {
                 _recents.value = recentStore.remove(key)
                 _message.value = Message.Text(R.string.msg_take_gone)
+                return@launch
+            }
+            openTake(take)
+            onOpened()
+        }
+    }
+
+    /**
+     * Open the take saved most recently — the launcher's "Last take" shortcut.
+     *
+     * [onOpened] is called only when there is a take to show. Otherwise [onMissing] is, with
+     * whether one was ever saved: if not, there is nothing to find and the place to go is the
+     * record screen; if one was but does not resolve, the library is where to look for it. The key
+     * is kept either way — see [Recents.lastSaved].
+     */
+    fun openLastTake(onOpened: () -> Unit, onMissing: (everSaved: Boolean) -> Unit) {
+        viewModelScope.launch {
+            val key = recentStore.lastSaved()
+            val take = key?.let { store.takeAt(it) }
+            if (take == null) {
+                _message.value = Message.Text(
+                    if (key == null) R.string.msg_nothing_recorded else R.string.msg_take_gone,
+                )
+                onMissing(key != null)
                 return@launch
             }
             openTake(take)

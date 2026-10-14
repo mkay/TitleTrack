@@ -37,6 +37,13 @@ import org.json.JSONArray
  * which has nothing to do with the take being gone, and a recents list is not worth a background
  * job that walks every entry to find out. Deletes and renames made through the app are followed
  * exactly as a star's are.
+ *
+ * ## The last take saved
+ *
+ * Kept here beside the list but apart from it: the launcher's "Last take" shortcut opens the take
+ * most recently *recorded*, which opening an older one must not displace. It follows renames, moves
+ * and deletes with the list, so the shortcut finds a take renamed straight after saving. Unlike a
+ * recent it is not dropped when it fails to resolve — see [lastSaved].
  */
 class Recents(context: Context) {
 
@@ -55,7 +62,10 @@ class Recents(context: Context) {
         write(listOf(key) + all().filterNot { it == key })
 
     /** Drop [key], and anything beneath it if it names a folder. */
-    fun remove(key: String): List<String> = write(all().filterNot { it.under(key) })
+    fun remove(key: String): List<String> {
+        if (lastSaved()?.under(key) == true) prefs.edit { remove(KEY_LAST_SAVED) }
+        return write(all().filterNot { it.under(key) })
+    }
 
     /**
      * Follow a rename or a move from [from] to [to], keeping the entry where it sits in the order.
@@ -63,8 +73,23 @@ class Recents(context: Context) {
      * A take renamed from the player is very often the one just opened, so losing it here would
      * empty the top of the list at the exact moment it was being looked at.
      */
-    fun rename(from: String, to: String): List<String> =
-        write(all().map { if (it.under(from)) to + it.removePrefix(from) else it })
+    fun rename(from: String, to: String): List<String> {
+        lastSaved()?.takeIf { it.under(from) }?.let { last ->
+            prefs.edit { putString(KEY_LAST_SAVED, to + last.removePrefix(from)) }
+        }
+        return write(all().map { if (it.under(from)) to + it.removePrefix(from) else it })
+    }
+
+    /**
+     * The take saved most recently, or null if none has been since this was added.
+     *
+     * Not dropped when it fails to resolve: that also happens with the storage unmounted or another
+     * folder picked, and a key kept costs nothing while a key dropped is gone for good.
+     */
+    fun lastSaved(): String? = prefs.getString(KEY_LAST_SAVED, null)
+
+    /** Note [key] as the take just saved. */
+    fun saved(key: String) = prefs.edit { putString(KEY_LAST_SAVED, key) }
 
     private fun write(keys: List<String>): List<String> {
         val capped = keys.take(LIMIT)
@@ -74,6 +99,7 @@ class Recents(context: Context) {
 
     private companion object {
         const val KEY = "recents"
+        const val KEY_LAST_SAVED = "last_saved"
 
         /** Long enough to hold a session's worth of takes, short enough to stay a glance. */
         const val LIMIT = 5

@@ -138,10 +138,21 @@ private val TABS = listOf(Screen.RECORD, Screen.LIBRARY, Screen.TUNER)
  */
 class MainActivity : AppCompatActivity() {
 
+    /**
+     * The launcher shortcut the activity was opened through, if it was — see [Shortcut]. Set here
+     * and in [onNewIntent], and nulled by the composition once it has acted, so a rotation does
+     * not act on it twice.
+     */
+    private val shortcut = mutableStateOf<Shortcut?>(null)
+
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        Shortcut.publish(this)
+        // Only a fresh start reads the launching intent: after a recreation the same intent is
+        // still attached, and it was answered the first time.
+        if (savedInstanceState == null) shortcut.value = Shortcut.of(this, intent)
         setContent {
             val view = LocalView.current
             val vm: RecorderViewModel = viewModel()
@@ -476,6 +487,41 @@ class MainActivity : AppCompatActivity() {
                 }
                 var libraryTab by rememberSaveable { mutableStateOf(LibraryTab.ALL) }
                 val onStarredTab = screen == Screen.LIBRARY && libraryTab == LibraryTab.STARRED
+
+                // A launcher shortcut, arriving at a fresh start or over a running app. It goes
+                // where it says from wherever the app was, as a tab press would, so a take in
+                // progress carries on underneath — see [Shortcut] for why that needs saying.
+                LaunchedEffect(shortcut.value) {
+                    val request = shortcut.value ?: return@LaunchedEffect
+                    shortcut.value = null
+                    selection = emptySet()
+                    // Snapped, and only if open: on a cold start the drawer has not been laid out
+                    // yet, and animating it shut then never returns — nothing below would run.
+                    if (drawerState.isOpen) drawerState.snapTo(DrawerValue.Closed)
+                    fun switchTo(to: Screen) {
+                        if (screen == Screen.PLAYER) vm.closeTake()
+                        screen = to
+                    }
+                    when (request) {
+                        Shortcut.TUNER -> switchTo(Screen.TUNER)
+                        Shortcut.STARRED -> {
+                            libraryTab = LibraryTab.STARRED
+                            switchTo(Screen.LIBRARY)
+                        }
+                        // Back from the player goes to the library, as for a take opened there:
+                        // the record screen is where the app happened to be, not where this came
+                        // from.
+                        Shortcut.LAST_TAKE -> vm.openLastTake(
+                            onOpened = {
+                                playerReturn = Screen.LIBRARY
+                                screen = Screen.PLAYER
+                            },
+                            onMissing = { everSaved ->
+                                switchTo(if (everSaved) Screen.LIBRARY else Screen.RECORD)
+                            },
+                        )
+                    }
+                }
 
                 // Deleting a batch is the one thing this mode exists for, and the one thing in the
                 // app that cannot be undone — so it says how many and what kind before it goes.
@@ -1060,6 +1106,12 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        Shortcut.of(this, intent)?.let { shortcut.value = it }
     }
 
     /**
