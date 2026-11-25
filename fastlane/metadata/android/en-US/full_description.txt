@@ -19,7 +19,7 @@ A third tab, in two faces. A needle, damped like a moving-coil meter so it settl
 
 <b>Your folder, your files</b>
 
-Pick any folder once — Music/Recording, an SD card, a synced folder; takes land there as 44.1 kHz mono WAV. Browse it in the app, make sub-folders, rename, move, star, share, delete, play back. The bpm you played to is written into the WAV itself as a LIST/INFO comment, so it survives being copied to a computer.
+Pick any folder once — Music/Recording, an SD card, a synced folder; takes land there as 44.1 kHz mono WAV, or as FLAC at about half the size if you switch that on. Browse it in the app, make sub-folders, rename, move, star, share, delete, play back. The bpm you played to is written into the file itself, so it survives being copied to a computer.
 
 <b>The player</b>
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6 — 2026-11-25
+
+Smaller files, for those who want them.
+
+- **Save takes as FLAC.** A new switch under Settings → Recording → Saving writes new takes as FLAC instead of WAV: lossless, about half the size, tempo included. WAV stays the default, because a WAV can be trimmed and overwritten in place; on a FLAC take, Trim and Normalise save a copy. The switch only appears on phones that can encode FLAC. Asked for in issue #1.
+- **Save shows that it is working.** While a take is being written, the Save button shows a spinner, and Restart and Discard wait until it is done.
+- **FLAC copies from Trim and Normalise are much faster.** The encoder used to wait on itself after every few kilobytes; a minute of audio now takes about a second instead of ten.
+
 ## 0.5 — 2026-10-14
 
 Finding a take again, and getting to it from the home screen.

@@ -1,0 +1,3 @@
+Save takes as FLAC: a new switch under Settings → Recording → Saving. Lossless, about half the size of WAV, tempo included. WAV stays the default, since only a WAV can be trimmed or overwritten in place; on a FLAC take, Trim and Normalise save a copy.
+
+Save now shows a spinner while it writes, and FLAC copies from Trim and Normalise are about ten times faster.
