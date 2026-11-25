@@ -20,6 +20,8 @@
 
     <string name="action_cancel">Cancel</string>
     <string name="action_save">Save</string>
+    <!-- On the Save button while a take is being written; FLAC takes a moment on a long take. -->
+    <string name="action_saving">Saving…</string>
     <string name="action_got_it">Got it</string>
 
     <!-- ===== Naming and notes ===== -->
@@ -84,12 +86,14 @@
     <string name="settings_section_saving">Saving</string>
     <string name="setting_prompt_name_title">Prompt for a filename</string>
     <string name="setting_prompt_name_detail">Off: takes are saved at once, named by date and time. Rename them later.</string>
+    <string name="setting_save_as_flac_title">Save takes as FLAC</string>
+    <string name="setting_save_as_flac_detail">Lossless at about half the size. Trim and Normalise then save a copy.</string>
 
     <!-- System tab -->
     <string name="settings_section_folder">Recordings folder</string>
     <!-- Stands where the folder\'s name would be, before one has been picked. -->
     <string name="settings_folder_none">Not chosen yet</string>
-    <string name="settings_folder_detail">Takes land here as 44.1 kHz mono WAV, tempo included.</string>
+    <string name="settings_folder_detail">Takes land here as 44.1 kHz mono WAV or FLAC, tempo included.</string>
     <string name="action_choose_folder">Choose folder…</string>
     <string name="action_change_folder">Change folder…</string>
 

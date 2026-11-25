@@ -170,6 +170,7 @@ class MainActivity : AppCompatActivity() {
 
             TitleTrackTheme(settings.themeMode) {
                 val recorderState by vm.recorderState.collectAsStateWithLifecycle()
+                val savingTake by vm.savingTake.collectAsStateWithLifecycle()
                 val library by vm.library.collectAsStateWithLifecycle()
                 val playback by vm.playback.collectAsStateWithLifecycle()
                 val openTake by vm.openTake.collectAsStateWithLifecycle()
@@ -989,6 +990,7 @@ class MainActivity : AppCompatActivity() {
                                     onRestart = vm::restartRecording,
                                     onDiscard = vm::discardTake,
                                     onSave = vm::saveTake,
+                                    savingTake = savingTake,
                                     onSetBpm = vm::setBpm,
                                     onSetCountInBars = vm::setCountInBars,
                                     onSetBeatsPerBar = vm::setBeatsPerBar,
@@ -1065,6 +1067,7 @@ class MainActivity : AppCompatActivity() {
                                     onSetAudioMetronome = vm::setAudioMetronome,
                                     onSetListenBeforeRecording = vm::setListenBeforeRecording,
                                     onSetPromptForFilename = vm::setPromptForFilename,
+                                    onSetSaveAsFlac = vm::setSaveAsFlac,
                                     onSetStarredFirst = vm::setStarredFirst,
                                     onSetKeepScreenOn = vm::setKeepScreenOn,
                                     onSetThemeMode = vm::setThemeMode,

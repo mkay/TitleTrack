@@ -3,6 +3,7 @@
 package de.singular.recorder.audio
 
 import android.media.MediaCodec
+import android.media.MediaCodecList
 import android.media.MediaFormat
 import java.io.File
 import java.io.OutputStream
@@ -49,6 +50,21 @@ object Flac {
 
     const val MIME = "audio/flac"
 
+    /**
+     * Whether this device has a FLAC encoder at all.
+     *
+     * Android requires every device to *decode* FLAC; encoding is only near-universal. Saving new
+     * takes as FLAC is offered only where this is true, and falls back to WAV where it is not — a
+     * take must never be lost to a codec the phone does not have.
+     */
+    val canEncode: Boolean by lazy {
+        runCatching {
+            MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.any { info ->
+                info.isEncoder && info.supportedTypes.any { it.equals(MIME, ignoreCase = true) }
+            }
+        }.getOrDefault(false)
+    }
+
     /** FLAC's own name for itself, at the head of every stream. */
     private const val MAGIC = "fLaC"
 
@@ -80,7 +96,8 @@ object Flac {
         private val gainDb: Int = 0,
     ) : OutputStream() {
 
-        private val frames = File(cacheDir, "flac-frames.bin")
+        // Its own file per writer: a take being saved and an edit's copy can be encoding at once.
+        private val frames = File.createTempFile("flac-frames", ".bin", cacheDir)
         private val framesOut = frames.outputStream().buffered()
         private val codec = MediaCodec.createEncoderByType(MIME)
         private val info = MediaCodec.BufferInfo()
@@ -193,10 +210,18 @@ object Flac {
             }
         }
 
-        /** Move whatever the encoder has produced into the frames file. */
+        /**
+         * Move whatever the encoder has produced into the frames file.
+         *
+         * While feeding, this only collects what is already there and never waits: it runs after
+         * every input buffer, and a wait of [TIMEOUT_US] each time — for output that is usually not
+         * ready yet — once made a one-minute take take ten seconds to save. The waiting is done by
+         * [feed]'s `dequeueInputBuffer`, which only blocks when the encoder is actually full.
+         */
         private fun drain(untilEndOfStream: Boolean) {
+            val timeoutUs = if (untilEndOfStream) TIMEOUT_US else 0L
             while (true) {
-                when (val index = codec.dequeueOutputBuffer(info, TIMEOUT_US)) {
+                when (val index = codec.dequeueOutputBuffer(info, timeoutUs)) {
                     MediaCodec.INFO_OUTPUT_FORMAT_CHANGED ->
                         streamInfo = streamInfoFrom(codec.outputFormat) ?: streamInfo
 

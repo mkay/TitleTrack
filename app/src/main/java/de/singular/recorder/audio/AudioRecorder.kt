@@ -84,13 +84,14 @@ data class RecorderState(
 }
 
 /**
- * The capture engine: microphone → raw PCM in the cache → a WAV the caller streams out on save.
+ * The capture engine: microphone → raw PCM in the cache → a WAV or FLAC the caller streams out on
+ * save.
  *
  * **Why raw PCM and not a WAV straight away.** A take is scratch until it is kept: restart wipes
  * it, discard drops it, and only Save decides where in the user's folder it lands and what it is
  * called. Writing to a cache file means restart is a truncate rather than a delete-and-recreate in
  * someone's music folder, an abandoned take never litters it, and the header — whose sizes are only
- * knowable at the end — is written once, in a single forward pass over the payload ([writeWavTo]).
+ * knowable at the end — is written once, in a single forward pass over the payload ([writeTo]).
  *
  * **Why the microphone stays open while paused.** Pause discards incoming blocks rather than
  * stopping the recorder, so Continue resumes on the next block instead of paying [AudioRecord]'s
@@ -251,14 +252,42 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
     val takeMs: Long get() = framesToMs(framesWritten)
 
     /**
-     * Stream the held take out as a WAV. Runs off the main thread; the caller supplies the sink
+     * Stream the held take out as [format]. Runs off the main thread; the caller supplies the sink
      * (a `content://` document's output stream), so nothing here needs to know about storage.
+     *
+     * WAV is a header and a byte copy. FLAC runs the same bytes through [Flac.Writer], which costs
+     * an encode — seconds on a long take — and buffers its frames in the cache until the end.
      *
      * Safe to call while paused — the loop is not appending, and the length is read once up front.
      */
-    fun writeWavTo(out: OutputStream, bpm: Float?, title: String?, gainDb: Int = 0) {
+    fun writeTo(
+        out: OutputStream,
+        format: AudioFormat,
+        bpm: Float?,
+        title: String?,
+        gainDb: Int = 0,
+    ) {
         val bytes = framesWritten * Wav.BYTES_PER_FRAME
-        out.write(Wav.header(dataBytes = bytes, bpm = bpm, title = title, gainDb = gainDb))
+        when (format) {
+            AudioFormat.WAV -> {
+                out.write(Wav.header(dataBytes = bytes, bpm = bpm, title = title, gainDb = gainDb))
+                copyPcm(out, bytes)
+            }
+            AudioFormat.FLAC -> Flac.Writer(
+                out = out,
+                sampleRate = Wav.SAMPLE_RATE,
+                channels = Wav.CHANNELS,
+                cacheDir = appContext.cacheDir,
+                bpm = bpm,
+                title = title,
+                gainDb = gainDb,
+            ).use { copyPcm(it, bytes) }
+        }
+        out.flush()
+    }
+
+    /** The first [bytes] of the scratch take, onto [out]. */
+    private fun copyPcm(out: OutputStream, bytes: Long) {
         RandomAccessFile(takeFile, "r").use { source ->
             val buf = ByteArray(64 * 1_024)
             var left = bytes
@@ -270,7 +299,6 @@ class AudioRecorder(context: Context, private val scope: CoroutineScope) {
                 left -= read
             }
         }
-        out.flush()
     }
 
     /** The capture loop. Ends on cancellation, or on a microphone that will not open. */

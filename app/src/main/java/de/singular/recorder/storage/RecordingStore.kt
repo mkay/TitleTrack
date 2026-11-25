@@ -258,7 +258,7 @@ class RecordingStore(context: Context) {
     }
 
     /**
-     * Create `name.wav` in [folder] and hand its stream to [write].
+     * Create `name.wav` (or `name.flac`, per [format]) in [folder] and hand its stream to [write].
      *
      * The name may come back changed — providers de-duplicate ("take (1).wav") and sanitise — so
      * the created uri is what the caller should trust, not the name it asked for. A write that
@@ -267,11 +267,13 @@ class RecordingStore(context: Context) {
     suspend fun writeTake(
         folder: Uri,
         name: String,
+        format: AudioFormat = AudioFormat.WAV,
         write: (OutputStream) -> Unit,
     ): Result<Take> = withContext(Dispatchers.IO) {
-        val fileName = if (name.endsWith(".wav", ignoreCase = true)) name else "$name.wav"
+        val ext = ".${format.extension}"
+        val fileName = if (name.endsWith(ext, ignoreCase = true)) name else "$name$ext"
         val uri = runCatching {
-            DocumentsContract.createDocument(resolver, folder, MIME_WAV, fileName)
+            DocumentsContract.createDocument(resolver, folder, format.mime, fileName)
         }.getOrNull() ?: return@withContext Result.failure(
             StorageException(StorageFailure.CANNOT_CREATE_FILE),
         )

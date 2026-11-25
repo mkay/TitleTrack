@@ -20,7 +20,7 @@ Early-stage release — expect rough edges. Feedback and bug reports welcome via
 - **Listen before recording** *(optional, off)* — draws what the microphone hears before you press Record, so clipping and mic distance are settled while it still costs nothing.
 - **A level test, not a guess** — hold **Record** (or tap **Input** on the settings row) and play the loudest thing you are going to play. It reports the peak in dBFS and offers a gain that puts it at −9 dBFS, leaving room for the take to be louder than the rehearsal.
 - **A tuner for guitar and bass** — a third tab, in two faces you can switch between: a **needle**, damped like a moving-coil meter so it settles instead of twitching while a peg is turning, and a **strobe**, two rings that come to a standstill when the string is in tune. There is no guitar/bass switch to forget, and no instrument mode to get wrong — it names the nearest note across the whole range, with its octave, so a bass low E cannot be mistaken for a guitar's. It reports **equal temperament** against A4 = 440 Hz, which is worth knowing if you compare it with a pedal tuner set to a sweetened preset: those deliberately stretch a guitar flat at the bottom and sharp at the top, so the two will disagree by several cents and neither is wrong.
-- **Your folder, your files** — pick any folder once (`Music/Recording`, an SD card, a synced folder); takes land there as 44.1 kHz mono WAV. Browse it in the app, make sub-folders, rename, move, star, delete, share, play back. A **Starred** tab gathers the takes worth coming back to.
+- **Your folder, your files** — pick any folder once (`Music/Recording`, an SD card, a synced folder); takes land there as 44.1 kHz mono WAV, or as FLAC at about half the size if you switch that on in Settings. Browse it in the app, make sub-folders, rename, move, star, delete, share, play back. A **Starred** tab gathers the takes worth coming back to.
 - **Search by pulling the list down** — a field comes out above the library and searches as you type: every word has to appear in a take's name, its folders or its note, in any order and ignoring case and accents. It covers the folder on screen and everything inside it, so going up the folder path widens it; on the Starred tab it narrows the starred takes.
 - **Shortcuts on the app icon** — long-press it for **Last take** (the one you saved most recently, straight in the player), **Starred** and **Tuner**. A take in progress keeps recording when you use one.
 - **Stars and notes travel** — they live in the app rather than in the takes, so they are instant and work for an imported m4a, but that has always meant a new phone starts blank. **Settings → System → Library** exports them to a JSON file you name; importing it on another phone, or against another folder, folds them back in. Import only ever adds — a note already there is kept, and nothing is removed.
@@ -73,7 +73,7 @@ Playback outlives the screen it started from. A **mini player** sits above the t
 - **UI:** Jetpack Compose (Canvas for the metronome and the level meter)
 - **Build:** Android Gradle Plugin 9.2.1 + Gradle 9.5.1 (via wrapper)
 - **SDK:** `minSdk` 26 · `compile`/`targetSdk` 36
-- **Capture:** `AudioRecord` → raw PCM in the cache → WAV on save
+- **Capture:** `AudioRecord` → raw PCM in the cache → WAV (or FLAC, via `MediaCodec`) on save
 - **Playback:** `MediaPlayer`; waveforms from `MediaExtractor` + `MediaCodec` (RIFF read directly)
 - **Storage:** Storage Access Framework tree grant (`DocumentsContract`)
 - **Async:** Kotlin Coroutines + Flow

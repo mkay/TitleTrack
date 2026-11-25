@@ -93,6 +93,8 @@ fun RecordScreen(
     onRestart: () -> Unit,
     onDiscard: () -> Unit,
     onSave: (String) -> Unit,
+    /** A save is still being written; the take it is reading must not be touched meanwhile. */
+    savingTake: Boolean,
     onSetBpm: (Int) -> Unit,
     onSetCountInBars: (Int) -> Unit,
     onSetBeatsPerBar: (Int) -> Unit,
@@ -237,7 +239,8 @@ fun RecordScreen(
 
             RecordPhase.PAUSED -> {
                 BigButton(
-                    stringResource(R.string.action_save), Icons.Default.Save,
+                    stringResource(if (savingTake) R.string.action_saving else R.string.action_save),
+                    Icons.Default.Save,
                     onClick = {
                         // Unless the user asked to be asked, Save means saved: the generated name
                         // is the one the dialog would have offered anyway.
@@ -249,17 +252,20 @@ fun RecordScreen(
                             onSave(generated)
                         }
                     },
-                    enabled = state.hasTake,
+                    enabled = state.hasTake && !savingTake,
+                    busy = savingTake,
                 )
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     BigButton(
                         stringResource(R.string.action_restart), Icons.Default.Replay, onRestart,
                         modifier = Modifier.weight(1f), outlined = true,
+                        enabled = !savingTake,
                     )
                     BigButton(
                         stringResource(R.string.action_discard), null, onDiscard,
                         modifier = Modifier.weight(1f), outlined = true,
+                        enabled = !savingTake,
                     )
                 }
             }

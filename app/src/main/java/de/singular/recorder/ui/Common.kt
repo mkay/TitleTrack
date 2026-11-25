@@ -352,6 +352,8 @@ fun BigButton(
     enabled: Boolean = true,
     onLongClick: (() -> Unit)? = null,
     band: androidx.compose.ui.graphics.Color? = null,
+    /** Work is under way: a spinner stands where the icon would. Pair it with enabled = false. */
+    busy: Boolean = false,
 ) {
     // Only the surface-built button below has something spanning it to draw the bands on. Material's
     // Button gives its content an inset row, which would leave the bands short of the edges — so this
@@ -360,7 +362,14 @@ fun BigButton(
         "band needs the holdable button; Material's own insets its content"
     }
     val content: @Composable () -> Unit = {
-        if (icon != null) {
+        if (busy) {
+            androidx.compose.material3.CircularProgressIndicator(
+                Modifier.size(20.dp),
+                color = androidx.compose.material3.LocalContentColor.current,
+                strokeWidth = 2.5.dp,
+            )
+            Spacer(Modifier.width(12.dp))
+        } else if (icon != null) {
             Icon(icon, contentDescription = null, Modifier.size(22.dp))
             Spacer(Modifier.width(10.dp))
         }

@@ -61,6 +61,16 @@ data class Settings(
      * point of saving interrupts the loop of play-something, keep-it, play-something-else.
      */
     val promptForFilename: Boolean = false,
+    /**
+     * Save new takes as FLAC rather than WAV.
+     *
+     * Off by default, for the reasons WAV was chosen: a save that is a byte copy and cannot fail in
+     * an encoder, and edits that trim or overwrite in place. FLAC is the same audio at about half
+     * the size, which is what a phone full of quick ideas that never get edited wants. The costs:
+     * a save that encodes, and edits on a FLAC take that always save a copy. Ignored on a device
+     * with no FLAC encoder, where the row is not shown at all.
+     */
+    val saveAsFlac: Boolean = false,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     /** Needle by default: it is the one that reads at a glance from across a room. */
     val tunerDisplay: TunerDisplay = TunerDisplay.NEEDLE,

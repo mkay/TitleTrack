@@ -46,6 +46,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.os.LocaleListCompat
 import de.singular.recorder.R
+import de.singular.recorder.audio.Flac
 import java.util.Locale
 import de.singular.recorder.Settings
 import de.singular.recorder.ThemeMode
@@ -93,6 +94,7 @@ fun SettingsScreen(
     onSetAudioMetronome: (Boolean) -> Unit,
     onSetListenBeforeRecording: (Boolean) -> Unit,
     onSetPromptForFilename: (Boolean) -> Unit,
+    onSetSaveAsFlac: (Boolean) -> Unit,
     onSetStarredFirst: (Boolean) -> Unit,
     onSetKeepScreenOn: (Boolean) -> Unit,
     onSetThemeMode: (ThemeMode) -> Unit,
@@ -120,6 +122,7 @@ fun SettingsScreen(
                     onSetAudioMetronome = onSetAudioMetronome,
                     onSetListenBeforeRecording = onSetListenBeforeRecording,
                     onSetPromptForFilename = onSetPromptForFilename,
+                    onSetSaveAsFlac = onSetSaveAsFlac,
                 )
             }
 
@@ -160,6 +163,7 @@ private fun RecordingSettings(
     onSetAudioMetronome: (Boolean) -> Unit,
     onSetListenBeforeRecording: (Boolean) -> Unit,
     onSetPromptForFilename: (Boolean) -> Unit,
+    onSetSaveAsFlac: (Boolean) -> Unit,
 ) {
     Section(R.string.settings_section_microphone)
     SwitchRow(
@@ -212,6 +216,16 @@ private fun RecordingSettings(
         checked = settings.promptForFilename,
         onCheckedChange = onSetPromptForFilename,
     )
+    // Not offered where it could not be honoured: without an encoder every take would be WAV.
+    if (Flac.canEncode) {
+        Spacer(Modifier.height(12.dp))
+        SwitchRow(
+            title = R.string.setting_save_as_flac_title,
+            detail = R.string.setting_save_as_flac_detail,
+            checked = settings.saveAsFlac,
+            onCheckedChange = onSetSaveAsFlac,
+        )
+    }
 }
 
 @Composable

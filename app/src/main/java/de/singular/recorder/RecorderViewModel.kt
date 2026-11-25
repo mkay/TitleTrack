@@ -15,6 +15,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import de.singular.recorder.audio.AudioDecoder
 import de.singular.recorder.audio.AudioFormat
+import de.singular.recorder.audio.Flac
 import de.singular.recorder.audio.AudioRecorder
 import de.singular.recorder.audio.MAX_BPM
 import de.singular.recorder.audio.MIN_BPM
@@ -425,6 +426,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
             keepScreenOn = prefs.getBoolean(KEY_KEEP_SCREEN_ON, true),
             starredFirst = prefs.getBoolean(KEY_STARRED_FIRST, true),
             promptForFilename = prefs.getBoolean(KEY_PROMPT_FOR_FILENAME, false),
+            saveAsFlac = prefs.getBoolean(KEY_SAVE_AS_FLAC, false),
             inputGainDb = prefs.getInt(KEY_INPUT_GAIN_DB, 0).coerceIn(0, MAX_INPUT_GAIN_DB),
             themeMode = runCatching {
                 ThemeMode.valueOf(prefs.getString(KEY_THEME_MODE, null) ?: "")
@@ -864,11 +866,21 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     fun defaultTakeName(): String =
         SimpleDateFormat("yyyy-MM-dd HH-mm-ss", Locale.US).format(Date())
 
+    private val _savingTake = MutableStateFlow(false)
+
     /**
-     * Write the held take into [folder] (the folder on screen by default) as `name.wav`, stamped
-     * with the tempo it was played to, then clear the recorder for the next one.
+     * True while a take is being written out. A WAV save is over before anyone could notice, but a
+     * FLAC one encodes, and a long take takes seconds — long enough to tap Save twice, or Restart
+     * and truncate the very file being read.
+     */
+    val savingTake: StateFlow<Boolean> = _savingTake.asStateFlow()
+
+    /**
+     * Write the held take into [folder] (the folder on screen by default) as `name.wav` or
+     * `name.flac`, stamped with the tempo it was played to, then clear the recorder for the next one.
      */
     fun saveTake(name: String, folder: Folder? = null) {
+        if (_savingTake.value) return
         val target = folder ?: _library.value.current ?: run {
             _message.value = Message.Text(R.string.msg_choose_record_folder_first)
             return
@@ -876,14 +888,22 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         val s = _settings.value
         // The tempo only means anything if a click was actually playing to it.
         val bpm = if (s.countInBars > 0 || s.visualMetronome) s.bpm.toFloat() else null
+        // Settings may say FLAC on a phone with no encoder — restored from another device's backup.
+        val format = if (s.saveAsFlac && Flac.canEncode) AudioFormat.FLAC else AudioFormat.WAV
+        _savingTake.value = true
         viewModelScope.launch {
-            val result = store.writeTake(target.uri, name.trim().ifBlank { defaultTakeName() }) {
-                recorder.writeWavTo(
-                    it,
-                    bpm = bpm,
-                    title = name.trim().ifBlank { null },
-                    gainDb = s.inputGainDb,
-                )
+            val result = try {
+                store.writeTake(target.uri, name.trim().ifBlank { defaultTakeName() }, format) {
+                    recorder.writeTo(
+                        it,
+                        format = format,
+                        bpm = bpm,
+                        title = name.trim().ifBlank { null },
+                        gainDb = s.inputGainDb,
+                    )
+                }
+            } finally {
+                _savingTake.value = false
             }
             result
                 .onSuccess { take ->
@@ -1308,6 +1328,11 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         prefs.edit { putBoolean(KEY_PROMPT_FOR_FILENAME, on) }
     }
 
+    fun setSaveAsFlac(on: Boolean) {
+        _settings.value = _settings.value.copy(saveAsFlac = on)
+        prefs.edit { putBoolean(KEY_SAVE_AS_FLAC, on) }
+    }
+
     fun setTunerDisplay(display: TunerDisplay) {
         _settings.value = _settings.value.copy(tunerDisplay = display)
         prefs.edit { putString(KEY_TUNER_DISPLAY, display.name) }
@@ -1353,6 +1378,7 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
         const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
         const val KEY_STARRED_FIRST = "starred_first"
         const val KEY_PROMPT_FOR_FILENAME = "prompt_for_filename"
+        const val KEY_SAVE_AS_FLAC = "save_as_flac"
         const val KEY_THEME_MODE = "theme_mode"
         const val KEY_TUNER_DISPLAY = "tuner_display"
         const val KEY_INPUT_GAIN_DB = "input_gain_db"

@@ -14,6 +14,7 @@
 
     <string name="action_cancel">Abbrechen</string>
     <string name="action_save">Speichern</string>
+    <string name="action_saving">Speichert…</string>
     <string name="action_got_it">Verstanden</string>
 
     <!-- ===== Benennen und Notizen ===== -->
@@ -67,10 +68,12 @@
     <string name="settings_section_saving">Speichern</string>
     <string name="setting_prompt_name_title">Nach einem Dateinamen fragen</string>
     <string name="setting_prompt_name_detail">Aus: Takes werden sofort gespeichert, benannt nach Datum und Uhrzeit.</string>
+    <string name="setting_save_as_flac_title">Takes als FLAC speichern</string>
+    <string name="setting_save_as_flac_detail">Verlustfrei, etwa halb so groß. Schneiden und Normalisieren speichern dann eine Kopie.</string>
 
     <string name="settings_section_folder">Aufnahmeordner</string>
     <string name="settings_folder_none">Noch keiner gewählt</string>
-    <string name="settings_folder_detail">Takes landen hier als 44,1 kHz Mono-WAV, mit Tempo.</string>
+    <string name="settings_folder_detail">Takes landen hier als 44,1 kHz Mono-WAV oder -FLAC, mit Tempo.</string>
     <string name="action_choose_folder">Ordner wählen …</string>
     <string name="action_change_folder">Ordner ändern …</string>
 
